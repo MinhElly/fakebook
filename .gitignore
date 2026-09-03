@@ -1,0 +1,49 @@
+# ==========================================
+# Git Ignore Rules for Fakebook Monorepo
+# ==========================================
+
+# IDE & Editor files
+.idea/
+.vscode/
+*.iml
+*.ipr
+*.iws
+*.swp
+*.bak
+.DS_Store
+Thumbs.db
+ehthumbs.db
+[Dd]esktop.ini
+
+# Build & Compiled output
+**/target/
+**/build/
+**/.gradle/
+**/out/
+**/dist/
+
+# Node.js & Dependencies
+**/node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# Logs & Temporary files
+*.log
+**/*.log
+**/.tmp/
+**/.cache/
+
+# OS / System files
+.env
+.env.local
+*.tmp
+
+# Coverage & Test reports
+**/coverage/
+.nyc_output/
+
+# JHipster / Spring Boot specific
+**/target/*.jar
+**/target/*.war

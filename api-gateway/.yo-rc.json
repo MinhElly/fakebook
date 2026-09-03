@@ -1,0 +1,29 @@
+{
+  "generator-jhipster": {
+    "applicationType": "gateway",
+    "authenticationType": "oauth2",
+    "baseName": "apiGateway",
+    "buildTool": "maven",
+    "cacheProvider": null,
+    "creationTimestamp": 1788409213269,
+    "databaseType": "sql",
+    "defaultCommand": "app",
+    "devDatabaseType": "mariadb",
+    "enableHibernateCache": null,
+    "enableTranslation": false,
+    "entities": [],
+    "feignClient": null,
+    "jhipsterVersion": "9.3.0",
+    "jwtSecretKey": "ZDkzODY3Y2ZhNTY5NjMwMGEyNDQ5ZmY1YjEzMzBkODBjYWI2OGUyYTYwMTgwZTQ3M2U5MTUwZDI1N2M0YzkyMDc5NTI1NGI1OGVkOTUxZWE2YzMxMmUyYzRiOWQ5YWQ4OGQ0NzBhZjM2OTk4NTVmYTBiNWEwYzAyYmNhNmE4YmE=",
+    "messageBroker": "kafka",
+    "nativeLanguage": "en",
+    "packageName": "com.minh.fakebook",
+    "prodDatabaseType": "mariadb",
+    "reactive": true,
+    "serverPort": "8080",
+    "serviceDiscoveryType": "consul",
+    "skipClient": true,
+    "syncUserWithIdp": false,
+    "testFrameworks": []
+  }
+}
