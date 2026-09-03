@@ -1,0 +1,7 @@
+services:
+  zipkin:
+    image: openzipkin/zipkin:3.6.1
+    container_name: fakebook-tracing-zipkin
+    ports:
+      - "${ZIPKIN_PORT:-9411}:9411"
+    restart: unless-stopped

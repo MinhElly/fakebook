@@ -5,6 +5,7 @@ name: fakebook-infrastructure
 services:
   mariadb:
     image: mariadb:12.3.3
+    container_name: fakebook-mariadb
     environment:
       MARIADB_ALLOW_EMPTY_ROOT_PASSWORD: 'yes'
     ports:
@@ -18,12 +19,13 @@ services:
       interval: 5s
       timeout: 5s
       retries: 20
+    restart: unless-stopped
 
   keycloak:
     image: quay.io/keycloak/keycloak:26.7.2-1
+    container_name: fakebook-keycloak
     command: start-dev --import-realm
     environment:
-      KC_DB: dev-file
       KC_BOOTSTRAP_ADMIN_USERNAME: admin
       KC_BOOTSTRAP_ADMIN_PASSWORD: admin
       KC_FEATURES: scripts
@@ -44,9 +46,11 @@ services:
       timeout: 5s
       retries: 50
       start_period: 10s
+    restart: unless-stopped
 
   consul:
     image: hashicorp/consul:2.0.3
+    container_name: fakebook-consul
     command: consul agent -dev -ui -client 0.0.0.0 -log-level=INFO
     ports:
       - 127.0.0.1:8300:8300
@@ -57,9 +61,11 @@ services:
       interval: 5s
       timeout: 5s
       retries: 20
+    restart: unless-stopped
 
   consul-config-loader:
     image: jhipster/consul-config-loader:v0.4.1
+    container_name: fakebook-consul-config-loader
     depends_on:
       consul:
         condition: service_healthy
@@ -68,10 +74,12 @@ services:
       CONSUL_URL: consul
       CONSUL_PORT: 8500
     volumes:
-      - ../gateway/src/main/docker/central-server-config:/config:ro
+      - ./config/central-server-config:/config:ro
+    restart: unless-stopped
 
   kafka:
     image: apache/kafka-native:4.3.1
+    container_name: fakebook-kafka
     ports:
       - 127.0.0.1:9092:9092
     environment:
@@ -83,9 +91,23 @@ services:
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
       KAFKA_CONTROLLER_QUORUM_VOTERS: 1@localhost:9093
       KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+    restart: unless-stopped
+
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: fakebook-kafka-ui
+    ports:
+      - 127.0.0.1:8085:8080
+    environment:
+      KAFKA_CLUSTERS_0_NAME: local
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
+    depends_on:
+      - kafka
+    restart: unless-stopped
 
   redis:
     image: redis:8.10.1
+    container_name: fakebook-redis
     ports:
       - 127.0.0.1:6379:6379
     healthcheck:
@@ -93,6 +115,14 @@ services:
       interval: 5s
       timeout: 5s
       retries: 20
+    restart: unless-stopped
+
+  zipkin:
+    image: openzipkin/zipkin:3.6.1
+    container_name: fakebook-zipkin
+    ports:
+      - 127.0.0.1:9411:9411
+    restart: unless-stopped
 
 volumes:
   mariadb-data:
