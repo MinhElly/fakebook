@@ -57,11 +57,11 @@ spring:
   liquibase:
     # Remove 'faker' if you do not want the sample data to be loaded automatically
     contexts: dev, faker
-    url: jdbc:mariadb://localhost:3306/gateway?useLegacyDatetimeCode=false
+    url: jdbc:mariadb://localhost:3307/gateway?useLegacyDatetimeCode=false
   messages:
     cache-duration: PT1S # 1 second, see the ISO 8601 standard
   r2dbc:
-    url: r2dbc:mariadb://localhost:3306/gateway?useLegacyDatetimeCode=false
+    url: r2dbc:mariadb://localhost:3307/gateway?useLegacyDatetimeCode=false
   thymeleaf:
     cache: false
 
