@@ -16,7 +16,7 @@ services:
 
     volumes:
       - keycloak_data:/opt/keycloak/data
-      - ../../api-gateway/src/main/docker/realm-config:/opt/keycloak/data/import:ro
+      - ../../gateway/src/main/docker/realm-config:/opt/keycloak/data/import:ro
 
     restart: unless-stopped
 
