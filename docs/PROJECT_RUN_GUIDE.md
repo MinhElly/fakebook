@@ -11,6 +11,7 @@ Fakebook là hệ thống mạng xã hội được xây dựng bằng JHipster 
 - Kafka để truyền sự kiện bất đồng bộ giữa các service.
 - MariaDB theo mô hình database-per-service.
 - Redis làm cache cho Feed Service.
+- Zipkin cho distributed tracing.
 - Maven Wrapper và npm Wrapper để build/chạy đúng phiên bản công cụ của dự án.
 
 Luồng truy cập tổng quát:
@@ -88,7 +89,16 @@ Quản lý các mục xuất hiện trên bảng tin qua entity `FeedItem`.
 
 ### `infrastructure`
 
-Chứa cấu hình hạ tầng dùng chung. Hiện tại thư mục này mới có Docker Compose riêng cho Keycloak tại `infrastructure/keycloak/docker-compose.yml`, chưa có Compose tổng để chạy toàn bộ hệ thống.
+Chứa hạ tầng dùng chung cho môi trường development. Được thiết kế mô-đun hóa thành các thư mục con riêng biệt:
+
+- `infrastructure/docker-compose.yml`: Compose tổng khởi động tất cả dịch vụ hạ tầng.
+- `infrastructure/keycloak/`: Khởi động riêng rẽ Keycloak OAuth2 Identity Provider (`docker-compose.yml`, `.env`, `.env.example`).
+- `infrastructure/consul/`: Khởi động riêng rẽ Consul Agent & Consul Config Loader (`docker-compose.yml`, `.env`, `.env.example`).
+- `infrastructure/kafka/`: Khởi động riêng rẽ Kafka Native broker & Kafka UI (`docker-compose.yml`, `.env`, `.env.example`).
+- `infrastructure/tracing/`: Khởi động riêng rẽ OpenZipkin server (`docker-compose.yml`, `.env`, `.env.example`).
+- `infrastructure/config/`: Chứa cấu hình tập trung (`central-server-config/application.yml`) nạp tự động vào Consul KV store.
+- `infrastructure/mariadb/`: Chứa script khởi tạo database ban đầu.
+- `infrastructure/start.ps1` & `stop.ps1`: Script PowerShell để bật/tắt toàn bộ hạ tầng nhanh chóng.
 
 ### `fakebook-master.jdl`
 
@@ -111,17 +121,21 @@ Realm phát triển là `jhipster`, client là `web_app`.
 
 Mỗi service đăng ký tên và địa chỉ của mình vào Consul. Gateway nhờ đó có thể tìm microservice mà không phải hard-code URL của từng service. Ứng dụng dev sử dụng Consul tại `localhost:8500`.
 
-### Kafka
+### Kafka & Kafka UI
 
-Kafka truyền sự kiện bất đồng bộ. Ví dụ, sau khi tạo bài đăng, Post Service có thể phát một sự kiện để Feed Service xử lý mà không cần chờ xử lý feed hoàn tất trong cùng request.
+Kafka truyền sự kiện bất đồng bộ. Ví dụ, sau khi tạo bài đăng, Post Service có thể phát một sự kiện để Feed Service xử lý mà không cần chờ xử lý feed hoàn tất trong cùng request. Giao diện Kafka UI (`http://localhost:8085`) giúp quản lý topic/message trực quan.
 
 ### MariaDB
 
-Là database quan hệ. Thiết kế mục tiêu là mỗi service sở hữu database/schema của riêng mình, không tạo khóa ngoại hoặc quan hệ JPA xuyên service.
+Là database quan hệ. Thiết kế mục tiêu là mỗi service sở hữu database/schema của riêng mình, không tạo khóa ngoại hoặc quan hệ JPA xuyên service. Cổng đính kèm host là `3307` (`127.0.0.1:3307:3306`).
 
 ### Redis
 
 Là kho dữ liệu trong bộ nhớ, hiện dành cho Feed Service để cache dữ liệu được truy cập thường xuyên.
+
+### Zipkin
+
+Thu thập và hiển thị distributed tracing (`http://localhost:9411`) để theo dõi luồng đi của request giữa các microservices.
 
 ## 4. Bảng port
 
@@ -142,15 +156,16 @@ Là kho dữ liệu trong bộ nhớ, hiện dành cho Feed Service để cache 
 
 | Port | Thành phần | Ý nghĩa |
 | ---: | --- | --- |
-| `3306` | MariaDB | Database của các microservice hiện tại |
-| `3307` | MariaDB Gateway | Host port hiện tại của database Gateway; ánh xạ vào `3306` trong container |
+| `3307` | MariaDB dùng chung | Chứa database riêng của Gateway và từng microservice (Host port: 3307) |
 | `6379` | Redis | Cache của Feed Service |
 | `8500` | Consul HTTP/UI | API, UI và service discovery |
 | `8300` | Consul server RPC | Giao tiếp nội bộ Consul |
 | `8600` | Consul DNS | Truy vấn service bằng DNS |
+| `8085` | Kafka UI | Giao diện quản lý trực quan Kafka topic/message |
 | `9080` | Keycloak HTTP | Đăng nhập và trang quản trị Keycloak |
 | `9443` | Keycloak HTTPS | HTTPS của Keycloak trong cấu hình module |
 | `9092` | Kafka | Broker dùng bởi các ứng dụng |
+| `9411` | Zipkin | Giao diện theo dõi distributed tracing |
 
 ### Port công cụ tùy chọn
 
@@ -160,7 +175,6 @@ Là kho dữ liệu trong bộ nhớ, hiện dành cho Feed Service để cache 
 | `7419` | JHipster Control Center | Quan sát/quản trị ứng dụng JHipster |
 | `9001` | SonarQube | Phân tích chất lượng mã; tránh đụng frontend port `9000` |
 | `9090` | Prometheus | Thu thập metrics |
-| `9411` | Zipkin | Theo dõi distributed tracing |
 
 ## 5. Yêu cầu môi trường
 
@@ -186,25 +200,68 @@ npm --version
 
 Docker Desktop phải được khởi động trước khi chạy các file Compose.
 
-## 6. Chạy Gateway và frontend để kiểm tra dự án
+## 6. Khởi động hạ tầng dùng chung
+
+### Cách 1: Khởi động toàn bộ hạ tầng chung (Khuyên dùng 👍)
+
+Từ thư mục gốc, chạy:
+
+```powershell
+cd C:\Code\fakebook
+.\infrastructure\start.ps1
+```
+*(Nếu gặp lỗi PowerShell ExecutionPolicy, chạy: `powershell -ExecutionPolicy Bypass -File .\infrastructure\start.ps1`)*
+
+Hoặc gọi Docker Compose trực tiếp:
+
+```powershell
+docker compose -f infrastructure/docker-compose.yml up -d --wait
+```
+
+### Cách 2: Khởi động riêng rẽ từng mô-đun hạ tầng (Để tiết kiệm RAM)
+
+Bạn cũng có thể chọn chỉ khởi động từng dịch vụ hạ tầng cần thiết:
+
+- **Chỉ bật Keycloak**:
+  ```powershell
+  docker compose -f infrastructure/keycloak/docker-compose.yml up -d
+  ```
+- **Chỉ bật Consul**:
+  ```powershell
+  docker compose -f infrastructure/consul/docker-compose.yml up -d
+  ```
+- **Chỉ bật Kafka & Kafka UI**:
+  ```powershell
+  docker compose -f infrastructure/kafka/docker-compose.yml up -d
+  ```
+- **Chỉ bật Tracing Zipkin**:
+  ```powershell
+  docker compose -f infrastructure/tracing/docker-compose.yml up -d
+  ```
+
+Lần khởi động đầu tiên, script `infrastructure/mariadb/init/01-create-databases.sql` tạo bảy database: `gateway`, `authservice`, `userservice`, `postservice`, `mediaservice`, `commentservice` và `feedservice`.
+
+Script SQL trong `/docker-entrypoint-initdb.d` chỉ tự chạy khi volume MariaDB còn trống. Nếu bổ sung database vào SQL sau khi volume đã tồn tại, cần tự tạo database hoặc xóa volume development để khởi tạo lại.
+
+## 7. Chạy Gateway và frontend để kiểm tra dự án
 
 Đây là cách ngắn nhất để chạy giao diện và Gateway ở chế độ development.
 
-### Bước 1: chạy hạ tầng của Gateway
+### Bước 1: bảo đảm hạ tầng chung đang chạy
 
 Mở PowerShell thứ nhất:
 
 ```powershell
-cd C:\Code\fakebook\gateway
-docker compose -f src/main/docker/services.yml up --wait
+cd C:\Code\fakebook
+.\infrastructure\start.ps1
 ```
 
-Lệnh trên khởi động các dependency khai báo cho Gateway: MariaDB, Keycloak, Consul, Consul config loader và Kafka.
+Lệnh trên khởi động MariaDB, Keycloak, Consul, Consul config loader, Kafka, Kafka UI, Redis và Zipkin dùng chung.
 
 Kiểm tra container:
 
 ```powershell
-docker compose -f src/main/docker/services.yml ps
+docker compose -f infrastructure/docker-compose.yml ps
 ```
 
 ### Bước 2: chạy backend Gateway
@@ -215,10 +272,7 @@ Mở PowerShell thứ hai:
 cd C:\Code\fakebook\gateway
 .\mvnw.cmd
 ```
-
-Gateway backend chạy tại `http://localhost:8080`.
-
-Spring Boot cũng được cấu hình tự quản lý `src/main/docker/services.yml`. Vì vậy có thể thử chạy trực tiếp `.\mvnw.cmd`; tuy nhiên việc bật hạ tầng trước giúp nhìn lỗi container rõ ràng hơn.
+*(Hoặc dùng lệnh đầy đủ với nháy đơn trong PowerShell: `.\mvnw.cmd spring-boot:run '-Dspring-boot.run.arguments=--spring.docker.compose.enabled=false'`)*
 
 ### Bước 3: cài dependency và chạy frontend
 
@@ -234,23 +288,25 @@ Truy cập frontend tại `http://localhost:9000`. Vite sẽ proxy request backe
 
 Chỉ cần chạy `npmw.cmd install` lần đầu hoặc khi `package.json`/lock file thay đổi.
 
-### Tài khoản phát triển
+### Tài khoản & Giao diện phát triển
 
-- Keycloak Admin Console: `http://localhost:9080`.
-- Tài khoản quản trị Keycloak: `admin` / `admin`.
-- Realm mẫu có user ứng dụng tên `admin` và `user`. Với realm JHipster mặc định, mật khẩu thường tương ứng là `admin` và `user`.
+- Keycloak Admin Console: `http://localhost:9080` (`admin` / `admin`).
+- Consul Dashboard: `http://localhost:8500`.
+- Kafka UI: `http://localhost:8085`.
+- Zipkin UI: `http://localhost:9411`.
+- Realm mẫu có user ứng dụng tên `admin` và `user`. Với realm JHipster mặc định, mật khẩu tương ứng là `admin` và `user`.
 
 Không sử dụng các tài khoản/mật khẩu mẫu này ở production.
 
-## 7. Chạy riêng một microservice
+## 8. Chạy riêng một microservice
 
 Mỗi module có cùng quy trình. Ví dụ chạy User Service:
 
 ```powershell
 cd C:\Code\fakebook\userService
-docker compose -f src/main/docker/services.yml up --wait
 .\mvnw.cmd
 ```
+*(Hoặc trong PowerShell: `.\mvnw.cmd spring-boot:run '-Dspring-boot.run.arguments=--spring.docker.compose.enabled=false'`)*
 
 User Service sẽ chạy tại `http://localhost:8082`.
 
@@ -265,44 +321,38 @@ feedService
 gateway
 ```
 
-Feed Service cần Redis; Redis đã có trong `feedService/src/main/docker/services.yml`.
+Feed Service cần Redis; Redis đã được bật trong Compose hạ tầng chung.
 
-## 8. Chạy backend không để Spring tự bật Docker Compose
+Mỗi service nên được chạy trong một cửa sổ PowerShell riêng. Các Compose trong từng module vẫn được giữ để test module độc lập, nhưng không sử dụng chúng đồng thời với Compose hạ tầng chung để tránh trùng cổng.
 
-Trong `application.yml`, Spring Boot Compose được bật với chế độ `start-only`. Khi hạ tầng đã được chạy riêng hoặc dùng hạ tầng chung, có thể tắt chức năng này:
+## 9. Chạy backend không để Spring tự bật Docker Compose
+
+Trong `application.yml`, Spring Boot Compose được bật với chế độ `start-only`. Khi hạ tầng đã được chạy riêng hoặc dùng hạ tầng chung, có thể tắt chức năng này khi dùng PowerShell:
 
 ```powershell
-.\mvnw.cmd -Dspring-boot.run.arguments="--spring.docker.compose.enabled=false"
+.\mvnw.cmd spring-boot:run '-Dspring-boot.run.arguments=--spring.docker.compose.enabled=false'
 ```
+*(Lưu ý bọc tham số `-D` trong dấu nháy đơn `' '` để PowerShell không làm sai cú pháp Maven)*
 
 Cách này đặc biệt cần thiết khi chạy nhiều module cùng lúc để tránh mỗi tiến trình cố khởi động một bộ container riêng.
 
-## 9. Hạn chế hiện tại khi chạy toàn bộ hệ thống
+## 10. Quy tắc khi chạy toàn bộ hệ thống
 
-Repo chưa có `docker-compose.yml` tổng ở thư mục gốc.
+Compose tổng đã được đặt tại `infrastructure/docker-compose.yml`. Khi chạy toàn bộ hệ thống:
 
-Gateway hiện dùng MariaDB host port `3307`, nhưng sáu microservice còn lại đều khai báo MariaDB tại host port `3306`. Mỗi module cũng khai báo Keycloak, Consul và Kafka trên cùng port. Do đó:
+- Chỉ khởi động `infrastructure/docker-compose.yml` (hoặc `.\infrastructure\start.ps1`).
+- Không khởi động `src/main/docker/*.yml` riêng lẻ của từng module.
+- Chạy từng ứng dụng bằng `.\mvnw.cmd` (hoặc truyền `'-Dspring-boot.run.arguments=--spring.docker.compose.enabled=false'`).
+- Tất cả ứng dụng kết nối MariaDB qua `localhost:3307`, nhưng dùng database riêng với tên chữ thường.
+- Các service dùng chung Keycloak, Consul và Kafka; Feed Service dùng thêm Redis.
 
-- Không chạy đồng thời `services.yml` của nhiều microservice.
-- Bộ Compose khởi động sau sẽ lỗi `port is already allocated`.
-- Chỉ nên dùng một Keycloak, một Consul và một Kafka cho toàn hệ thống.
-- Các database cần được tách bằng schema/database chung hoặc bằng container/host port riêng.
+Các Compose trong module được giữ để chạy/test riêng một module. Do chúng vẫn dùng các port hạ tầng giống nhau, phải dừng hạ tầng chung trước khi sử dụng một Compose riêng.
 
-Để chạy toàn bộ hệ thống đúng kiến trúc, cần bổ sung Compose tổng với:
-
-1. Một Keycloak tại `9080`.
-2. Một Consul tại `8500`.
-3. Một Kafka broker tại `9092`.
-4. Một Redis tại `6379`.
-5. MariaDB có database riêng cho `gateway`, `authService`, `userService`, `postService`, `mediaService`, `commentService` và `feedService`; hoặc các MariaDB container dùng port riêng.
-6. Khởi động các Java service với `spring.docker.compose.enabled=false`.
-
-## 10. Dừng và dọn môi trường
-
-Trong thư mục module đã dùng để bật Compose:
+## 11. Dừng và dọn môi trường
 
 ```powershell
-docker compose -f src/main/docker/services.yml down
+cd C:\Code\fakebook
+.\infrastructure\stop.ps1
 ```
 
 Lệnh trên dừng và xóa container/network nhưng giữ volume dữ liệu.
@@ -310,21 +360,21 @@ Lệnh trên dừng và xóa container/network nhưng giữ volume dữ liệu.
 Muốn xóa cả volume và dữ liệu phát triển:
 
 ```powershell
-docker compose -f src/main/docker/services.yml down -v
+docker compose -f infrastructure/docker-compose.yml down -v
 ```
 
 Chỉ dùng `-v` khi chắc chắn có thể xóa database và dữ liệu Keycloak hiện tại.
 
-## 11. Kiểm tra và xử lý lỗi thường gặp
+## 12. Kiểm tra và xử lý lỗi thường gặp
 
-### Port đã được sử dụng
+### Port đã được sử dụng (Port is already allocated)
 
 ```powershell
-Get-NetTCPConnection -State Listen | Where-Object LocalPort -in 3306,3307,6379,8080,8081,8082,8083,8084,8085,8086,8500,9000,9080,9092
+Get-NetTCPConnection -State Listen | Where-Object LocalPort -in 3307,6379,8080,8081,8082,8083,8084,8085,8086,8500,9000,9080,9092,9411
 docker ps
 ```
 
-Nếu thấy lỗi `port is already allocated`, không bật thêm `services.yml` của module khác; hãy dừng bộ Compose cũ hoặc dùng hạ tầng chung.
+Nếu thấy lỗi `port is already allocated`, hãy tắt các container rác ở các module lẻ bằng cách dùng hạ tầng chung hoặc tắt bộ Compose cũ.
 
 ### Backend không kết nối được Consul
 
@@ -332,14 +382,14 @@ Kiểm tra `http://localhost:8500` và trạng thái container Consul:
 
 ```powershell
 docker ps
-docker logs <ten-container-consul>
+docker logs fakebook-infrastructure-consul-1
 ```
 
 ### Đăng nhập không hoạt động
 
 Kiểm tra Keycloak tại `http://localhost:9080`, realm `jhipster`, client `web_app`, sau đó kiểm tra log của Gateway.
 
-### Không kết nối được database
+### Không kết nối được database (Fail to establish connection to localhost:3307)
 
 Đối chiếu port trong hai file của module:
 
@@ -348,7 +398,12 @@ src/main/docker/mariadb.yml
 src/main/resources/config/application-dev.yml
 ```
 
-Host port của Docker phải trùng port trong JDBC và R2DBC URL. Riêng Gateway hiện đang dùng host port `3307`.
+Host port của Docker phải trùng port trong JDBC và R2DBC URL (`localhost:3307`).
+
+### Lỗi `Unknown lifecycle phase` trong PowerShell
+
+Xảy ra khi truyền `-Dspring-boot.run.arguments="..."` không bọc trong dấu nháy đơn `' '`.
+Khắc phục bằng cách chạy đơn giản `.\mvnw.cmd` hoặc bọc nháy đơn: `.\mvnw.cmd spring-boot:run '-Dspring-boot.run.arguments=--spring.docker.compose.enabled=false'`.
 
 ### Node/npm không đúng phiên bản
 
@@ -360,7 +415,7 @@ Host port của Docker phải trùng port trong JDBC và R2DBC URL. Riêng Gatew
 
 Wrapper giúp Maven tải và dùng phiên bản Node/npm được khai báo trong `gateway/pom.xml`.
 
-## 12. Các lệnh hữu ích
+## 13. Các lệnh hữu ích
 
 Build và chạy test backend của một module:
 
@@ -386,19 +441,31 @@ Xem danh sách service đã đăng ký trên Consul:
 http://localhost:8500
 ```
 
+Xem Kafka UI (Quản lý Kafka Topic / Message):
+
+```text
+http://localhost:8085
+```
+
+Xem Zipkin UI (Distributed Tracing):
+
+```text
+http://localhost:9411
+```
+
 Xem health của Gateway:
 
 ```text
 http://localhost:8080/management/health
 ```
 
-## 13. Thứ tự khởi động khuyến nghị khi đã có hạ tầng chung
+## 14. Thứ tự khởi động khuyến nghị khi đã có hạ tầng chung
 
-1. MariaDB, Redis, Kafka, Consul và Keycloak.
+1. Khởi động hạ tầng chung: `.\infrastructure\start.ps1` (MariaDB, Redis, Kafka, Kafka UI, Consul, Keycloak và Zipkin).
 2. Auth Service và User Service.
 3. Post Service, Media Service và Comment Service.
 4. Feed Service.
-5. Gateway backend.
-6. Frontend Vite.
+5. Gateway backend (`cd gateway; .\mvnw.cmd`).
+6. Frontend Vite (`cd gateway; .\npmw.cmd run start`).
 
 Consul phải sẵn sàng trước khi các ứng dụng đăng ký service. Keycloak phải sẵn sàng trước khi thực hiện đăng nhập. Gateway nên chạy sau các microservice để định tuyến đầy đủ ngay khi giao diện được mở.
