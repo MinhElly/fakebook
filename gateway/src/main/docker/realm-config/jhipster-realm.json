@@ -3,6 +3,27 @@
   "realm": "jhipster",
   "displayName": "JHipster",
   "displayNameHtml": "<div class=\"kc-logo-text\"><span>JHipster</span></div>",
+  "identityProviders": [
+    {
+      "alias": "google",
+      "displayName": "Google",
+      "providerId": "google",
+      "enabled": true,
+      "updateProfileFirstLoginMode": "on",
+      "trustEmail": true,
+      "storeToken": false,
+      "addReadTokenRoleOnCreate": false,
+      "authenticateByDefault": false,
+      "linkOnly": false,
+      "firstBrokerLoginFlowId": "first broker login",
+      "config": {
+        "client_id": "${env.KEYCLOAK_GOOGLE_CLIENT_ID:}",
+        "client_secret": "${env.KEYCLOAK_GOOGLE_CLIENT_SECRET:}",
+        "prompt": "select_account",
+        "defaultScope": "openid profile email"
+      }
+    }
+  ],
   "notBefore": 0,
   "defaultSignatureAlgorithm": "RS256",
   "revokeRefreshToken": false,
