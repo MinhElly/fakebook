@@ -1,0 +1,38 @@
+{
+  "annotations": {
+    "changelogDate": "20231219171212"
+  },
+  "applications": ["feedService"],
+  "clientRootFolder": "feedService",
+  "databaseType": "sql",
+  "dto": "mapstruct",
+  "entityTableName": "feed_items",
+  "fields": [
+    {
+      "fieldName": "id",
+      "fieldType": "UUID"
+    },
+    {
+      "fieldName": "userId",
+      "fieldType": "UUID",
+      "fieldValidateRules": ["required"]
+    },
+    {
+      "fieldName": "postId",
+      "fieldType": "UUID",
+      "fieldValidateRules": ["required"]
+    },
+    {
+      "fieldName": "createdAt",
+      "fieldType": "Instant",
+      "fieldValidateRules": ["required"]
+    }
+  ],
+  "jpaMetamodelFiltering": true,
+  "microserviceName": "feedService",
+  "name": "FeedItem",
+  "pagination": "pagination",
+  "relationships": [],
+  "searchEngine": "no",
+  "service": "serviceClass"
+}

@@ -1,0 +1,28 @@
+{
+  "generator-jhipster": {
+    "applicationIndex": 2,
+    "applicationType": "microservice",
+    "authenticationType": "oauth2",
+    "baseName": "postService",
+    "buildTool": "maven",
+    "cacheProvider": "no",
+    "clientFramework": "no",
+    "creationTimestamp": 1701546327878,
+    "databaseType": "sql",
+    "devDatabaseType": "mariadb",
+    "entities": ["Post", "PostMedia", "PostReaction"],
+    "jhipsterVersion": "9.3.0",
+    "jwtSecretKey": "NGJlZGI0NzIxNmViMjM0NjdhYzk4MTdhZjQxNzZkZDdmZjk5OTM2NmYyMDAyNGM5NWExMTMzMDNmM2M0NGExNjFhYzc0ZmJiMzEyZTc5NTc5NjNjNmEzYmI0ODUzODUxNTgxMWJkNGE4ZTU3YjUxYzA4ODhiMGRhN2Q4NTI4MmM=",
+    "languages": ["en"],
+    "lastLiquibaseTimestamp": 1701546507000,
+    "messageBroker": "kafka",
+    "monorepository": true,
+    "nativeLanguage": "en",
+    "packageName": "com.minh.fakebook.post",
+    "prodDatabaseType": "mariadb",
+    "serverPort": "8083",
+    "serviceDiscoveryType": "consul",
+    "skipClient": true,
+    "skipCommitHook": true
+  }
+}

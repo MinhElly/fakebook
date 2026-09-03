@@ -1,0 +1,28 @@
+{
+  "generator-jhipster": {
+    "applicationIndex": 3,
+    "applicationType": "microservice",
+    "authenticationType": "oauth2",
+    "baseName": "mediaService",
+    "buildTool": "maven",
+    "cacheProvider": "no",
+    "clientFramework": "no",
+    "creationTimestamp": 1701856255192,
+    "databaseType": "sql",
+    "devDatabaseType": "mariadb",
+    "entities": ["Media"],
+    "jhipsterVersion": "9.3.0",
+    "jwtSecretKey": "NGRhZTliNzA4ZGU1YWRiZDMzYzU1YjNhN2FkMzA4NGZjMDMyNDEyMGMxZmUyZjhjYzBmZTRlZTMxZTE4ZWJiODI2MWQyMTliODc5YzM3OTEyN2I4ZmVmZWUyM2ZkNTRiNmQzOTNkZTFmNjI0ZTY5Mzk4ZTU5MjQ3MjQ2YTA5MjA=",
+    "languages": ["en"],
+    "lastLiquibaseTimestamp": 1701856315000,
+    "messageBroker": "kafka",
+    "monorepository": true,
+    "nativeLanguage": "en",
+    "packageName": "com.minh.fakebook.media",
+    "prodDatabaseType": "mariadb",
+    "serverPort": "8084",
+    "serviceDiscoveryType": "consul",
+    "skipClient": true,
+    "skipCommitHook": true
+  }
+}

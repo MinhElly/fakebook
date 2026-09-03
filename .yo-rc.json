@@ -1,0 +1,16 @@
+{
+  "generator-jhipster": {
+    "appsFolders": [
+      "gateway",
+      "userService",
+      "postService",
+      "mediaService",
+      "commentService",
+      "feedService",
+      "authService"
+    ],
+    "baseName": "workspaces",
+    "defaultCommand": "workspaces",
+    "deploymentType": "none"
+  }
+}

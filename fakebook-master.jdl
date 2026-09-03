@@ -1,0 +1,571 @@
+// ============================================================================
+// FAKEBOOK / PROJECT VTS-TSS
+// Master JDL for JHipster
+//
+// Architecture:
+// - API Gateway + React
+// - OAuth2/OIDC with Keycloak (Keycloak is infrastructure, not a JPA entity)
+// - Consul for service discovery / centralized configuration
+// - Kafka for asynchronous messaging
+// - MariaDB database-per-service
+// - Redis cache for Feed Service
+//
+// IMPORTANT:
+// 1. Relationships are created only inside the same microservice/database.
+// 2. References to another microservice are stored as UUID fields only.
+// 3. UserProfile.id is the Keycloak user UUID, matching the current ERD.
+// ============================================================================
+
+
+// ============================================================================
+// APPLICATIONS
+// ============================================================================
+
+// ---------------------------------------------------------------------------
+// 1. API Gateway
+// ---------------------------------------------------------------------------
+application {
+    config {
+        baseName gateway
+        applicationType gateway
+        packageName com.minh.fakebook.gateway
+        authenticationType oauth2
+
+        databaseType sql
+        devDatabaseType mariadb
+        prodDatabaseType mariadb
+
+        serviceDiscoveryType consul
+        messageBroker kafka
+        cacheProvider no
+
+        buildTool maven
+        clientFramework react
+        serverPort 8080
+    }
+}
+
+
+// ---------------------------------------------------------------------------
+// 2. Auth Service
+//
+// Keycloak remains the real Identity Provider.
+// This service must NOT store passwords or duplicate Keycloak credentials.
+// It can later contain orchestration/integration APIs for:
+// - logout
+// - change password
+// - forgot/reset password
+// - social-login related integration
+// - Keycloak Admin API operations when needed
+// ---------------------------------------------------------------------------
+application {
+    config {
+        baseName authService
+        applicationType microservice
+        packageName com.minh.fakebook.auth
+        authenticationType oauth2
+
+        databaseType sql
+        devDatabaseType mariadb
+        prodDatabaseType mariadb
+
+        serviceDiscoveryType consul
+        messageBroker kafka
+        cacheProvider no
+
+        buildTool maven
+        clientFramework no
+        skipClient true
+        serverPort 8081
+    }
+}
+
+
+// ---------------------------------------------------------------------------
+// 3. User Service
+// MariaDB entities:
+// - USER_PROFILES
+// - FRIEND_REQUESTS
+// - FOLLOWS
+// - FRIENDSHIPS
+// ---------------------------------------------------------------------------
+application {
+    config {
+        baseName userService
+        applicationType microservice
+        packageName com.minh.fakebook.user
+        authenticationType oauth2
+
+        databaseType sql
+        devDatabaseType mariadb
+        prodDatabaseType mariadb
+
+        serviceDiscoveryType consul
+        messageBroker kafka
+        cacheProvider no
+
+        buildTool maven
+        clientFramework no
+        skipClient true
+        serverPort 8082
+    }
+
+    entities UserProfile, FriendRequest, Follow, Friendship
+}
+
+
+// ---------------------------------------------------------------------------
+// 4. Post Service
+// MariaDB entities:
+// - POSTS
+// - POST_MEDIA
+// - POST_REACTIONS
+// ---------------------------------------------------------------------------
+application {
+    config {
+        baseName postService
+        applicationType microservice
+        packageName com.minh.fakebook.post
+        authenticationType oauth2
+
+        databaseType sql
+        devDatabaseType mariadb
+        prodDatabaseType mariadb
+
+        serviceDiscoveryType consul
+        messageBroker kafka
+        cacheProvider no
+
+        buildTool maven
+        clientFramework no
+        skipClient true
+        serverPort 8083
+    }
+
+    entities Post, PostMedia, PostReaction
+}
+
+
+// ---------------------------------------------------------------------------
+// 5. Media Service
+// MariaDB entity:
+// - MEDIA
+// ---------------------------------------------------------------------------
+application {
+    config {
+        baseName mediaService
+        applicationType microservice
+        packageName com.minh.fakebook.media
+        authenticationType oauth2
+
+        databaseType sql
+        devDatabaseType mariadb
+        prodDatabaseType mariadb
+
+        serviceDiscoveryType consul
+        messageBroker kafka
+        cacheProvider no
+
+        buildTool maven
+        clientFramework no
+        skipClient true
+        serverPort 8084
+    }
+
+    entities Media
+}
+
+
+// ---------------------------------------------------------------------------
+// 6. Comment Service
+// MariaDB entity:
+// - COMMENTS
+// ---------------------------------------------------------------------------
+application {
+    config {
+        baseName commentService
+        applicationType microservice
+        packageName com.minh.fakebook.comment
+        authenticationType oauth2
+
+        databaseType sql
+        devDatabaseType mariadb
+        prodDatabaseType mariadb
+
+        serviceDiscoveryType consul
+        messageBroker kafka
+        cacheProvider no
+
+        buildTool maven
+        clientFramework no
+        skipClient true
+        serverPort 8085
+    }
+
+    entities Comment
+}
+
+
+// ---------------------------------------------------------------------------
+// 7. Feed Service
+// MariaDB:
+// - FEED_ITEMS
+//
+// Redis:
+// - generated/configured as cacheProvider redis
+// - concrete feed cache keys/structures are implemented in application code
+// ---------------------------------------------------------------------------
+application {
+    config {
+        baseName feedService
+        applicationType microservice
+        packageName com.minh.fakebook.feed
+        authenticationType oauth2
+
+        databaseType sql
+        devDatabaseType mariadb
+        prodDatabaseType mariadb
+
+        serviceDiscoveryType consul
+        messageBroker kafka
+        cacheProvider redis
+
+        buildTool maven
+        clientFramework no
+        skipClient true
+        serverPort 8086
+    }
+
+    entities FeedItem
+}
+
+
+// ============================================================================
+// ENUMS
+// ============================================================================
+
+enum FriendRequestStatus {
+    PENDING,
+    ACCEPTED,
+    REJECTED,
+    CANCELLED
+}
+
+enum PostVisibility {
+    PUBLIC,
+    FRIENDS,
+    PRIVATE
+}
+
+enum PostStatus {
+    ACTIVE,
+    DELETED
+}
+
+enum ReactionType {
+    LIKE,
+    LOVE,
+    HAHA,
+    WOW,
+    SAD,
+    ANGRY
+}
+
+enum MediaType {
+    IMAGE,
+    VIDEO,
+    AUDIO,
+    DOCUMENT
+}
+
+enum StorageProvider {
+    CLOUDINARY,
+    AWS_S3,
+    LOCAL
+}
+
+enum MediaStatus {
+    ACTIVE,
+    DELETED
+}
+
+enum CommentStatus {
+    ACTIVE,
+    DELETED
+}
+
+
+// ============================================================================
+// USER SERVICE ENTITIES
+// ============================================================================
+
+// USER_PROFILES
+//
+// The primary key is the Keycloak user UUID.
+// There is intentionally no password/credential field here.
+entity UserProfile(user_profiles) {
+    id UUID
+
+    username String required unique maxlength(50)
+    displayName String required maxlength(100)
+    bio TextBlob
+
+    // UUID owned by Media Service; NOT a database foreign key.
+    avatarMediaId UUID
+
+    // UUID owned by Media Service; NOT a database foreign key.
+    coverMediaId UUID
+
+    createdAt Instant required
+    updatedAt Instant
+}
+
+
+// FRIEND_REQUESTS
+//
+// sender_id and receiver_id are real foreign keys because both sides are
+// inside User Service.
+entity FriendRequest(friend_requests) {
+    id UUID
+
+    status FriendRequestStatus required
+    createdAt Instant required
+    respondedAt Instant
+}
+
+
+// FOLLOWS
+//
+// follower_id and following_id are real foreign keys inside User Service.
+entity Follow(follows) {
+    id UUID
+
+    createdAt Instant required
+}
+
+
+// FRIENDSHIPS
+//
+// A friendship row represents user_id -> friend_id.
+// Both references remain inside User Service.
+entity Friendship(friendships) {
+    id UUID
+
+    createdAt Instant required
+}
+
+
+// ============================================================================
+// POST SERVICE ENTITIES
+// ============================================================================
+
+// POSTS
+entity Post(posts) {
+    id UUID
+
+    // Keycloak User UUID; NOT a foreign key to User Service.
+    authorId UUID required
+
+    content TextBlob
+    visibility PostVisibility required
+    status PostStatus required
+
+    createdAt Instant required
+    updatedAt Instant
+}
+
+
+// POST_MEDIA
+entity PostMedia(post_media) {
+    id UUID
+
+    // UUID owned by Media Service; NOT a database foreign key.
+    mediaId UUID required
+
+    displayOrder Integer required min(0)
+    createdAt Instant required
+}
+
+
+// POST_REACTIONS
+entity PostReaction(post_reactions) {
+    id UUID
+
+    // Keycloak User UUID; NOT a foreign key to User Service.
+    userId UUID required
+
+    reactionType ReactionType required
+
+    createdAt Instant required
+    updatedAt Instant
+}
+
+
+// ============================================================================
+// MEDIA SERVICE ENTITY
+// ============================================================================
+
+// MEDIA
+entity Media(media) {
+    id UUID
+
+    // Keycloak User UUID; NOT a foreign key to User Service.
+    ownerId UUID required
+
+    fileName String required maxlength(255)
+    mediaType MediaType required
+    mimeType String required maxlength(100)
+    fileSize Long required min(0)
+
+    storageProvider StorageProvider required
+    storageKey String required maxlength(255)
+    url String required maxlength(1000)
+
+    status MediaStatus required
+
+    createdAt Instant required
+    updatedAt Instant
+}
+
+
+// ============================================================================
+// COMMENT SERVICE ENTITY
+// ============================================================================
+
+// COMMENTS
+//
+// postId    -> UUID owned by Post Service.
+// authorId  -> Keycloak User UUID.
+// parentComment -> real self-reference inside Comment Service.
+//
+// Fields mirror the current ERD. If comment timestamps are desired later,
+// add createdAt/updatedAt in a separate schema change.
+entity Comment(comments) {
+    id UUID
+
+    postId UUID required
+    authorId UUID required
+
+    content TextBlob required
+    status CommentStatus required
+}
+
+
+// ============================================================================
+// FEED SERVICE ENTITY
+// ============================================================================
+
+// FEED_ITEMS
+//
+// userId -> Keycloak User UUID.
+// postId -> UUID owned by Post Service.
+// Redis is used as the read/cache layer; MariaDB remains persistent storage.
+entity FeedItem(feed_items) {
+    id UUID
+
+    userId UUID required
+    postId UUID required
+
+    createdAt Instant required
+}
+
+
+// ============================================================================
+// RELATIONSHIPS
+//
+// Only relationships contained in ONE service/database are declared here.
+// Cross-service references are deliberately NOT declared as JPA relationships.
+// ============================================================================
+
+relationship ManyToOne {
+
+    // -----------------------------------------------------------------------
+    // User Service
+    // -----------------------------------------------------------------------
+    FriendRequest{sender required} to UserProfile
+    FriendRequest{receiver required} to UserProfile
+
+    Follow{follower required} to UserProfile
+    Follow{following required} to UserProfile
+
+    Friendship{user required} to UserProfile
+    Friendship{friend required} to UserProfile
+
+    // -----------------------------------------------------------------------
+    // Post Service
+    // -----------------------------------------------------------------------
+    PostMedia{post required} to Post
+    PostReaction{post required} to Post
+
+    // -----------------------------------------------------------------------
+    // Comment Service
+    // -----------------------------------------------------------------------
+    Comment{parentComment} to Comment
+}
+
+
+// ============================================================================
+// CODE GENERATION OPTIONS
+// ============================================================================
+
+// DTO layer using MapStruct.
+dto * with mapstruct
+
+// Business/service layer.
+// serviceClass is simpler than generating interface + implementation pairs.
+service * with serviceClass
+
+// Criteria filtering for generated REST APIs.
+filter *
+
+// Pagination for list endpoints.
+paginate UserProfile, FriendRequest, Follow, Friendship with pagination
+paginate Post, PostMedia, PostReaction with pagination
+paginate Media with pagination
+paginate Comment with pagination
+paginate FeedItem with pagination
+
+
+// ============================================================================
+// IMPORTANT CONSTRAINTS TO ADD AFTER GENERATION
+//
+// JDL does not conveniently express all composite unique constraints needed
+// by this domain. Add these using Liquibase after generation:
+//
+// 1. FRIEND_REQUESTS
+//    Prevent duplicated active requests for the same sender/receiver pair
+//    according to the final business rule.
+//
+// 2. FOLLOWS
+//    UNIQUE(follower_id, following_id)
+//
+// 3. FRIENDSHIPS
+//    UNIQUE(user_id, friend_id)
+//
+// 4. POST_REACTIONS
+//    UNIQUE(post_id, user_id)
+//
+// 5. POST_MEDIA
+//    Consider UNIQUE(post_id, media_id)
+//
+// 6. FEED_ITEMS
+//    Consider UNIQUE(user_id, post_id)
+//
+// Also validate in application logic:
+// - user cannot follow themselves
+// - user cannot befriend themselves
+// - friendship direction/duplication policy
+// - only one reaction per user per post
+// ============================================================================
+
+
+// ============================================================================
+// GENERATION
+//
+// For a brand-new workspace:
+//     jhipster jdl fakebook-master.jdl
+//
+// For already-generated applications, do NOT blindly regenerate everything.
+// Prefer importing the relevant entity JDL into the target service or review
+// generated changes before accepting overwrites.
+// ============================================================================

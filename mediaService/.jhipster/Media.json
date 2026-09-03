@@ -1,0 +1,85 @@
+{
+  "annotations": {
+    "changelogDate": "20231206095155"
+  },
+  "applications": ["mediaService"],
+  "clientRootFolder": "mediaService",
+  "databaseType": "sql",
+  "dto": "mapstruct",
+  "entityTableName": "media",
+  "fields": [
+    {
+      "fieldName": "id",
+      "fieldType": "UUID"
+    },
+    {
+      "fieldName": "ownerId",
+      "fieldType": "UUID",
+      "fieldValidateRules": ["required"]
+    },
+    {
+      "fieldName": "fileName",
+      "fieldType": "String",
+      "fieldValidateRules": ["required", "maxlength"],
+      "fieldValidateRulesMaxlength": "255"
+    },
+    {
+      "fieldName": "mediaType",
+      "fieldType": "MediaType",
+      "fieldValidateRules": ["required"],
+      "fieldValues": "IMAGE,VIDEO,AUDIO,DOCUMENT"
+    },
+    {
+      "fieldName": "mimeType",
+      "fieldType": "String",
+      "fieldValidateRules": ["required", "maxlength"],
+      "fieldValidateRulesMaxlength": "100"
+    },
+    {
+      "fieldName": "fileSize",
+      "fieldType": "Long",
+      "fieldValidateRules": ["required", "min"],
+      "fieldValidateRulesMin": "0"
+    },
+    {
+      "fieldName": "storageProvider",
+      "fieldType": "StorageProvider",
+      "fieldValidateRules": ["required"],
+      "fieldValues": "CLOUDINARY,AWS_S3,LOCAL"
+    },
+    {
+      "fieldName": "storageKey",
+      "fieldType": "String",
+      "fieldValidateRules": ["required", "maxlength"],
+      "fieldValidateRulesMaxlength": "255"
+    },
+    {
+      "fieldName": "url",
+      "fieldType": "String",
+      "fieldValidateRules": ["required", "maxlength"],
+      "fieldValidateRulesMaxlength": "1000"
+    },
+    {
+      "fieldName": "status",
+      "fieldType": "MediaStatus",
+      "fieldValidateRules": ["required"],
+      "fieldValues": "ACTIVE,DELETED"
+    },
+    {
+      "fieldName": "createdAt",
+      "fieldType": "Instant",
+      "fieldValidateRules": ["required"]
+    },
+    {
+      "fieldName": "updatedAt",
+      "fieldType": "Instant"
+    }
+  ],
+  "jpaMetamodelFiltering": true,
+  "microserviceName": "mediaService",
+  "name": "Media",
+  "pagination": "pagination",
+  "relationships": [],
+  "searchEngine": "no",
+  "service": "serviceClass"
+}

@@ -1,0 +1,51 @@
+{
+  "annotations": {
+    "changelogDate": "20231228141045"
+  },
+  "applications": ["commentService"],
+  "clientRootFolder": "commentService",
+  "databaseType": "sql",
+  "dto": "mapstruct",
+  "entityTableName": "comments",
+  "fields": [
+    {
+      "fieldName": "id",
+      "fieldType": "UUID"
+    },
+    {
+      "fieldName": "postId",
+      "fieldType": "UUID",
+      "fieldValidateRules": ["required"]
+    },
+    {
+      "fieldName": "authorId",
+      "fieldType": "UUID",
+      "fieldValidateRules": ["required"]
+    },
+    {
+      "fieldName": "content",
+      "fieldType": "TextBlob",
+      "fieldValidateRules": ["required"]
+    },
+    {
+      "fieldName": "status",
+      "fieldType": "CommentStatus",
+      "fieldValidateRules": ["required"],
+      "fieldValues": "ACTIVE,DELETED"
+    }
+  ],
+  "jpaMetamodelFiltering": true,
+  "microserviceName": "commentService",
+  "name": "Comment",
+  "pagination": "pagination",
+  "relationships": [
+    {
+      "otherEntityName": "comment",
+      "relationshipName": "parentComment",
+      "relationshipSide": "left",
+      "relationshipType": "many-to-one"
+    }
+  ],
+  "searchEngine": "no",
+  "service": "serviceClass"
+}

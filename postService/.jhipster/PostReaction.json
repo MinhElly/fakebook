@@ -1,0 +1,51 @@
+{
+  "annotations": {
+    "changelogDate": "20231202194827"
+  },
+  "applications": ["postService"],
+  "clientRootFolder": "postService",
+  "databaseType": "sql",
+  "dto": "mapstruct",
+  "entityTableName": "post_reactions",
+  "fields": [
+    {
+      "fieldName": "id",
+      "fieldType": "UUID"
+    },
+    {
+      "fieldName": "userId",
+      "fieldType": "UUID",
+      "fieldValidateRules": ["required"]
+    },
+    {
+      "fieldName": "reactionType",
+      "fieldType": "ReactionType",
+      "fieldValidateRules": ["required"],
+      "fieldValues": "LIKE,LOVE,HAHA,WOW,SAD,ANGRY"
+    },
+    {
+      "fieldName": "createdAt",
+      "fieldType": "Instant",
+      "fieldValidateRules": ["required"]
+    },
+    {
+      "fieldName": "updatedAt",
+      "fieldType": "Instant"
+    }
+  ],
+  "jpaMetamodelFiltering": true,
+  "microserviceName": "postService",
+  "name": "PostReaction",
+  "pagination": "pagination",
+  "relationships": [
+    {
+      "otherEntityName": "post",
+      "relationshipName": "post",
+      "relationshipSide": "left",
+      "relationshipType": "many-to-one",
+      "relationshipValidateRules": "required"
+    }
+  ],
+  "searchEngine": "no",
+  "service": "serviceClass"
+}

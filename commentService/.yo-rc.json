@@ -1,0 +1,28 @@
+{
+  "generator-jhipster": {
+    "applicationIndex": 4,
+    "applicationType": "microservice",
+    "authenticationType": "oauth2",
+    "baseName": "commentService",
+    "buildTool": "maven",
+    "cacheProvider": "no",
+    "clientFramework": "no",
+    "creationTimestamp": 1703772585007,
+    "databaseType": "sql",
+    "devDatabaseType": "mariadb",
+    "entities": ["Comment"],
+    "jhipsterVersion": "9.3.0",
+    "jwtSecretKey": "MTA3M2U1NzYyNTRhYjI0MjM1MGZiNmE2ZjU2Yzc5MmMxZGFiMDVkMDRmZDA4MWU5NGIwODg1ZjFmOGQwZjA0YzJjODkyNjc4ZWQ2NDFkMzY1OGVlYzk3YzViYTVkODA0NThiMmZjYWVkMTg4ZDM3MWZjMTFlZWI2MmFlODNmNDQ=",
+    "languages": ["en"],
+    "lastLiquibaseTimestamp": 1703772645000,
+    "messageBroker": "kafka",
+    "monorepository": true,
+    "nativeLanguage": "en",
+    "packageName": "com.minh.fakebook.comment",
+    "prodDatabaseType": "mariadb",
+    "serverPort": "8085",
+    "serviceDiscoveryType": "consul",
+    "skipClient": true,
+    "skipCommitHook": true
+  }
+}

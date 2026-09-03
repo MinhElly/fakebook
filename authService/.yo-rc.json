@@ -1,0 +1,27 @@
+{
+  "generator-jhipster": {
+    "applicationIndex": 6,
+    "applicationType": "microservice",
+    "authenticationType": "oauth2",
+    "baseName": "authService",
+    "buildTool": "maven",
+    "cacheProvider": "no",
+    "clientFramework": "no",
+    "creationTimestamp": 1702255982177,
+    "databaseType": "sql",
+    "devDatabaseType": "mariadb",
+    "entities": [],
+    "jhipsterVersion": "9.3.0",
+    "jwtSecretKey": "MWM1N2VmNjA3MTI2MTQ1YzE2MDJhYjJjYTk2NjBlZDE4YWE3NjMxMTVlNTA4YzRhZGRkOTRkNmFlZDc0OGM5YzZmZmMyYjc0M2ZiY2MzZGVmYTI3OThkOTdmNGI4ZWYyMDZlNzQyZWUwZmY4YTI1ZGQxMGEyZjNkMDM1ZGZiMjE=",
+    "languages": ["en"],
+    "messageBroker": "kafka",
+    "monorepository": true,
+    "nativeLanguage": "en",
+    "packageName": "com.minh.fakebook.auth",
+    "prodDatabaseType": "mariadb",
+    "serverPort": "8081",
+    "serviceDiscoveryType": "consul",
+    "skipClient": true,
+    "skipCommitHook": true
+  }
+}

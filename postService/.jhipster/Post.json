@@ -1,0 +1,53 @@
+{
+  "annotations": {
+    "changelogDate": "20231202194627"
+  },
+  "applications": ["postService"],
+  "clientRootFolder": "postService",
+  "databaseType": "sql",
+  "dto": "mapstruct",
+  "entityTableName": "posts",
+  "fields": [
+    {
+      "fieldName": "id",
+      "fieldType": "UUID"
+    },
+    {
+      "fieldName": "authorId",
+      "fieldType": "UUID",
+      "fieldValidateRules": ["required"]
+    },
+    {
+      "fieldName": "content",
+      "fieldType": "TextBlob"
+    },
+    {
+      "fieldName": "visibility",
+      "fieldType": "PostVisibility",
+      "fieldValidateRules": ["required"],
+      "fieldValues": "PUBLIC,FRIENDS,PRIVATE"
+    },
+    {
+      "fieldName": "status",
+      "fieldType": "PostStatus",
+      "fieldValidateRules": ["required"],
+      "fieldValues": "ACTIVE,DELETED"
+    },
+    {
+      "fieldName": "createdAt",
+      "fieldType": "Instant",
+      "fieldValidateRules": ["required"]
+    },
+    {
+      "fieldName": "updatedAt",
+      "fieldType": "Instant"
+    }
+  ],
+  "jpaMetamodelFiltering": true,
+  "microserviceName": "postService",
+  "name": "Post",
+  "pagination": "pagination",
+  "relationships": [],
+  "searchEngine": "no",
+  "service": "serviceClass"
+}

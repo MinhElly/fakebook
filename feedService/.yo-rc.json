@@ -1,0 +1,28 @@
+{
+  "generator-jhipster": {
+    "applicationIndex": 5,
+    "applicationType": "microservice",
+    "authenticationType": "oauth2",
+    "baseName": "feedService",
+    "buildTool": "maven",
+    "cacheProvider": "redis",
+    "clientFramework": "no",
+    "creationTimestamp": 1703005872440,
+    "databaseType": "sql",
+    "devDatabaseType": "mariadb",
+    "entities": ["FeedItem"],
+    "jhipsterVersion": "9.3.0",
+    "jwtSecretKey": "NmM2ZTBjYmM2NjQ4ZTg0YzllODEzZDhmZDJkNzljMTcyMzkzYjU2YzI4ZTY4MDE3Y2VhODE2NTYzYWQ1ZDI4ZjEwYTZhOWE5YTYxODNkZjY3ZWQwNDc4ZmM4ZGYzZjA2MDFiYWRhNzE5ZmMwZTQ0NGZmN2FkYzhkYmYzYTliMjc=",
+    "languages": ["en"],
+    "lastLiquibaseTimestamp": 1703005932000,
+    "messageBroker": "kafka",
+    "monorepository": true,
+    "nativeLanguage": "en",
+    "packageName": "com.minh.fakebook.feed",
+    "prodDatabaseType": "mariadb",
+    "serverPort": "8086",
+    "serviceDiscoveryType": "consul",
+    "skipClient": true,
+    "skipCommitHook": true
+  }
+}
