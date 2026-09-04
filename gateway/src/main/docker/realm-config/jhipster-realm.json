@@ -15,7 +15,6 @@
       "addReadTokenRoleOnCreate": false,
       "authenticateByDefault": false,
       "linkOnly": false,
-      "firstBrokerLoginFlowId": "first broker login",
       "config": {
         "client_id": "${env.KEYCLOAK_GOOGLE_CLIENT_ID:}",
         "client_secret": "${env.KEYCLOAK_GOOGLE_CLIENT_SECRET:}",

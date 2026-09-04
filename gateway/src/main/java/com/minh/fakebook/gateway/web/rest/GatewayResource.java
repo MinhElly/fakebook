@@ -12,6 +12,7 @@ import org.springframework.http.*;
 import org.springframework.security.access.annotation.Secured;
 import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 
 /**
  * REST controller for managing Gateway configuration.
@@ -39,26 +40,44 @@ public class GatewayResource {
      */
     @GetMapping("/routes")
     @Secured(AuthoritiesConstants.ADMIN)
-    public ResponseEntity<List<RouteVM>> activeRoutes() {
-        Flux<Route> routes = routeLocator.getRoutes();
-        List<RouteVM> routeVMs = new ArrayList<>();
-        routes.subscribe(route -> {
-            RouteVM routeVM = new RouteVM();
-            // Manipulate strings to make Gateway routes look like Zuul's
-            String predicate = route.getPredicate().toString();
-            String path = predicate.substring(predicate.indexOf("[") + 1, predicate.indexOf("]"));
-            routeVM.setPath(path);
-            String serviceId = route
-                .getId()
-                .substring(route.getId().indexOf("_") + 1)
-                .toLowerCase();
-            routeVM.setServiceId(serviceId);
-            // Exclude gateway app from routes
-            if (!serviceId.equalsIgnoreCase(appName)) {
-                routeVM.setServiceInstances(discoveryClient.getInstances(serviceId));
-                routeVMs.add(routeVM);
-            }
-        });
-        return ResponseEntity.ok(routeVMs);
+    public Mono<ResponseEntity<List<RouteVM>>> activeRoutes() {
+        return routeLocator
+            .getRoutes()
+            .collectList()
+            .map(routes -> {
+                List<RouteVM> routeVMs = new ArrayList<>();
+                for (Route route : routes) {
+                    RouteVM routeVM = new RouteVM();
+                    
+                    String predicate = route.getPredicate() != null ? route.getPredicate().toString() : "";
+                    String path = predicate;
+                    int startIdx = predicate.indexOf("[");
+                    int endIdx = predicate.indexOf("]");
+                    if (startIdx != -1 && endIdx != -1 && endIdx > startIdx) {
+                        path = predicate.substring(startIdx + 1, endIdx);
+                    }
+                    routeVM.setPath(path);
+
+                    String routeId = route.getId() != null ? route.getId() : "";
+                    String serviceId = routeId;
+                    int underscoreIdx = routeId.indexOf("_");
+                    if (underscoreIdx != -1 && underscoreIdx + 1 < routeId.length()) {
+                        serviceId = routeId.substring(underscoreIdx + 1).toLowerCase();
+                    } else {
+                        serviceId = routeId.toLowerCase();
+                    }
+                    routeVM.setServiceId(serviceId);
+
+                    if (!serviceId.equalsIgnoreCase(appName)) {
+                        try {
+                            routeVM.setServiceInstances(discoveryClient.getInstances(serviceId));
+                        } catch (Exception e) {
+                            routeVM.setServiceInstances(new ArrayList<>());
+                        }
+                        routeVMs.add(routeVM);
+                    }
+                }
+                return ResponseEntity.ok(routeVMs);
+            });
     }
 }
