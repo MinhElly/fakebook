@@ -1,6 +1,7 @@
 package com.minh.fakebook.user.web.rest;
 
 import com.minh.fakebook.user.repository.UserProfileRepository;
+import com.minh.fakebook.user.security.AuthoritiesConstants;
 import com.minh.fakebook.user.service.UserProfileQueryService;
 import com.minh.fakebook.user.service.UserProfileService;
 import com.minh.fakebook.user.service.criteria.UserProfileCriteria;
@@ -10,6 +11,7 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.time.Instant;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -21,6 +23,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
@@ -67,6 +70,7 @@ public class UserProfileResource {
      * @throws URISyntaxException if the Location URI syntax is incorrect.
      */
     @PostMapping("")
+    @PreAuthorize("hasAuthority('"+ AuthoritiesConstants.ADMIN +"')")
     public ResponseEntity<UserProfileDTO> createUserProfile(@Valid @RequestBody UserProfileDTO userProfileDTO) throws URISyntaxException {
         LOG.debug("REST request to save UserProfile : {}", userProfileDTO);
         if (userProfileDTO.getId() != null) {
@@ -89,6 +93,7 @@ public class UserProfileResource {
      * @throws URISyntaxException if the Location URI syntax is incorrect.
      */
     @PutMapping("/{id}")
+    @PreAuthorize("hasAuthority('"+ AuthoritiesConstants.ADMIN +"')")
     public ResponseEntity<UserProfileDTO> updateUserProfile(
         @PathVariable(value = "id", required = false) final UUID id,
         @Valid @RequestBody UserProfileDTO userProfileDTO
@@ -123,6 +128,7 @@ public class UserProfileResource {
      * @throws URISyntaxException if the Location URI syntax is incorrect.
      */
     @PatchMapping(value = "/{id}", consumes = { "application/json", "application/merge-patch+json" })
+    @PreAuthorize("hasAuthority('"+ AuthoritiesConstants.ADMIN +"')")
     public ResponseEntity<UserProfileDTO> partialUpdateUserProfile(
         @PathVariable(value = "id", required = false) final UUID id,
         @NotNull @RequestBody UserProfileDTO userProfileDTO
@@ -154,7 +160,7 @@ public class UserProfileResource {
      * @param criteria the criteria which the requested entities should match.
      * @return the {@link ResponseEntity} with status {@code 200 (OK)} and the list of User Profiles in body.
      */
-    @GetMapping("")
+    @GetMapping("/public") 
     public ResponseEntity<List<UserProfileDTO>> getAllUserProfiles(
         UserProfileCriteria criteria,
         @org.springdoc.core.annotations.ParameterObject Pageable pageable
@@ -184,7 +190,7 @@ public class UserProfileResource {
      * @param id the id of the userProfileDTO to retrieve.
      * @return the {@link ResponseEntity} with status {@code 200 (OK)} and with body the userProfileDTO, or with status {@code 404 (Not Found)}.
      */
-    @GetMapping("public/{id}")
+    @GetMapping("/public/{id}")
     public ResponseEntity<UserProfileDTO> getUserProfile(@PathVariable("id") UUID id) {
         LOG.debug("REST request to get UserProfile : {}", id);
         Optional<UserProfileDTO> userProfileDTO = userProfileService.findOne(id);
@@ -198,6 +204,7 @@ public class UserProfileResource {
      * @return the {@link ResponseEntity} with status {@code 204 (NO_CONTENT)}.
      */
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasAuthority('"+ AuthoritiesConstants.ADMIN +"')")
     public ResponseEntity<Void> deleteUserProfile(@PathVariable("id") UUID id) {
         LOG.debug("REST request to delete UserProfile : {}", id);
         userProfileService.delete(id);
@@ -210,5 +217,33 @@ public class UserProfileResource {
     public ResponseEntity<UserProfileDTO> getCurrentUserProfile(@AuthenticationPrincipal Jwt jwt){
         UserProfileDTO profile = userProfileService.getOrCreateProfile(jwt);
         return ResponseEntity.ok(profile);
+    }
+
+    @PatchMapping(value = "/me", consumes = { "application/json", "application/merge-patch+json" })
+    @PreAuthorize("hasAuthority('"+ AuthoritiesConstants.USER +"')")
+    public ResponseEntity<UserProfileDTO> UpdateUserOwnProfile(
+        @NotNull @RequestBody UserProfileDTO userProfileDTO,
+        @AuthenticationPrincipal Jwt jwt
+    ) throws URISyntaxException {
+        UUID id = UUID.fromString(jwt.getSubject());
+        LOG.debug("REST request to user update their own profile partially : {}, {}", id, userProfileDTO);
+        userProfileDTO.setId(id);
+        if (!userProfileRepository.existsById(id)) {
+            throw new BadRequestAlertException("Entity not found", ENTITY_NAME, "idnotfound");
+        }
+        UserProfileDTO safeUpdateDto = new UserProfileDTO();
+        safeUpdateDto.setId(id);
+        safeUpdateDto.setDisplayName(userProfileDTO.getDisplayName());
+        safeUpdateDto.setBio(userProfileDTO.getBio());
+        safeUpdateDto.setAvatarMediaId(userProfileDTO.getAvatarMediaId());
+        safeUpdateDto.setCoverMediaId(userProfileDTO.getCoverMediaId());
+        safeUpdateDto.setUpdatedAt(Instant.now()); 
+        
+        Optional<UserProfileDTO> result = userProfileService.partialUpdate(safeUpdateDto);
+
+        return ResponseUtil.wrapOrNotFound(
+            result,
+            HeaderUtil.createEntityUpdateAlert(applicationName, true, ENTITY_NAME, userProfileDTO.getId().toString())
+        );
     }
 }

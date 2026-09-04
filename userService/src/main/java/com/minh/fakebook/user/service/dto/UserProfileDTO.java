@@ -7,14 +7,17 @@ import java.time.Instant;
 import java.util.Objects;
 import java.util.UUID;
 
+import io.swagger.v3.oas.annotations.media.Schema;
+
 /**
  * A DTO for the {@link com.minh.fakebook.user.domain.UserProfile} entity.
  */
 @SuppressWarnings("common-java:DuplicatedBlocks")
 public class UserProfileDTO implements Serializable {
-
+    @Schema(accessMode = Schema.AccessMode.READ_ONLY)
     private UUID id;
-
+    
+    @Schema(accessMode = Schema.AccessMode.READ_ONLY)
     @NotNull
     @Size(max = 50)
     private String username;
@@ -30,9 +33,11 @@ public class UserProfileDTO implements Serializable {
 
     private UUID coverMediaId;
 
+    @Schema(accessMode = Schema.AccessMode.READ_ONLY)
     @NotNull
     private Instant createdAt;
 
+    @Schema(accessMode = Schema.AccessMode.READ_ONLY)
     private Instant updatedAt;
 
     public UUID getId() {
