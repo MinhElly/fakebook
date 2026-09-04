@@ -5,6 +5,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.stream.Stream;
 import org.springframework.security.authentication.AnonymousAuthenticationToken;
 import org.springframework.security.core.Authentication;
@@ -121,5 +122,16 @@ public final class SecurityUtils {
             .filter(role -> role.startsWith("ROLE_"))
             .<GrantedAuthority>map(SimpleGrantedAuthority::new)
             .toList();
+    }
+
+    public static Optional<UUID> getCurrentUserId(){
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if(authentication instanceof JwtAuthenticationToken jwToken){
+            String sub = jwToken.getToken().getSubject();
+            if(sub != null && !sub.isBlank()){
+                return Optional.of(UUID.fromString(sub));
+            }
+        }
+        return Optional.empty();
     }
 }

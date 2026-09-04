@@ -4,10 +4,13 @@ import com.minh.fakebook.user.domain.UserProfile;
 import com.minh.fakebook.user.repository.UserProfileRepository;
 import com.minh.fakebook.user.service.dto.UserProfileDTO;
 import com.minh.fakebook.user.service.mapper.UserProfileMapper;
+
+import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -95,5 +98,24 @@ public class UserProfileService {
     public void delete(UUID id) {
         LOG.debug("Request to delete UserProfile : {}", id);
         userProfileRepository.deleteById(id);
+    }
+
+    /**
+     * Lay profile hien tai tu JWT, neu chua co thi tu dong khoi tao moi voi ID trung voi keycloak sub
+     * 
+     */
+    public UserProfileDTO getOrCreateProfile(Jwt jwt){
+        UUID userId = UUID.fromString(jwt.getSubject());
+        String username = jwt.getClaimAsString("preferred_username");
+        return userProfileRepository.findById(userId).map(userProfileMapper::toDto)
+        .orElseGet(()->{LOG.info("create new user profile for keycloak user sub: {}", userId);
+            UserProfile newProfile = new UserProfile();
+            newProfile.setId(userId);
+            newProfile.setUsername(username != null ? username : userId.toString());
+            String name = jwt.getClaimAsString("name");
+            newProfile.setDisplayName(name != null ? name : newProfile.getUsername());
+            newProfile.setCreatedAt(Instant.now());
+            return userProfileMapper.toDto(userProfileRepository.save(newProfile));    
+        });
     }
 }
