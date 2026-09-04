@@ -12,4 +12,6 @@ import org.springframework.stereotype.Repository;
 @Repository
 public interface PostMediaRepository extends JpaRepository<PostMedia, UUID>, JpaSpecificationExecutor<PostMedia> {
     java.util.List<PostMedia> findByPostIdOrderByDisplayOrderAsc(java.util.UUID postId);
+
+    void deleteByPostId(java.util.UUID postId);
 }
