@@ -72,9 +72,15 @@ public class PostReactionResource {
             throw new BadRequestAlertException("A new postReaction cannot already have an ID", ENTITY_NAME, "idexists");
         }
         postReactionDTO = postReactionService.save(postReactionDTO);
-        return ResponseEntity.created(new URI("/api/post-reactions/" + postReactionDTO.getId()))
-            .headers(HeaderUtil.createEntityCreationAlert(applicationName, true, ENTITY_NAME, postReactionDTO.getId().toString()))
-            .body(postReactionDTO);
+        if (postReactionDTO == null) {
+            return ResponseEntity.noContent().build();
+        }
+
+        return ResponseEntity.created(new URI("/api/post-reactions/" +
+                postReactionDTO.getId()))
+                .headers(HeaderUtil.createEntityCreationAlert(applicationName,
+                        true, ENTITY_NAME, postReactionDTO.getId().toString()))
+                .body(postReactionDTO);
     }
 
     /**

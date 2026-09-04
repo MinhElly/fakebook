@@ -46,16 +46,62 @@ public class PostService {
     }
 
     /**
-     * Update a post.
+     * Update a post (content, visibility, and media). Enforces authorship.
      *
-     * @param postDTO the entity to save.
+     * @param postDTO the entity to update.
      * @return the persisted entity.
+     * @throws org.springframework.security.access.AccessDeniedException if not the author.
      */
     public PostDTO update(PostDTO postDTO) {
         LOG.debug("Request to update Post : {}", postDTO);
-        Post post = postMapper.toEntity(postDTO);
-        post = postRepository.save(post);
-        return postMapper.toDto(post);
+
+        //1. Fetch existing post from DB
+        com.minh.fakebook.post.domain.Post existingPost = postRepository.findById(postDTO.getId())
+                .orElseThrow(() -> new IllegalArgumentException("Error: Post not found " + postDTO.getId()));
+
+        //2. Verify authorship
+        org.springframework.security.core.Authentication auth = org.springframework.security.core.context.SecurityContextHolder
+                .getContext().getAuthentication();
+        if (auth == null || !auth.isAuthenticated() || "anonymousUser".equals(auth.getPrincipal())) {
+            throw new org.springframework.security.access.AccessDeniedException(
+                    "Error: You must be logged in to update a post.");
+        }
+        String sub = ((org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken) auth)
+                .getToken().getSubject();
+
+        if (!existingPost.getAuthorId().toString().equals(sub)) {
+            throw new org.springframework.security.access.AccessDeniedException(
+                    "Error: Only the author can update this post.");
+        }
+        
+        //3. Update ONLY allowed fields
+        existingPost.setContent(postDTO.getContent());
+        existingPost.setVisibility(postDTO.getVisibility());
+        existingPost.setUpdatedAt(java.time.Instant.now());
+
+        postRepository.save(existingPost);
+
+        //4. Replace media links
+        postMediaRepository.deleteByPostId(existingPost.getId());
+        java.util.List<java.util.UUID> newMediaIds = postDTO.getMediaIds();
+        if (newMediaIds != null && !newMediaIds.isEmpty()) {
+            java.util.List<com.minh.fakebook.post.domain.PostMedia> postMedias = new java.util.ArrayList<>();
+            for (int i = 0; i < newMediaIds.size(); i++) {
+                com.minh.fakebook.post.domain.PostMedia pm = new com.minh.fakebook.post.domain.PostMedia();
+                pm.setMediaId(newMediaIds.get(i));
+                pm.setPost(existingPost);
+                pm.setDisplayOrder(i);
+                pm.setCreatedAt(java.time.Instant.now());
+                postMedias.add(pm);
+            }
+            postMediaRepository.saveAll(postMedias);
+        }
+
+        //5. Convert and return DTO
+        PostDTO resultDTO = postMapper.toDto(existingPost);
+        resultDTO.setMediaIds(newMediaIds);
+
+        return resultDTO;
     }
 
     /**
@@ -79,12 +125,36 @@ public class PostService {
     }
     
     /**
-     * Delete the post by id.
+     * Delete the post by id. Enforces authorship and cleans up local links.
      *
      * @param id the id of the entity.
+     * @throws org.springframework.security.access.AccessDeniedException if not the author.
      */
-    public void delete(UUID id) {
-        LOG.debug("Request to delete Post : {}", id);
+    public void delete(java.util.UUID id) {
+        //1. Fetch existing post form DB
+        com.minh.fakebook.post.domain.Post existingPost = postRepository.findById(id).
+                orElseThrow(() -> new IllegalArgumentException("Error: Post not found " + id));
+        
+        //2. Verify authorship
+        org.springframework.security.core.Authentication auth = org.springframework.security.core.context.SecurityContextHolder
+                .getContext().getAuthentication();
+        if (auth == null || !auth.isAuthenticated() || "anonymousUser".equals(auth.getPrincipal())) {
+            throw new org.springframework.security.access.AccessDeniedException(
+                    "Error: You must logged in to delete a post.");
+        }
+        String sub = ((org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken) auth)
+                .getToken().getSubject();
+        if (!existingPost.getAuthorId().toString().equals(sub)) {
+            throw new org.springframework.security.access.AccessDeniedException(
+                    "Errorr: Only the author can delete this post.");
+        }
+                
+        //3. Clear local media links first to avoid DB Constraint violations
+        postMediaRepository.deleteByPostId(id);
+
+        //4. TODO: Namastack Outbox Event - Notify mediaService to clean up physical files via Kafka
+
+        //5. Delete the actual post
         postRepository.deleteById(id);
     }
 
@@ -147,7 +217,7 @@ public class PostService {
      *
      * @param id the id of the entity.
      * @return the entity wrapped in Optional.
-     * @throws org.springframework.security.access.AccessDeniedException if the current user lacks permission.                                                                   user lackspermission.
+     * @throws org.springframework.security.access.AccessDeniedException if the current user lacks permission.
      */
     @Transactional(readOnly = true)
     public Optional<PostDTO> findOne(java.util.UUID id) {

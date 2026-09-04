@@ -30,17 +30,57 @@ public class PostReactionService {
     }
 
     /**
-     * Save a postReaction.
+     * Save or update a postReaction (Upsert). Enforces userId via JWT.
      *
      * @param postReactionDTO the entity to save.
-     * @return the persisted entity.
+     * @return the persisted entity, or null if the reaction was deleted (Unlike).
+     * @throws org.springframework.security.access.AccessDeniedException if not logged in.
      */
     public PostReactionDTO save(PostReactionDTO postReactionDTO) {
-        LOG.debug("Request to save PostReaction : {}", postReactionDTO);
-        PostReaction postReaction = postReactionMapper.toEntity(postReactionDTO);
-        postReaction = postReactionRepository.save(postReaction);
-        return postReactionMapper.toDto(postReaction);
-    }
+            LOG.debug("Request to Upsert/Toggle PostReaction : {}",
+  postReactionDTO);
+
+            org.springframework.security.core.Authentication auth = org.
+  springframework.security.core.context.SecurityContextHolder.getContext().
+  getAuthentication();
+            if (auth == null || !auth.isAuthenticated() || "anonymousUser".
+  equals(auth.getPrincipal())) {
+                throw new org.springframework.security.access.
+  AccessDeniedException("Error: You must be logged in to react.");
+            }
+            java.util.UUID currentUserId = java.util.UUID.fromString(((org.
+  springframework.security.oauth2.server.resource.authentication.
+  JwtAuthenticationToken) auth).getToken().getSubject());
+
+            postReactionDTO.setUserId(currentUserId);
+            java.util.UUID postId = postReactionDTO.getPost().getId();
+
+            java.util.Optional<com.minh.fakebook.post.domain.PostReaction>
+  existingReactionOpt = postReactionRepository.findByPostIdAndUserId(postId,
+  currentUserId);
+
+            if (existingReactionOpt.isPresent()) {
+                com.minh.fakebook.post.domain.PostReaction postReaction =
+  existingReactionOpt.get();
+
+                if (postReaction.getReactionType() == postReactionDTO.
+  getReactionType()) {
+                    postReactionRepository.delete(postReaction);
+                    return null; 
+                }
+
+                postReaction.setReactionType(postReactionDTO.getReactionType());
+                postReaction.setUpdatedAt(java.time.Instant.now());
+                postReaction = postReactionRepository.save(postReaction);
+                return postReactionMapper.toDto(postReaction);
+            } else {
+                com.minh.fakebook.post.domain.PostReaction postReaction =
+  postReactionMapper.toEntity(postReactionDTO);
+                postReaction.setCreatedAt(java.time.Instant.now());
+                postReaction = postReactionRepository.save(postReaction);
+                return postReactionMapper.toDto(postReaction);
+            }
+        }
 
     /**
      * Update a postReaction.
