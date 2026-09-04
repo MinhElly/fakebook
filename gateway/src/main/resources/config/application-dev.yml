@@ -110,3 +110,10 @@ jhipster:
 # ===================================================================
 
 # application:
+
+springdoc:
+  api-docs:
+    enabled: true
+  swagger-ui:
+    enabled: true
+

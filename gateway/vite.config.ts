@@ -18,16 +18,10 @@ const config = defineConfig({
       targets: [
         {
           src: [
-            `${normalizePath(swaggerUiPath)}/*.{js,css,html,png}`,
-            `!${normalizePath(swaggerUiPath)}/**/index.html`,
-            normalizePath(fileURLToPath(new URL('./dist/axios.min.js', import.meta.resolve('axios/package.json')))),
-            normalizePath(fileURLToPath(new URL('./src/main/webapp/swagger-ui/index.html', import.meta.url))),
+            'swagger-ui/*',
           ],
-          dest: 'swagger-ui',
-          rename: (name, ext, srcPath) => {
-            const rel = path.relative(webappDir, path.dirname(srcPath)).replace(/^(\.\.\/)+/, '');
-            return `${'../'.repeat(rel === '.' ? 0 : rel.split('/').length)}${name}.${ext}`;
-          },
+          dest: '.',
+          rename: (name, ext) => `${name}.${ext}`,
         },
       ],
     }),
