@@ -196,7 +196,28 @@ public class PostResource {
         LOG.debug("REST request to delete Post : {}", id);
         postService.delete(id);
         return ResponseEntity.noContent()
-            .headers(HeaderUtil.createEntityDeletionAlert(applicationName, true, ENTITY_NAME, id.toString()))
-            .build();
+                .headers(HeaderUtil.createEntityDeletionAlert(applicationName, true, ENTITY_NAME, id.toString()))
+                .build();
+    }
+    
+    /**
+     * {@code POST  /api/posts/create} : Create a new post.
+     *
+     * @param request The request body containing the content and visibility.
+     * @return The {@link org.springframework.http.ResponseEntity} with status
+     *         {@code 201
+    (Created)} and the created post DTO.
+     */
+    @org.springframework.web.bind.annotation.PostMapping("/create")
+    public org.springframework.http.ResponseEntity<com.minh.fakebook.post.service.dto.PostDTO> createNewPost(
+            @org.springframework.web.bind.annotation.RequestBody com.minh.fakebook.post.service.dto.CreatePostRequestDTO request) {
+
+        LOG.debug("REST request to create a new Post : {}", request);
+
+        com.minh.fakebook.post.service.dto.PostDTO result = postService.createPost(request.content(),
+                request.visibility(), request.mediaIds());
+
+        return org.springframework.http.ResponseEntity.status(201).body(result);
     }
 }
+

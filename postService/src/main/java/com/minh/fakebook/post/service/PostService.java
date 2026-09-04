@@ -24,9 +24,12 @@ public class PostService {
 
     private final PostMapper postMapper;
 
-    public PostService(PostRepository postRepository, PostMapper postMapper) {
+    private final com.minh.fakebook.post.repository.PostMediaRepository postMediaRepository;
+
+    public PostService(PostRepository postRepository, PostMapper postMapper, com.minh.fakebook.post.repository.PostMediaRepository postMediaRepository) {
         this.postRepository = postRepository;
         this.postMapper = postMapper;
+        this.postMediaRepository = postMediaRepository;
     }
 
     /**
@@ -96,4 +99,57 @@ public class PostService {
         LOG.debug("Request to delete Post : {}", id);
         postRepository.deleteById(id);
     }
+
+    /**
+     * Handles the business logic for creating a new post.
+     * Automatically extracts the author's UUID from the JWT token to prevent
+     * spoofing attacks.
+     *
+     * @param content    The text content of the post.
+     * @param visibility The visibility level of the post (PUBLIC, FRIENDS,
+     *                   PRIVATE).
+     * @return A PostDTO containing the newly created post data.
+     * @throws RuntimeException if the user is not authenticated.
+     */
+    public com.minh.fakebook.post.service.dto.PostDTO createPost(String content,
+            com.minh.fakebook.post.domain.enumeration.PostVisibility visibility, java.util.List<java.util.UUID> mediaIds) {
+        LOG.debug("Request to create a new Post by current user");
+
+        // 1. Extract user UUID from JWT Token 
+        java.util.UUID authorId;
+        org.springframework.security.core.Authentication auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+        if (auth instanceof org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken jwtAuth) {
+            String sub = jwtAuth.getToken().getSubject();
+            authorId = java.util.UUID.fromString(sub);
+        } else {
+            throw new RuntimeException("Error: Cannot extract JWT token to get User ID.");
+        }
+
+        // 2. Initialize new Post entity
+        com.minh.fakebook.post.domain.Post newPost = new com.minh.fakebook.post.domain.Post();
+        newPost.setAuthorId(authorId);
+        newPost.setContent(content);
+        newPost.setVisibility(visibility);
+        newPost.setStatus(com.minh.fakebook.post.domain.enumeration.PostStatus.ACTIVE);
+        newPost.setCreatedAt(java.time.Instant.now());
+
+        // 3. Save to Database
+        newPost = postRepository.save(newPost);
+        
+        // 4. Save attached media files (if any)
+        if (mediaIds != null && !mediaIds.isEmpty()) {
+            int order = 0;
+            for (java.util.UUID mediaId : mediaIds) {
+                com.minh.fakebook.post.domain.PostMedia postMedia = new com.minh.fakebook.post.domain.PostMedia();
+                postMedia.setPost(newPost);
+                postMedia.setMediaId(mediaId);
+                postMedia.setDisplayOrder(order++);
+                postMedia.setCreatedAt(java.time.Instant.now());
+                postMediaRepository.save(postMedia);
+            }
+        }
+        
+        return postMapper.toDto(newPost);
+    }
 }
+
