@@ -10,4 +10,6 @@ import org.springframework.stereotype.Repository;
  */
 @SuppressWarnings("unused")
 @Repository
-public interface PostMediaRepository extends JpaRepository<PostMedia, UUID>, JpaSpecificationExecutor<PostMedia> {}
+public interface PostMediaRepository extends JpaRepository<PostMedia, UUID>, JpaSpecificationExecutor<PostMedia> {
+    java.util.List<PostMedia> findByPostIdOrderByDisplayOrderAsc(java.util.UUID postId);
+}

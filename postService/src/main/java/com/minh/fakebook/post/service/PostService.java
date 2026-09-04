@@ -68,28 +68,16 @@ public class PostService {
         LOG.debug("Request to partially update Post : {}", postDTO);
 
         return postRepository
-            .findById(postDTO.getId())
-            .map(existingPost -> {
-                postMapper.partialUpdate(existingPost, postDTO);
+                .findById(postDTO.getId())
+                .map(existingPost -> {
+                    postMapper.partialUpdate(existingPost, postDTO);
 
-                return existingPost;
-            })
-            .map(postRepository::save)
-            .map(postMapper::toDto);
+                    return existingPost;
+                })
+                .map(postRepository::save)
+                .map(postMapper::toDto);
     }
-
-    /**
-     * Get one post by id.
-     *
-     * @param id the id of the entity.
-     * @return the entity.
-     */
-    @Transactional(readOnly = true)
-    public Optional<PostDTO> findOne(UUID id) {
-        LOG.debug("Request to get Post : {}", id);
-        return postRepository.findById(id).map(postMapper::toDto);
-    }
-
+    
     /**
      * Delete the post by id.
      *
@@ -112,12 +100,14 @@ public class PostService {
      * @throws RuntimeException if the user is not authenticated.
      */
     public com.minh.fakebook.post.service.dto.PostDTO createPost(String content,
-            com.minh.fakebook.post.domain.enumeration.PostVisibility visibility, java.util.List<java.util.UUID> mediaIds) {
+            com.minh.fakebook.post.domain.enumeration.PostVisibility visibility,
+            java.util.List<java.util.UUID> mediaIds) {
         LOG.debug("Request to create a new Post by current user");
 
         // 1. Extract user UUID from JWT Token 
         java.util.UUID authorId;
-        org.springframework.security.core.Authentication auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+        org.springframework.security.core.Authentication auth = org.springframework.security.core.context.SecurityContextHolder
+                .getContext().getAuthentication();
         if (auth instanceof org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken jwtAuth) {
             String sub = jwtAuth.getToken().getSubject();
             authorId = java.util.UUID.fromString(sub);
@@ -135,7 +125,7 @@ public class PostService {
 
         // 3. Save to Database
         newPost = postRepository.save(newPost);
-        
+
         // 4. Save attached media files (if any)
         if (mediaIds != null && !mediaIds.isEmpty()) {
             int order = 0;
@@ -148,8 +138,60 @@ public class PostService {
                 postMediaRepository.save(postMedia);
             }
         }
-        
+
         return postMapper.toDto(newPost);
+    }
+    
+    /**
+     * Get one post by id, including its media attachments. Enforces privacy visibility rules.
+     *
+     * @param id the id of the entity.
+     * @return the entity wrapped in Optional.
+     * @throws org.springframework.security.access.AccessDeniedException if the current user lacks permission.                                                                   user lackspermission.
+     */
+    @Transactional(readOnly = true)
+    public Optional<PostDTO> findOne(java.util.UUID id) {
+        LOG.debug("Request to get Post : {}", id);
+        return postRepository.findById(id).map(post -> {
+
+            org.springframework.security.core.Authentication auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+            boolean isGuest = (auth == null || !auth.isAuthenticated() || "annonymousUser".equals(auth.getPrincipal()));
+
+            // 1. Check Private Visibility
+            if (post.getVisibility() == com.minh.fakebook.post.domain.enumeration.PostVisibility.PRIVATE) {
+                if (isGuest) {
+                    throw new org.springframework.security.access.AccessDeniedException(
+                            "Error: You do not have permission to view this private post.");
+                }
+                String sub = ((org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken) auth)
+                        .getToken().getSubject();
+                if (!post.getAuthorId().toString().equals(sub)) {
+                    throw new org.springframework.security.access.AccessDeniedException(
+                            "Error: Only the author can view this private post.");
+                }
+            }
+
+            // 2. Check Friends Visibility
+            if (post.getVisibility() == com.minh.fakebook.post.domain.enumeration.PostVisibility.FRIENDS) {
+                if (isGuest) {
+                    throw new org.springframework.security.access.AccessDeniedException(
+                            "Error: You must be logged in to view this friends-only post.");
+                }
+                // TODO: Integrate with FriendshipService via FeignClient/Kafka to verify friendship status between the current user and the post's author.
+            }
+
+            //3. Convert to DTO
+            com.minh.fakebook.post.service.dto.PostDTO dto = postMapper.toDto(post);
+
+            //4. Fetch and attach media IDs
+            java.util.List<java.util.UUID> mediaIds = postMediaRepository.findByPostIdOrderByDisplayOrderAsc(post.getId())
+                    .stream()
+                    .map(com.minh.fakebook.post.domain.PostMedia::getMediaId)
+                    .toList();
+            dto.setMediaIds(mediaIds);
+
+            return dto;
+        });
     }
 }
 
