@@ -90,6 +90,16 @@ public class PostDTO implements Serializable {
         this.updatedAt = updatedAt;
     }
 
+    private java.util.List<java.util.UUID> mediaIds;
+
+    public java.util.List<java.util.UUID> getMediaIds() {
+        return mediaIds;
+    }
+
+    public void setMediaIds(java.util.List<java.util.UUID> mediaIds) {
+        this.mediaIds = mediaIds;
+    }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) {
