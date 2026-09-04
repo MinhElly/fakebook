@@ -21,7 +21,6 @@ public class UserProfile implements Serializable {
     private static final long serialVersionUID = 1L;
 
     @Id
-    @GeneratedValue
     @JdbcTypeCode(SqlTypes.VARCHAR)
     @Column(name = "id", length = 36)
     private UUID id;

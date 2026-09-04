@@ -21,6 +21,8 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 import tech.jhipster.web.util.HeaderUtil;
@@ -182,7 +184,7 @@ public class UserProfileResource {
      * @param id the id of the userProfileDTO to retrieve.
      * @return the {@link ResponseEntity} with status {@code 200 (OK)} and with body the userProfileDTO, or with status {@code 404 (Not Found)}.
      */
-    @GetMapping("/{id}")
+    @GetMapping("public/{id}")
     public ResponseEntity<UserProfileDTO> getUserProfile(@PathVariable("id") UUID id) {
         LOG.debug("REST request to get UserProfile : {}", id);
         Optional<UserProfileDTO> userProfileDTO = userProfileService.findOne(id);
@@ -202,5 +204,11 @@ public class UserProfileResource {
         return ResponseEntity.noContent()
             .headers(HeaderUtil.createEntityDeletionAlert(applicationName, true, ENTITY_NAME, id.toString()))
             .build();
+    }
+
+    @GetMapping("/me")
+    public ResponseEntity<UserProfileDTO> getCurrentUserProfile(@AuthenticationPrincipal Jwt jwt){
+        UserProfileDTO profile = userProfileService.getOrCreateProfile(jwt);
+        return ResponseEntity.ok(profile);
     }
 }
