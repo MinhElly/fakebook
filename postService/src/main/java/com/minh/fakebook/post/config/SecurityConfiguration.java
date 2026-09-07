@@ -45,6 +45,7 @@ public class SecurityConfiguration {
                     .requestMatchers("/api/auth-info").permitAll()
                     .requestMatchers("/api/admin/**").hasAuthority(AuthoritiesConstants.ADMIN)
                     .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/posts/**").permitAll() // guest view public posts (GET)
+                    .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/post-reactions/**").permitAll() //guest view public post reactions (GET)
                     .requestMatchers("/api/**").authenticated()
                     .requestMatchers("/v3/api-docs/**").hasAuthority(AuthoritiesConstants.ADMIN)
                     .requestMatchers("/management/health").permitAll()

@@ -26,10 +26,13 @@ public class PostService {
 
     private final com.minh.fakebook.post.repository.PostMediaRepository postMediaRepository;
 
-    public PostService(PostRepository postRepository, PostMapper postMapper, com.minh.fakebook.post.repository.PostMediaRepository postMediaRepository) {
+    private final com.minh.fakebook.post.repository.PostReactionRepository postReactionRepository;
+
+    public PostService(PostRepository postRepository, PostMapper postMapper, com.minh.fakebook.post.repository.PostMediaRepository postMediaRepository, com.minh.fakebook.post.repository.PostReactionRepository postReactionRepository) {
         this.postRepository = postRepository;
         this.postMapper = postMapper;
         this.postMediaRepository = postMediaRepository;
+        this.postReactionRepository = postReactionRepository;
     }
 
     /**
@@ -43,12 +46,15 @@ public class PostService {
         Post post = postMapper.toEntity(postDTO);
         post = postRepository.save(post);
         return postMapper.toDto(post);
+        // TODO (Kafka/Outbox): Emit "POST_CREATED" event to Kafka.
+        // Purpose: feedService consumes this event to fan-out the post into the authors' friends' News Feeds.
     }
 
     /**
      * Update a post (content, visibility, and media). Enforces authorship.
      *
      * @param postDTO the entity to update.
+     *                                                                   
      * @return the persisted entity.
      * @throws org.springframework.security.access.AccessDeniedException if not the author.
      */
@@ -101,11 +107,14 @@ public class PostService {
         PostDTO resultDTO = postMapper.toDto(existingPost);
         resultDTO.setMediaIds(newMediaIds);
 
+        // TODO (Kafka/Outbox): Emit "POST_UPDATED" event to Kafka.
+        // Purpose: Notify feedService to update the post content in the News Feeds.
+
         return resultDTO;
     }
 
     /**
-     * Partially update a post.
+     * Partially update a post. Enforces authorship and prevents Mass Assignment.
      *
      * @param postDTO the entity to update partially.
      * @return the persisted entity.
@@ -116,45 +125,81 @@ public class PostService {
         return postRepository
                 .findById(postDTO.getId())
                 .map(existingPost -> {
-                    postMapper.partialUpdate(existingPost, postDTO);
+                    org.springframework.security.core.Authentication auth = org.springframework.security.core.context.SecurityContextHolder
+                            .getContext().getAuthentication();
+                    if (auth == null || !auth.isAuthenticated() || "anonymousUser".equals(auth.getPrincipal())) {
+                        throw new org.springframework.security.access.AccessDeniedException(
+                                "Error: You must be logged in to update a post.");
+                    }
+                    String sub = ((org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken) auth)
+                            .getToken().getSubject();
+
+                    if (!existingPost.getAuthorId().toString().equals(sub)) {
+                        throw new org.springframework.security.access.AccessDeniedException(
+                                "Error: Only the author can update this post.");
+                    }
+
+                    // update only allowed fields (content, visibility). Do NOT update sensitive fields like status, authorId, or id.
+                    if (postDTO.getContent() != null) {
+                        existingPost.setContent(postDTO.getContent());
+                    }
+                    if (postDTO.getVisibility() != null) {
+                        existingPost.setVisibility(postDTO.getVisibility());
+                    }
+
+                    existingPost.setUpdatedAt(java.time.Instant.now());
 
                     return existingPost;
                 })
                 .map(postRepository::save)
                 .map(postMapper::toDto);
+
+            // TODO (Kafka/Outbox): Emit "POST_UPDATED" event to Kafka.
+            // Purpose: Notify feedService to update the post content in the News Feeds.
     }
     
     /**
      * Delete the post by id. Enforces authorship and cleans up local links.
+     *                                                                   
      *
      * @param id the id of the entity.
      * @throws org.springframework.security.access.AccessDeniedException if not the author.
      */
     public void delete(java.util.UUID id) {
-        //1. Fetch existing post form DB
-        com.minh.fakebook.post.domain.Post existingPost = postRepository.findById(id).
-                orElseThrow(() -> new IllegalArgumentException("Error: Post not found " + id));
-        
-        //2. Verify authorship
+        LOG.debug("Request to delete Post : {}", id);
+
+        // 1. Fetch existing post from DB
+        com.minh.fakebook.post.domain.Post existingPost = postRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Error: Post not found " + id));
+
+        // 2. Verify authorship or ADMIN role
         org.springframework.security.core.Authentication auth = org.springframework.security.core.context.SecurityContextHolder
                 .getContext().getAuthentication();
         if (auth == null || !auth.isAuthenticated() || "anonymousUser".equals(auth.getPrincipal())) {
             throw new org.springframework.security.access.AccessDeniedException(
-                    "Error: You must logged in to delete a post.");
+                    "Error: You must be logged in to delete a post.");
         }
+
         String sub = ((org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken) auth)
                 .getToken().getSubject();
-        if (!existingPost.getAuthorId().toString().equals(sub)) {
+
+        // Check if the current user has the ADMIN role
+        boolean isAdmin = auth.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals(com.minh.fakebook.post.security.AuthoritiesConstants.ADMIN));
+
+        // Block if the user is NEITHER the author NOR an admin
+        if (!existingPost.getAuthorId().toString().equals(sub) && !isAdmin) {
             throw new org.springframework.security.access.AccessDeniedException(
-                    "Errorr: Only the author can delete this post.");
+                    "Error: Only the author or an Admin can delete this post.");
         }
-                
-        //3. Clear local media links first to avoid DB Constraint violations
+
+        // 3. Delete associated media and reactions
         postMediaRepository.deleteByPostId(id);
+        postReactionRepository.deleteByPostId(id);
 
-        //4. TODO: Namastack Outbox Event - Notify mediaService to clean up physical files via Kafka
+        // 4. TODO: Namastack Outbox Event - Notify mediaService to clean up physical files via Kafka
 
-        //5. Delete the actual post
+        // 5. Delete the actual post
         postRepository.deleteById(id);
     }
 
@@ -224,44 +269,52 @@ public class PostService {
         LOG.debug("Request to get Post : {}", id);
         return postRepository.findById(id).map(post -> {
 
-            org.springframework.security.core.Authentication auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
-            boolean isGuest = (auth == null || !auth.isAuthenticated() || "annonymousUser".equals(auth.getPrincipal()));
+                org.springframework.security.core.Authentication auth = org.springframework.security.core.context.
+  SecurityContextHolder.getContext().getAuthentication();
+                boolean isGuest = (auth == null || !auth.isAuthenticated() || "anonymousUser".equals(auth.getPrincipal()));
+                boolean isAdmin = !isGuest && auth.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals(com.minh.
+  fakebook.post.security.AuthoritiesConstants.ADMIN));
 
-            // 1. Check Private Visibility
-            if (post.getVisibility() == com.minh.fakebook.post.domain.enumeration.PostVisibility.PRIVATE) {
-                if (isGuest) {
-                    throw new org.springframework.security.access.AccessDeniedException(
-                            "Error: You do not have permission to view this private post.");
+
+                if (post.getStatus() == com.minh.fakebook.post.domain.enumeration.PostStatus.DELETED && !isAdmin) {
+                    throw new org.springframework.security.access.AccessDeniedException("Error: Post not found or has been deleted.");
                 }
-                String sub = ((org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken) auth)
-                        .getToken().getSubject();
-                if (!post.getAuthorId().toString().equals(sub)) {
-                    throw new org.springframework.security.access.AccessDeniedException(
-                            "Error: Only the author can view this private post.");
+ 
+
+                // 1. Check Private Visibility
+                if (post.getVisibility() == com.minh.fakebook.post.domain.enumeration.PostVisibility.PRIVATE) {
+                    if (isGuest) {
+                        throw new org.springframework.security.access.AccessDeniedException("Error: You do not have permission to view this private post.");
+                    }
+                    if (!isAdmin) {
+                        String sub = ((org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken)
+  auth).getToken().getSubject();
+                        if (!post.getAuthorId().toString().equals(sub)) {
+                            throw new org.springframework.security.access.AccessDeniedException("Error: Only the author can view this private post.");
+                        }
+                    }
                 }
-            }
 
-            // 2. Check Friends Visibility
-            if (post.getVisibility() == com.minh.fakebook.post.domain.enumeration.PostVisibility.FRIENDS) {
-                if (isGuest) {
-                    throw new org.springframework.security.access.AccessDeniedException(
-                            "Error: You must be logged in to view this friends-only post.");
+                // 2. Check Friends Visibility
+                if (post.getVisibility() == com.minh.fakebook.post.domain.enumeration.PostVisibility.FRIENDS && !isAdmin) {
+                    if (isGuest) {
+                        throw new org.springframework.security.access.AccessDeniedException("Error: You must be logged in to view this friends-only post.");
+                    }
+                // TODO: Integrate with FriendshipService via FeignClient/Kafka
                 }
-                // TODO: Integrate with FriendshipService via FeignClient/Kafka to verify friendship status between the current user and the post's author.
-            }
 
-            //3. Convert to DTO
-            com.minh.fakebook.post.service.dto.PostDTO dto = postMapper.toDto(post);
+                // 3. Convert to DTO
+                com.minh.fakebook.post.service.dto.PostDTO dto = postMapper.toDto(post);
 
-            //4. Fetch and attach media IDs
-            java.util.List<java.util.UUID> mediaIds = postMediaRepository.findByPostIdOrderByDisplayOrderAsc(post.getId())
-                    .stream()
-                    .map(com.minh.fakebook.post.domain.PostMedia::getMediaId)
-                    .toList();
-            dto.setMediaIds(mediaIds);
+                // 4. Fetch and attach media IDs
+                java.util.List<java.util.UUID> mediaIds = postMediaRepository.findByPostIdOrderByDisplayOrderAsc(post.getId())
+                        .stream()
+                        .map(com.minh.fakebook.post.domain.PostMedia::getMediaId)
+                        .toList();
+                dto.setMediaIds(mediaIds);
 
-            return dto;
-        });
+                return dto;
+            });
     }
 }
 

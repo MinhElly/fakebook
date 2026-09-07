@@ -13,5 +13,9 @@ import org.springframework.stereotype.Repository;
 public interface PostReactionRepository
         extends JpaRepository<PostReaction, UUID>, JpaSpecificationExecutor<PostReaction> {
     java.util.Optional<com.minh.fakebook.post.domain.PostReaction> findByPostIdAndUserId(java.util.UUID postId,
-            java.util.UUID userId);
+                    java.util.UUID userId);
+            
+@org.springframework.data.jpa.repository.Modifying
+@org.springframework.data.jpa.repository.Query("DELETE FROM PostReaction pr WHERE pr.post.id = :postId")
+void deleteByPostId(@org.springframework.data.repository.query.Param("postId") java.util.UUID postId);
 }

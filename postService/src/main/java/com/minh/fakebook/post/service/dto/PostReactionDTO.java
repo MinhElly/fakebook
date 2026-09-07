@@ -15,13 +15,13 @@ public class PostReactionDTO implements Serializable {
 
     private UUID id;
 
-    @NotNull
+    
     private UUID userId;
 
     @NotNull
     private ReactionType reactionType;
 
-    @NotNull
+    
     private Instant createdAt;
 
     private Instant updatedAt;
