@@ -1,0 +1,16 @@
+logging:
+  level:
+    com.minh.fakebook.comment: DEBUG
+    org.hibernate.SQL: DEBUG
+
+server:
+  port: 8085
+
+spring:
+  datasource:
+    type: com.zaxxer.hikari.HikariDataSource
+    url: jdbc:mariadb://localhost:${MARIADB_PORT:3307}/commentservice?useLegacyDatetimeCode=false
+    username: ${FAKEBOOK_DB_USERNAME:root}
+    password: ${FAKEBOOK_DB_PASSWORD:}
+  liquibase:
+    contexts: dev, faker

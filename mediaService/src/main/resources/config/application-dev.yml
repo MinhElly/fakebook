@@ -41,7 +41,6 @@ spring:
   cloud:
     consul:
       config:
-        fail-fast: false # if not in "prod" profile, do not force to use Spring Cloud Config
         format: yaml
         profile-separator: '-'
       discovery:
@@ -55,8 +54,6 @@ spring:
       host: localhost
       port: 8500
   datasource:
-    type: com.zaxxer.hikari.HikariDataSource
-    url: jdbc:mariadb://localhost:3307/mediaservice?useLegacyDatetimeCode=false
     hikari:
       poolName: Hikari
       auto-commit: false
@@ -66,15 +63,13 @@ spring:
         prepStmtCacheSqlLimit: 2048
         useServerPrepStmts: true
   liquibase:
-    # Remove 'faker' if you do not want the sample data to be loaded automatically
-    contexts: dev, faker
+    # Context is supplied by Consul.
   messages:
     cache-duration: PT1S # 1 second, see the ISO 8601 standard
   thymeleaf:
     cache: false
 
 server:
-  port: 8084
   # make sure requests the proxy uri instead of the server one
   forward-headers-strategy: native
 

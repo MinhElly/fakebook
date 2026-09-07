@@ -1,0 +1,26 @@
+logging:
+  level:
+    ROOT: DEBUG
+    tech.jhipster: DEBUG
+
+management:
+  zipkin:
+    tracing:
+      endpoint: http://localhost:${ZIPKIN_PORT:9411}/api/v2/spans
+
+spring:
+  cloud:
+    stream:
+      kafka:
+        binder:
+          brokers: localhost:${KAFKA_PORT:9092}
+  security:
+    oauth2:
+      client:
+        provider:
+          oidc:
+            issuer-uri: ${FAKEBOOK_OIDC_ISSUER_URI:http://localhost:9080/realms/jhipster}
+        registration:
+          oidc:
+            client-id: ${FAKEBOOK_OIDC_INTERNAL_CLIENT_ID:internal}
+            client-secret: ${FAKEBOOK_OIDC_INTERNAL_CLIENT_SECRET:internal}
