@@ -4,7 +4,6 @@ import { usePostStore } from "@/stores/postStore";
 import { useUserStore } from "@/stores/userStore";
 import { useCommentStore } from "@/stores/commentStore";
 import { useOutsideClick } from "@/hooks/useOutsideClick";
-import { FRIEND_USERS } from "@/constants/data";
 import CreatePostModal from "./CreatePostModal";
 import CommentSection from "./CommentSection";
 import type { Post as PostType } from "@/types";
@@ -46,9 +45,6 @@ export default function Post({ post }: Props) {
   function handleAuthorClick() {
     if (post.user === profile.name) {
       navigate("/profile");
-    } else {
-      const found = FRIEND_USERS.find(u => u.name === post.user);
-      if (found) navigate(`/profile/${found.id}`);
     }
   }
 

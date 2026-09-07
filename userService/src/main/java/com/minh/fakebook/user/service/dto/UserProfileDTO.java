@@ -4,6 +4,7 @@ import jakarta.persistence.Lob;
 import jakarta.validation.constraints.*;
 import java.io.Serializable;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.Objects;
 import java.util.UUID;
 
@@ -28,6 +29,11 @@ public class UserProfileDTO implements Serializable {
 
     @Lob
     private String bio;
+
+    private LocalDate birthday;
+
+    @Size(max = 20)
+    private String gender;
 
     private UUID avatarMediaId;
 
@@ -70,6 +76,22 @@ public class UserProfileDTO implements Serializable {
 
     public void setBio(String bio) {
         this.bio = bio;
+    }
+
+    public LocalDate getBirthday() {
+        return birthday;
+    }
+
+    public void setBirthday(LocalDate birthday) {
+        this.birthday = birthday;
+    }
+
+    public String getGender() {
+        return gender;
+    }
+
+    public void setGender(String gender) {
+        this.gender = gender;
     }
 
     public UUID getAvatarMediaId() {

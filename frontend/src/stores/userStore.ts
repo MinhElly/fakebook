@@ -18,13 +18,13 @@ export interface UserState {
 
 export const UserContext = createContext<UserState>({
   profile: {
-    name: "Nguyễn Văn An",
-    avatar: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=80&h=80&fit=crop&auto=format",
-    cover: "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=900&h=300&fit=crop&auto=format",
-    location: "Hà Nội",
-    education: "Đại học Bách Khoa HN",
-    work: "FPT Software",
-    relationship: "Độc thân",
+    name: "Người dùng",
+    avatar: "/default-avatar.svg",
+    cover: "/default-cover.svg",
+    location: "",
+    education: "",
+    work: "",
+    relationship: "",
     bio: "",
   },
   updateProfile: () => {},

@@ -116,6 +116,7 @@ public class SecurityConfiguration {
                         "/swagger-ui/**"
                     ).permitAll()
                     .pathMatchers("/api/authenticate").permitAll()
+                    .pathMatchers("/api/register").permitAll()
                     .pathMatchers("/api/auth-info").permitAll()
                     .pathMatchers("/api/admin/**").hasAuthority(AuthoritiesConstants.ADMIN)
                     .pathMatchers("/api/**").authenticated()

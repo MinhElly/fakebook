@@ -12,12 +12,6 @@ const NAV_LINKS = [
   { icon: "👥", label: "Nhóm" },
 ];
 
-const SHORTCUTS = [
-  { name: "Hội Yêu Lập Trình",  img: "https://images.unsplash.com/photo-1519389950473-47ba0277781c?w=60&h=60&fit=crop&auto=format" },
-  { name: "Du lịch Việt Nam",   img: "https://images.unsplash.com/photo-1555252333-9f8e92e65df9?w=60&h=60&fit=crop&auto=format" },
-  { name: "Mua bán xe máy HN",  img: "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=60&h=60&fit=crop&auto=format" },
-];
-
 export default function LeftSidebar() {
   const navigate = useNavigate();
   const { profile } = useUserStore();
@@ -55,20 +49,6 @@ export default function LeftSidebar() {
         </button>
       ))}
 
-      {/* Shortcuts — only visible on lg+ */}
-      <div className="hidden lg:block">
-        <hr className="my-2 border-[#E4E6EB]" />
-        <p className="text-[#65676B] font-semibold text-sm px-2 mb-1">Lối tắt của bạn</p>
-        {SHORTCUTS.map(({ name, img }) => (
-          <button
-            key={name}
-            className="flex items-center gap-3 p-2 rounded-xl hover:bg-[#E4E6EB] transition-colors w-full"
-          >
-            <img src={img} alt={name} className="w-9 h-9 rounded-lg object-cover flex-shrink-0" />
-            <span className="font-medium text-[#1C1E21] text-sm truncate">{name}</span>
-          </button>
-        ))}
-      </div>
     </aside>
   );
 }
