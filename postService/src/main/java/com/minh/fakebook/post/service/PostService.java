@@ -125,17 +125,18 @@ public class PostService {
     }
     
     /**
-     * Delete the post by id. Enforces authorship and cleans up local links.
+     * Delete the post by id. Enforces authorship or ADMIN role, and cleans up local links.
      *
      * @param id the id of the entity.
-     * @throws org.springframework.security.access.AccessDeniedException if not the author.
+     * @throws org.springframework.security.access.AccessDeniedException if not the author or admin.
      */
     public void delete(java.util.UUID id) {
+        LOG.debug("Request to delete Post : {}", id);
         //1. Fetch existing post form DB
         com.minh.fakebook.post.domain.Post existingPost = postRepository.findById(id).
                 orElseThrow(() -> new IllegalArgumentException("Error: Post not found " + id));
         
-        //2. Verify authorship
+        //2. Verify authorship or ADMIN role
         org.springframework.security.core.Authentication auth = org.springframework.security.core.context.SecurityContextHolder
                 .getContext().getAuthentication();
         if (auth == null || !auth.isAuthenticated() || "anonymousUser".equals(auth.getPrincipal())) {
@@ -144,9 +145,14 @@ public class PostService {
         }
         String sub = ((org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken) auth)
                 .getToken().getSubject();
-        if (!existingPost.getAuthorId().toString().equals(sub)) {
+
+        //check if user has ADMIN role
+        boolean isAdmin = auth.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals(com.minh.fakebook.post.security.AuthoritiesConstants.ADMIN));
+        //block if the user is not the author or admin
+        if (!existingPost.getAuthorId().toString().equals(sub) && !isAdmin) {
             throw new org.springframework.security.access.AccessDeniedException(
-                    "Errorr: Only the author can delete this post.");
+                    "Errorr: Only the author or an Admin can delete this post.");
         }
                 
         //3. Clear local media links first to avoid DB Constraint violations
