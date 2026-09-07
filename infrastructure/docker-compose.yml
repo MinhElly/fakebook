@@ -9,7 +9,7 @@ services:
     environment:
       MARIADB_ALLOW_EMPTY_ROOT_PASSWORD: 'yes'
     ports:
-      - 127.0.0.1:3307:3306
+      - 127.0.0.1:${MARIADB_PORT:-3307}:3306
     volumes:
       - mariadb-data:/var/lib/mysql
       - ./mariadb/init:/docker-entrypoint-initdb.d:ro
@@ -26,8 +26,8 @@ services:
     container_name: fakebook-keycloak
     command: start-dev --import-realm
     environment:
-      KC_BOOTSTRAP_ADMIN_USERNAME: admin
-      KC_BOOTSTRAP_ADMIN_PASSWORD: admin
+      KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_BOOTSTRAP_ADMIN_USERNAME:-admin}
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_BOOTSTRAP_ADMIN_PASSWORD:-admin}
       KC_FEATURES: scripts
       KC_HTTP_PORT: 9080
       KC_HTTPS_PORT: 9443
@@ -36,8 +36,8 @@ services:
       KEYCLOAK_GOOGLE_CLIENT_ID: ${KEYCLOAK_GOOGLE_CLIENT_ID:-}
       KEYCLOAK_GOOGLE_CLIENT_SECRET: ${KEYCLOAK_GOOGLE_CLIENT_SECRET:-}
     ports:
-      - 127.0.0.1:9080:9080
-      - 127.0.0.1:9443:9443
+      - 127.0.0.1:${KEYCLOAK_HTTP_PORT:-9080}:9080
+      - 127.0.0.1:${KEYCLOAK_HTTPS_PORT:-9443}:9443
     volumes:
       - keycloak-data:/opt/keycloak/data
       - ../gateway/src/main/docker/realm-config:/opt/keycloak/data/import:ro
@@ -55,9 +55,9 @@ services:
     container_name: fakebook-consul
     command: consul agent -dev -ui -client 0.0.0.0 -log-level=INFO
     ports:
-      - 127.0.0.1:8300:8300
-      - 127.0.0.1:8500:8500
-      - 127.0.0.1:8600:8600
+      - 127.0.0.1:${CONSUL_SERF_LAN_PORT:-8300}:8300
+      - 127.0.0.1:${CONSUL_HTTP_PORT:-8500}:8500
+      - 127.0.0.1:${CONSUL_DNS_PORT:-8600}:8600
     healthcheck:
       test: ['CMD', 'consul', 'members']
       interval: 5s
@@ -83,7 +83,7 @@ services:
     image: apache/kafka-native:4.3.1
     container_name: fakebook-kafka
     ports:
-      - 127.0.0.1:9092:9092
+      - 127.0.0.1:${KAFKA_PORT:-9092}:9092
     environment:
       KAFKA_NODE_ID: 1
       KAFKA_PROCESS_ROLES: broker,controller
@@ -99,7 +99,7 @@ services:
     image: provectuslabs/kafka-ui:latest
     container_name: fakebook-kafka-ui
     ports:
-      - 127.0.0.1:8085:8080
+      - 127.0.0.1:${KAFKA_UI_PORT:-8085}:8080
     environment:
       KAFKA_CLUSTERS_0_NAME: local
       KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
@@ -111,7 +111,7 @@ services:
     image: redis:8.10.1
     container_name: fakebook-redis
     ports:
-      - 127.0.0.1:6379:6379
+      - 127.0.0.1:${REDIS_PORT:-6379}:6379
     healthcheck:
       test: ['CMD', 'redis-cli', 'ping']
       interval: 5s
@@ -123,7 +123,7 @@ services:
     image: openzipkin/zipkin:3.6.1
     container_name: fakebook-zipkin
     ports:
-      - 127.0.0.1:9411:9411
+      - 127.0.0.1:${ZIPKIN_PORT:-9411}:9411
     restart: unless-stopped
 
 volumes:

@@ -1,0 +1,20 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+@import 'tailwindcss';
+
+@theme inline {
+  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+  --color-fb-blue: #1877F2;
+  --color-fb-hover: #166fe5;
+  --color-fb-bg: #F0F2F5;
+  --color-fb-card: #ffffff;
+  --color-fb-border: #CED0D4;
+  --color-fb-text: #1C1E21;
+  --color-fb-muted: #65676B;
+  --color-fb-input: #F0F2F5;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}

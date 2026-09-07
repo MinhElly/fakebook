@@ -1,0 +1,35 @@
+logging:
+  level:
+    com.minh.fakebook.gateway: DEBUG
+
+server:
+  port: 8080
+
+spring:
+  r2dbc:
+    url: r2dbc:mariadb://localhost:${MARIADB_PORT:3307}/gateway?useLegacyDatetimeCode=false
+    username: ${FAKEBOOK_DB_USERNAME:root}
+    password: ${FAKEBOOK_DB_PASSWORD:}
+  liquibase:
+    contexts: dev
+    url: jdbc:mariadb://localhost:${MARIADB_PORT:3307}/gateway?useLegacyDatetimeCode=false
+  security:
+    oauth2:
+      client:
+        registration:
+          oidc:
+            client-id: ${FAKEBOOK_OIDC_GATEWAY_CLIENT_ID:web_app}
+            client-secret: ${FAKEBOOK_OIDC_GATEWAY_CLIENT_SECRET:web_app}
+
+jhipster:
+  cors:
+    allowed-origins: 'http://localhost:9000,http://localhost:8100'
+    allowed-methods: '*'
+    allowed-headers: '*'
+    allow-credentials: true
+    max-age: 1800
+  gateway:
+    rate-limiting:
+      enabled: false
+      limit: 100000
+      duration-in-seconds: 3600
