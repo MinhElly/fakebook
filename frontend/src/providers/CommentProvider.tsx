@@ -1,47 +1,25 @@
 import { useState } from "react";
 import { CommentContext } from "@/stores/commentStore";
-import { COMMENTS } from "@/constants/data";
-import { useUserStore } from "@/stores/userStore";
 import type { Comment } from "@/types";
 
-let nextId = COMMENTS.length + 1;
-
-function now() {
-  return "Vừa xong";
-}
-
 export default function CommentProvider({ children }: { children: React.ReactNode }) {
-  const [comments, setComments] = useState<Comment[]>(COMMENTS);
-  const { profile } = useUserStore();
+  const [comments] = useState<Comment[]>([]);
 
   function createComment(postId: number, content: string, parentId: number | null = null) {
-    const c: Comment = {
-      id: nextId++,
-      postId,
-      parentId,
-      user: profile.name,
-      avatar: profile.avatar,
-      content: content.trim(),
-      time: now(),
-      likes: 0,
-      liked: false,
-    };
-    setComments(prev => [...prev, c]);
+    void postId; void content; void parentId;
   }
 
   function updateComment(id: number, content: string) {
-    setComments(prev => prev.map(c => c.id === id ? { ...c, content: content.trim() } : c));
+    void id; void content;
   }
 
   function deleteComment(id: number) {
     // Delete comment and all its replies
-    setComments(prev => prev.filter(c => c.id !== id && c.parentId !== id));
+    void id;
   }
 
   function toggleLike(id: number) {
-    setComments(prev => prev.map(c =>
-      c.id === id ? { ...c, liked: !c.liked, likes: c.liked ? c.likes - 1 : c.likes + 1 } : c
-    ));
+    void id;
   }
 
   function getPostComments(postId: number) {

@@ -235,6 +235,8 @@ public class UserProfileResource {
         safeUpdateDto.setId(id);
         safeUpdateDto.setDisplayName(userProfileDTO.getDisplayName());
         safeUpdateDto.setBio(userProfileDTO.getBio());
+        safeUpdateDto.setBirthday(userProfileDTO.getBirthday());
+        safeUpdateDto.setGender(userProfileDTO.getGender());
         safeUpdateDto.setAvatarMediaId(userProfileDTO.getAvatarMediaId());
         safeUpdateDto.setCoverMediaId(userProfileDTO.getCoverMediaId());
         safeUpdateDto.setUpdatedAt(Instant.now()); 
