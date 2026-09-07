@@ -121,7 +121,6 @@ spring:
     active: '@spring.profiles.active@'
     group:
       dev:
-        - secret-samples
         - kafka
         - api-docs
         # Uncomment to activate TLS for the dev profile
