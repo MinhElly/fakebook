@@ -17,7 +17,7 @@ public class PostDTO implements Serializable {
 
     private UUID id;
 
-    @NotNull
+    
     private UUID authorId;
 
     @Lob
@@ -26,10 +26,10 @@ public class PostDTO implements Serializable {
     @NotNull
     private PostVisibility visibility;
 
-    @NotNull
+    
     private PostStatus status;
 
-    @NotNull
+    
     private Instant createdAt;
 
     private Instant updatedAt;

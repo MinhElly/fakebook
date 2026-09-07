@@ -24,9 +24,12 @@ public class PostReactionService {
 
     private final PostReactionMapper postReactionMapper;
 
-    public PostReactionService(PostReactionRepository postReactionRepository, PostReactionMapper postReactionMapper) {
+    private final com.minh.fakebook.post.repository.PostRepository postRepository;
+
+    public PostReactionService(PostReactionRepository postReactionRepository, PostReactionMapper postReactionMapper, com.minh.fakebook.post.repository.PostRepository postRepository) {
         this.postReactionRepository = postReactionRepository;
         this.postReactionMapper = postReactionMapper;
+        this.postRepository = postRepository;
     }
 
     /**
@@ -50,10 +53,26 @@ public class PostReactionService {
             }
             java.util.UUID currentUserId = java.util.UUID.fromString(((org.
   springframework.security.oauth2.server.resource.authentication.
-  JwtAuthenticationToken) auth).getToken().getSubject());
+                                      JwtAuthenticationToken) auth).getToken().getSubject());
+  
+            // TODO (REST/FeignClient): If targetPost visibility is FRIENDS:
+            // Must invoke userService API to verify if currentUserId is a friend of authorId.
+            // If FALSE, immediately throw AccessDeniedException (Prevent Blind Action).
 
             postReactionDTO.setUserId(currentUserId);
             java.util.UUID postId = postReactionDTO.getPost().getId();
+            com.minh.fakebook.post.domain.Post targetPost = postRepository.findById(postId)
+                    .orElseThrow(() -> new IllegalArgumentException("Post not found"));
+
+            if (targetPost.getStatus() == com.minh.fakebook.post.domain.enumeration.PostStatus.DELETED) {
+                throw new org.springframework.security.access.AccessDeniedException("Cannot react to a deleted post.");
+            }
+            if (targetPost.getVisibility() == com.minh.fakebook.post.domain.enumeration.PostVisibility.PRIVATE) {
+                if (!targetPost.getAuthorId().equals(currentUserId)) {
+                    throw new org.springframework.security.access.AccessDeniedException(
+                            "Cannot react to a private post.");
+                }
+            }
 
             java.util.Optional<com.minh.fakebook.post.domain.PostReaction>
   existingReactionOpt = postReactionRepository.findByPostIdAndUserId(postId,
@@ -89,10 +108,8 @@ public class PostReactionService {
      * @return the persisted entity.
      */
     public PostReactionDTO update(PostReactionDTO postReactionDTO) {
-        LOG.debug("Request to update PostReaction : {}", postReactionDTO);
-        PostReaction postReaction = postReactionMapper.toEntity(postReactionDTO);
-        postReaction = postReactionRepository.save(postReaction);
-        return postReactionMapper.toDto(postReaction);
+        throw new UnsupportedOperationException(
+                "Error: Direct update is disabled. Use the Save endpoint for Upsert/Toggle.");
     }
 
     /**
@@ -102,17 +119,7 @@ public class PostReactionService {
      * @return the persisted entity.
      */
     public Optional<PostReactionDTO> partialUpdate(PostReactionDTO postReactionDTO) {
-        LOG.debug("Request to partially update PostReaction : {}", postReactionDTO);
-
-        return postReactionRepository
-            .findById(postReactionDTO.getId())
-            .map(existingPostReaction -> {
-                postReactionMapper.partialUpdate(existingPostReaction, postReactionDTO);
-
-                return existingPostReaction;
-            })
-            .map(postReactionRepository::save)
-            .map(postReactionMapper::toDto);
+        throw new UnsupportedOperationException("Error: Partial update is disabled.");
     }
 
     /**
@@ -133,7 +140,18 @@ public class PostReactionService {
      * @param id the id of the entity.
      */
     public void delete(UUID id) {
-        LOG.debug("Request to delete PostReaction : {}", id);
-        postReactionRepository.deleteById(id);
-    }
+            // alow only admin or the user who created the reaction to delete it
+            PostReaction reaction = postReactionRepository.findById(id).orElseThrow(() -> new IllegalArgumentException("Not found"));
+            org.springframework.security.core.Authentication auth = org.springframework.security.core.context.
+  SecurityContextHolder.getContext().getAuthentication();
+            boolean isAdmin = auth.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals(com.minh.fakebook.post.
+  security.AuthoritiesConstants.ADMIN));
+            String sub = ((org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken) auth).
+  getToken().getSubject();
+
+            if (!isAdmin && !reaction.getUserId().toString().equals(sub)) {
+                throw new org.springframework.security.access.AccessDeniedException("Error: You can only delete your own reaction.");
+            }
+            postReactionRepository.deleteById(id);
+        }
 }

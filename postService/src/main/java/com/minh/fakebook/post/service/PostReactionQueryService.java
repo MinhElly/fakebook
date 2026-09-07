@@ -75,6 +75,43 @@ public class PostReactionQueryService extends QueryService<PostReaction> {
             }
             return null;
         });
+        specification = specification.and((root, query, builder) -> {
+            org.springframework.security.core.Authentication auth = org.springframework.security.core.context.SecurityContextHolder
+                    .getContext().getAuthentication();
+            boolean isGuest = (auth == null || !auth.isAuthenticated() || "anonymousUser".equals(auth.getPrincipal()));
+            boolean isAdmin = !isGuest && auth.getAuthorities().stream()
+                    .anyMatch(a -> a.getAuthority().equals(com.minh.fakebook.post.security.AuthoritiesConstants.ADMIN));
+
+            if (isAdmin) {
+                return builder.conjunction();
+            }
+
+            // JOIN PostReaction with Post to filter based on Post's visibility and status
+            jakarta.persistence.criteria.Join<com.minh.fakebook.post.domain.PostReaction, com.minh.fakebook.post.domain.Post> postJoin = root
+                    .join(PostReaction_.post, jakarta.persistence.criteria.JoinType.INNER);
+
+            jakarta.persistence.criteria.Predicate isActive = builder.equal(postJoin.get(Post_.status),
+                    com.minh.fakebook.post.domain.enumeration.PostStatus.ACTIVE);
+
+            if (isGuest) {
+                jakarta.persistence.criteria.Predicate isPublic = builder.equal(postJoin.get(Post_.visibility),
+                        com.minh.fakebook.post.domain.enumeration.PostVisibility.PUBLIC);
+                return builder.and(isActive, isPublic);
+            }
+
+            String sub = ((org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken) auth)
+                    .getToken().getSubject();
+            java.util.UUID currentUserId = java.util.UUID.fromString(sub);
+
+            jakarta.persistence.criteria.Predicate isPublic = builder.equal(postJoin.get(Post_.visibility),
+                    com.minh.fakebook.post.domain.enumeration.PostVisibility.PUBLIC);
+            jakarta.persistence.criteria.Predicate isFriends = builder.equal(postJoin.get(Post_.visibility),
+                    com.minh.fakebook.post.domain.enumeration.PostVisibility.FRIENDS);
+            jakarta.persistence.criteria.Predicate isAuthor = builder.equal(postJoin.get(Post_.authorId),
+                    currentUserId);
+
+            return builder.and(isActive, builder.or(isPublic, isFriends, isAuthor));
+        });
         if (criteria != null) {
             // This has to be called first, because the distinct method returns null
             specification = specification.and(

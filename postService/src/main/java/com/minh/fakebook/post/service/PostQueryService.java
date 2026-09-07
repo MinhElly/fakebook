@@ -1,7 +1,6 @@
 package com.minh.fakebook.post.service;
 
 import com.minh.fakebook.post.domain.*; // for static metamodels
-import com.minh.fakebook.post.domain.Post;
 import com.minh.fakebook.post.repository.PostRepository;
 import com.minh.fakebook.post.service.criteria.PostCriteria;
 import com.minh.fakebook.post.service.dto.PostDTO;
@@ -62,26 +61,70 @@ public class PostQueryService extends QueryService<Post> {
     }
 
     /**
-     * Function to convert {@link PostCriteria} to a {@link Specification}
-     * @param criteria The object which holds all the filters, which the entities should match.
-     * @return the matching {@link Specification} of the entity.
-     */
-    protected Specification<Post> createSpecification(PostCriteria criteria) {
-        Specification<Post> specification = Specification.unrestricted();
-        if (criteria != null) {
+         * Function to convert {@link PostCriteria} to a {@link Specification}
+         * @param criteria The object which holds all the filters, which the entities should match.
+         * @return the matching {@link Specification} of the entity.
+         */
+        protected Specification<Post> createSpecification(PostCriteria criteria) {
+            Specification<Post> specification = Specification.unrestricted();
+
+
+            Specification<Post> securitySpec = (root, query, builder) -> {
+                jakarta.persistence.criteria.Predicate isActive = builder.equal(root.get(Post_.status), com.minh.fakebook.post.
+  domain.enumeration.PostStatus.ACTIVE);
+
+                org.springframework.security.core.Authentication auth = org.springframework.security.core.context.
+  SecurityContextHolder.getContext().getAuthentication();
+                boolean isLoggedIn = auth != null && auth.isAuthenticated() && !"anonymousUser".equals(auth.getPrincipal());
+
+                // GUEST
+                if (!isLoggedIn) {
+                    jakarta.persistence.criteria.Predicate isPublic = builder.equal(root.get(Post_.visibility), com.minh.
+  fakebook.post.domain.enumeration.PostVisibility.PUBLIC);
+                    return builder.and(isActive, isPublic);
+                }
+
+                // ADMIN
+                boolean isAdmin = auth.getAuthorities().stream()
+                        .anyMatch(a -> a.getAuthority().equals(com.minh.fakebook.post.security.AuthoritiesConstants.ADMIN));
+                if (isAdmin) {
+                    return isActive;
+                }
+
+                // NORMAL USER
+                String sub = ((org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken) auth).
+  getToken().getSubject();
+                java.util.UUID currentUserId = java.util.UUID.fromString(sub);
+
+                jakarta.persistence.criteria.Predicate isPublic = builder.equal(root.get(Post_.visibility), com.minh.fakebook.
+  post.domain.enumeration.PostVisibility.PUBLIC);
+                jakarta.persistence.criteria.Predicate isOwner = builder.equal(root.get(Post_.authorId), currentUserId);
+                jakarta.persistence.criteria.Predicate isFriends = builder.equal(root.get(Post_.visibility), com.minh.fakebook.
+  post.domain.enumeration.PostVisibility.FRIENDS);
+
+                // TODO (Row-Level Security & FeignClient): The 'isFriends' predicate currently allows ALL logged-in users.
+                // Must invoke userService to fetch actual friend IDs and inject them into an IN clause.
+
+                return builder.and(isActive, builder.or(isPublic, isOwner, isFriends));
+            };
+
+            specification = specification.and(securitySpec);
+
+            if (criteria != null) {
             // This has to be called first, because the distinct method returns null
-            specification = specification.and(
-                Specification.allOf(
-                    Boolean.TRUE.equals(criteria.getDistinct()) ? distinct(criteria.getDistinct()) : Specification.unrestricted(),
-                    buildSpecification(criteria.getId(), Post_.id),
-                    buildSpecification(criteria.getAuthorId(), Post_.authorId),
-                    buildSpecification(criteria.getVisibility(), Post_.visibility),
-                    buildSpecification(criteria.getStatus(), Post_.status),
-                    buildRangeSpecification(criteria.getCreatedAt(), Post_.createdAt),
-                    buildRangeSpecification(criteria.getUpdatedAt(), Post_.updatedAt)
-                )
-            );
+                specification = specification.and(
+                    Specification.allOf(
+                        Boolean.TRUE.equals(criteria.getDistinct()) ? distinct(criteria.getDistinct()) : Specification.
+  unrestricted(),
+                        buildSpecification(criteria.getId(), Post_.id),
+                        buildSpecification(criteria.getAuthorId(), Post_.authorId),
+                        buildSpecification(criteria.getVisibility(), Post_.visibility),
+                        buildSpecification(criteria.getStatus(), Post_.status),
+                        buildRangeSpecification(criteria.getCreatedAt(), Post_.createdAt),
+                        buildRangeSpecification(criteria.getUpdatedAt(), Post_.updatedAt)
+                    )
+                );
+            }
+            return specification;
         }
-        return specification;
-    }
 }
