@@ -4,6 +4,7 @@ import Stories from "@/components/feed/Stories";
 import PostCreator from "@/components/feed/PostCreator";
 import Post from "@/components/feed/Post";
 import { usePostStore } from "@/stores/postStore";
+import FeatureEmptyState from "@/components/ui/FeatureEmptyState";
 
 export default function HomePage() {
   const { posts } = usePostStore();
@@ -26,6 +27,11 @@ export default function HomePage() {
       ">
         <Stories />
         <PostCreator />
+        {posts.length === 0 && (
+          <section className="rounded-xl border border-[#E4E6EB] bg-white">
+            <FeatureEmptyState title="Chưa có bài viết" description="Bảng tin sẽ hiển thị bài viết sau khi post service được kết nối." />
+          </section>
+        )}
         {posts.map(post => (
           <Post key={post.id} post={post} />
         ))}

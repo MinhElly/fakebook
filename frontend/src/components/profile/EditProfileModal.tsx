@@ -143,26 +143,6 @@ export default function EditProfileModal({ onClose }: Props) {
                   placeholder="Dán URL ảnh vào đây..."
                 />
               </div>
-              <div className="bg-[#F0F2F5] rounded-xl p-3">
-                <p className="text-sm font-semibold text-[#1C1E21] mb-2">Ảnh gợi ý</p>
-                <div className="flex gap-2 overflow-x-auto" style={{ scrollbarWidth: "none" }}>
-                  {[
-                    "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=80&h=80&fit=crop&auto=format",
-                    "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=80&h=80&fit=crop&auto=format",
-                    "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=80&h=80&fit=crop&auto=format",
-                    "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=80&h=80&fit=crop&auto=format",
-                    "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=80&h=80&fit=crop&auto=format",
-                  ].map((url) => (
-                    <img
-                      key={url}
-                      src={url}
-                      alt="suggestion"
-                      className={`w-14 h-14 rounded-full object-cover cursor-pointer flex-shrink-0 border-2 hover:opacity-90 transition-all ${avatarUrl === url ? "border-[#1877F2] scale-105" : "border-transparent"}`}
-                      onClick={() => { setAvatarUrl(url); setAvatarPreview(url); }}
-                    />
-                  ))}
-                </div>
-              </div>
             </div>
           )}
 
@@ -188,25 +168,6 @@ export default function EditProfileModal({ onClose }: Props) {
                   }}
                   placeholder="Dán URL ảnh bìa vào đây..."
                 />
-              </div>
-              <div className="bg-[#F0F2F5] rounded-xl p-3">
-                <p className="text-sm font-semibold text-[#1C1E21] mb-2">Ảnh gợi ý</p>
-                <div className="grid grid-cols-2 gap-2">
-                  {[
-                    "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=400&h=120&fit=crop&auto=format",
-                    "https://images.unsplash.com/photo-1519389950473-47ba0277781c?w=400&h=120&fit=crop&auto=format",
-                    "https://images.unsplash.com/photo-1470770841072-f978cf4d019e?w=400&h=120&fit=crop&auto=format",
-                    "https://images.unsplash.com/photo-1501854140801-50d01698950b?w=400&h=120&fit=crop&auto=format",
-                  ].map((url) => (
-                    <img
-                      key={url}
-                      src={url}
-                      alt="cover suggestion"
-                      className={`w-full h-16 object-cover rounded-lg cursor-pointer border-2 hover:opacity-90 transition-all ${coverUrl === url ? "border-[#1877F2]" : "border-transparent"}`}
-                      onClick={() => { setCoverUrl(url); setCoverPreview(url); }}
-                    />
-                  ))}
-                </div>
               </div>
             </div>
           )}

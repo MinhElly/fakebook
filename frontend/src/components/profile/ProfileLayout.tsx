@@ -4,15 +4,6 @@ import Post from "@/components/feed/Post";
 import PostCreator from "@/components/feed/PostCreator";
 import type { Post as PostType, FriendUser } from "@/types";
 
-const PHOTOS = [
-  "https://images.unsplash.com/photo-1555252333-9f8e92e65df9?w=120&h=120&fit=crop&auto=format",
-  "https://images.unsplash.com/photo-1559592413-7cec4d0cae2b?w=120&h=120&fit=crop&auto=format",
-  "https://images.unsplash.com/photo-1519389950473-47ba0277781c?w=120&h=120&fit=crop&auto=format",
-  "https://images.unsplash.com/photo-1470770841072-f978cf4d019e?w=120&h=120&fit=crop&auto=format",
-  "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=120&h=120&fit=crop&auto=format",
-  "https://images.unsplash.com/photo-1501854140801-50d01698950b?w=120&h=120&fit=crop&auto=format",
-];
-
 export interface ProfileUser {
   name: string;
   avatar: string;
@@ -47,7 +38,7 @@ export default function ProfileLayout({
   const TABS = isOwn ? TABS_OWN : TABS_OTHER;
   const [activeTab, setActiveTab] = useState(TABS[0].toLowerCase());
 
-  const coverSrc = user.cover || "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=940&h=350&fit=crop&auto=format";
+  const coverSrc = user.cover || "/default-cover.svg";
 
   const bio = [
     user.bio        && { icon: "💬", text: user.bio },
@@ -55,7 +46,6 @@ export default function ProfileLayout({
     user.education  && { icon: "🎓", text: `Học tại ${user.education}` },
     user.work       && { icon: "💼", text: `Làm việc tại ${user.work}` },
     user.relationship && { icon: "❤️", text: user.relationship },
-    { icon: "📅", text: "Tham gia từ tháng 3 năm 2015" },
   ].filter(Boolean) as { icon: string; text: string }[];
 
   const friendList = isOwn ? friends : mutualFriends;
@@ -98,7 +88,7 @@ export default function ProfileLayout({
             <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-[#1C1E21] leading-tight">{user.name}</h1>
             {user.bio && <p className="text-[#65676B] text-sm mt-0.5">{user.bio}</p>}
             <p className="text-[#65676B] text-sm mt-0.5">
-              {isOwn ? `${posts.length} bài viết · 1.2K bạn bè` : `${mutualCount} bạn chung`}
+              {isOwn ? `${posts.length} bài viết · ${friends.length} bạn bè` : `${mutualCount} bạn chung`}
             </p>
 
             {/* Mutual friends avatars (others only) */}
@@ -135,7 +125,7 @@ export default function ProfileLayout({
               ? <div className="col-span-4 bg-white rounded-xl border border-[#E4E6EB] p-10 text-center"><p className="text-4xl mb-2">👥</p><p className="text-[#65676B] font-medium">Chưa có bạn bè nào</p></div>
               : friendList.map(f => (
                   <div key={f.id} className="bg-white rounded-xl border border-[#E4E6EB] overflow-hidden hover:shadow-md transition-shadow cursor-pointer" onClick={() => navigate(`/profile/${f.id}`)}>
-                    <img src={f.cover || "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=400&h=100&fit=crop&auto=format"} alt="" className="w-full h-20 object-cover" />
+                    <img src={f.cover || "/default-cover.svg"} alt="" className="w-full h-20 object-cover" />
                     <div className="px-3 pb-3">
                       <div className="-mt-6 mb-1"><img src={f.avatar} alt={f.name} className="w-12 h-12 rounded-full object-cover border-2 border-white" /></div>
                       <p className="font-bold text-sm text-[#1C1E21] hover:underline leading-tight truncate">{f.name}</p>
@@ -176,11 +166,7 @@ export default function ProfileLayout({
                   <h3 className="font-bold text-[#1C1E21] text-lg">Ảnh</h3>
                   <button className="text-[#1877F2] text-sm font-semibold hover:bg-blue-50 px-2 py-1 rounded">Xem tất cả</button>
                 </div>
-                <div className="grid grid-cols-3 gap-1">
-                  {PHOTOS.map((src, i) => (
-                    <img key={i} src={src} alt="" className="w-full aspect-square object-cover rounded-md cursor-pointer hover:opacity-90 transition-opacity" />
-                  ))}
-                </div>
+                <p className="py-5 text-center text-sm text-[#65676B]">Chưa có ảnh để hiển thị.</p>
               </div>
 
               {/* Mutual friends (others only) */}

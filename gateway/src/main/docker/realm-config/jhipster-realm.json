@@ -1,20 +1,31 @@
 {
   "id": "jhipster",
   "realm": "jhipster",
-  "displayName": "JHipster",
-  "displayNameHtml": "<div class=\"kc-logo-text\"><span>JHipster</span></div>",
+  "displayName": "Fakebook",
+  "displayNameHtml": "Fakebook",
+  "loginTheme": "fakebook",
+  "smtpServer": {
+    "host": "${env.KEYCLOAK_SMTP_HOST:localhost}",
+    "port": "${env.KEYCLOAK_SMTP_PORT:1025}",
+    "from": "${env.KEYCLOAK_SMTP_FROM:no-reply@fakebook.com}",
+    "fromDisplayName": "Fakebook Security",
+    "auth": "${env.KEYCLOAK_SMTP_AUTH:false}",
+    "ssl": "false",
+    "starttls": "false"
+  },
   "identityProviders": [
     {
       "alias": "google",
       "displayName": "Google",
       "providerId": "google",
       "enabled": true,
-      "updateProfileFirstLoginMode": "on",
+      "updateProfileFirstLoginMode": "off",
       "trustEmail": true,
       "storeToken": false,
       "addReadTokenRoleOnCreate": false,
       "authenticateByDefault": false,
       "linkOnly": false,
+      "firstBrokerLoginFlowAlias": "",
       "config": {
         "client_id": "${env.KEYCLOAK_GOOGLE_CLIENT_ID:}",
         "client_secret": "${env.KEYCLOAK_GOOGLE_CLIENT_SECRET:}",
@@ -55,7 +66,18 @@
   "verifyEmail": false,
   "loginWithEmailAllowed": true,
   "duplicateEmailsAllowed": false,
-  "resetPasswordAllowed": false,
+  "resetPasswordAllowed": true,
+  "requiredActionProviders": [
+    {
+      "alias": "UPDATE_PASSWORD",
+      "name": "Update Password",
+      "providerId": "UPDATE_PASSWORD",
+      "enabled": true,
+      "defaultAction": false,
+      "priority": 30,
+      "config": {}
+    }
+  ],
   "editUsernameAllowed": false,
   "bruteForceProtected": false,
   "permanentLockout": false,
@@ -893,7 +915,7 @@
       "bearerOnly": false,
       "consentRequired": false,
       "standardFlowEnabled": true,
-      "implicitFlowEnabled": true,
+      "implicitFlowEnabled": false,
       "directAccessGrantsEnabled": false,
       "serviceAccountsEnabled": false,
       "publicClient": true,

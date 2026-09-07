@@ -5,6 +5,7 @@ import jakarta.validation.constraints.*;
 import java.io.Serial;
 import java.io.Serializable;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.UUID;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
@@ -38,6 +39,13 @@ public class UserProfile implements Serializable {
     @Lob
     @Column(name = "bio")
     private String bio;
+
+    @Column(name = "birthday")
+    private LocalDate birthday;
+
+    @Size(max = 20)
+    @Column(name = "gender", length = 20)
+    private String gender;
 
     @JdbcTypeCode(SqlTypes.VARCHAR)
     @Column(name = "avatar_media_id", length = 36)
@@ -106,6 +114,32 @@ public class UserProfile implements Serializable {
 
     public void setBio(String bio) {
         this.bio = bio;
+    }
+
+    public LocalDate getBirthday() {
+        return this.birthday;
+    }
+
+    public UserProfile birthday(LocalDate birthday) {
+        this.setBirthday(birthday);
+        return this;
+    }
+
+    public void setBirthday(LocalDate birthday) {
+        this.birthday = birthday;
+    }
+
+    public String getGender() {
+        return this.gender;
+    }
+
+    public UserProfile gender(String gender) {
+        this.setGender(gender);
+        return this;
+    }
+
+    public void setGender(String gender) {
+        this.gender = gender;
     }
 
     public UUID getAvatarMediaId() {
