@@ -9,6 +9,8 @@ export interface UserProfile {
   work: string;
   relationship: string;
   bio: string;
+  birthday?: string;
+  gender?: string;
 }
 
 export interface UserState {
@@ -26,6 +28,8 @@ export const UserContext = createContext<UserState>({
     work: "",
     relationship: "",
     bio: "",
+    birthday: "",
+    gender: "",
   },
   updateProfile: () => {},
 });

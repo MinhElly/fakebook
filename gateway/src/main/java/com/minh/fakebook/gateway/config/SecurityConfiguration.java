@@ -22,6 +22,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.core.convert.converter.Converter;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.authentication.AbstractAuthenticationToken;
 import org.springframework.security.config.annotation.method.configuration.EnableReactiveMethodSecurity;
@@ -51,6 +52,7 @@ import org.springframework.security.web.server.csrf.CookieServerCsrfTokenReposit
 import org.springframework.security.web.server.csrf.ServerCsrfTokenRequestAttributeHandler;
 import org.springframework.security.web.server.header.ReferrerPolicyServerHttpHeadersWriter;
 import org.springframework.security.web.server.header.XFrameOptionsServerHttpHeadersWriter.Mode;
+import org.springframework.security.web.server.util.matcher.NegatedServerWebExchangeMatcher;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -89,6 +91,9 @@ public class SecurityConfiguration {
                     .csrfTokenRepository(CookieServerCsrfTokenRepository.withHttpOnlyFalse())
                     // See https://stackoverflow.com/q/74447118/65681
                     .csrfTokenRequestHandler(new ServerCsrfTokenRequestAttributeHandler())
+                    // Microservice APIs are authenticated with Bearer JWTs, so they are not
+                    // vulnerable to browser session-based CSRF attacks.
+                    .requireCsrfProtectionMatcher(new NegatedServerWebExchangeMatcher(pathMatchers("/services/**")))
             )
             // See https://github.com/spring-projects/spring-security/issues/5766
             .addFilterAt(new CookieCsrfFilter(), SecurityWebFiltersOrder.REACTOR_CONTEXT)
@@ -109,6 +114,7 @@ public class SecurityConfiguration {
             .authorizeExchange(authz ->
                 // prettier-ignore
                 authz
+                    .pathMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                     .pathMatchers(
                         "/",
                         "/*.*",
@@ -141,7 +147,7 @@ public class SecurityConfiguration {
     private DelegatingServerAuthenticationEntryPoint authenticationEntryPoint() {
         DelegatingServerAuthenticationEntryPoint entryPoint = new DelegatingServerAuthenticationEntryPoint(
             new DelegatingServerAuthenticationEntryPoint.DelegateEntry(
-                pathMatchers("/api/**"),
+                pathMatchers("/api/**", "/services/**"),
                 new HttpStatusServerEntryPoint(HttpStatus.UNAUTHORIZED)
             )
         );
