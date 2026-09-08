@@ -35,6 +35,18 @@ public class UserProfileDTO implements Serializable {
     @Size(max = 20)
     private String gender;
 
+    @Size(max = 255)
+    private String location;
+
+    @Size(max = 255)
+    private String education;
+
+    @Size(max = 255)
+    private String work;
+
+    @Size(max = 50)
+    private String relationship;
+
     private UUID avatarMediaId;
 
     private UUID coverMediaId;
@@ -92,6 +104,38 @@ public class UserProfileDTO implements Serializable {
 
     public void setGender(String gender) {
         this.gender = gender;
+    }
+
+    public String getLocation() {
+        return location;
+    }
+
+    public void setLocation(String location) {
+        this.location = location;
+    }
+
+    public String getEducation() {
+        return education;
+    }
+
+    public void setEducation(String education) {
+        this.education = education;
+    }
+
+    public String getWork() {
+        return work;
+    }
+
+    public void setWork(String work) {
+        this.work = work;
+    }
+
+    public String getRelationship() {
+        return relationship;
+    }
+
+    public void setRelationship(String relationship) {
+        this.relationship = relationship;
     }
 
     public UUID getAvatarMediaId() {
