@@ -10,9 +10,11 @@ import java.util.Optional;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 /**
  * Service Implementation for managing {@link com.minh.fakebook.user.domain.UserProfile}.
@@ -106,16 +108,47 @@ public class UserProfileService {
      */
     public UserProfileDTO getOrCreateProfile(Jwt jwt){
         UUID userId = UUID.fromString(jwt.getSubject());
-        String username = jwt.getClaimAsString("preferred_username");
-        return userProfileRepository.findById(userId).map(userProfileMapper::toDto)
-        .orElseGet(()->{LOG.info("create new user profile for keycloak user sub: {}", userId);
-            UserProfile newProfile = new UserProfile();
-            newProfile.setId(userId);
-            newProfile.setUsername(username != null ? username : userId.toString());
-            String name = jwt.getClaimAsString("name");
-            newProfile.setDisplayName(name != null ? name : newProfile.getUsername());
-            newProfile.setCreatedAt(Instant.now());
-            return userProfileMapper.toDto(userProfileRepository.save(newProfile));    
-        });
+        return userProfileRepository.findById(userId).map(userProfileMapper::toDto).orElseGet(()-> createProfileFromJwt(jwt, userId));
+    }
+    public UserProfileDTO createProfileFromJwt(Jwt jwt, UUID userId){
+        LOG.info("create new user profile for keycloak user sub: {}", userId);
+        String preferredUsername = jwt.getClaimAsString("preferred_username");
+        String username = StringUtils.hasText(preferredUsername) ? preferredUsername : userId.toString();
+        String displayName = resolveDisplayName(jwt, username);
+        UserProfile newProfile = new UserProfile();
+        newProfile.setId(userId);
+        newProfile.setUsername(username);
+        newProfile.setDisplayName(displayName);
+        newProfile.setCreatedAt(Instant.now());
+        try{
+            UserProfile saved = userProfileRepository.save(newProfile);
+            return userProfileMapper.toDto(saved);        
+        } catch (DataIntegrityViolationException e){
+            LOG.warn("Concurrent profile creation detected for user sub: {}, query again from DB", userId);
+            return userProfileRepository.findById(userId)
+                .map(userProfileMapper::toDto)
+                .orElseThrow(() -> e);
+        }
+    }
+
+    private String resolveDisplayName(Jwt jwt, String fallbackUsername){
+        String name = jwt.getClaimAsString("name");
+        if(StringUtils.hasText(name)){
+            return name.trim();
+        }
+        String givenName = jwt.getClaimAsString("given_name");
+        String familyName = jwt.getClaimAsString("family_name");
+        StringBuilder fullName = new StringBuilder();
+        if(StringUtils.hasText(givenName)){
+            fullName.append(givenName.trim());
+        }
+        if(StringUtils.hasText(familyName)){
+            if(fullName.length() > 0){
+                fullName.append(" ");
+            }
+            fullName.append(familyName.trim());
+        }
+        return fullName.length() > 0 ? fullName.toString() : fallbackUsername;
+
     }
 }

@@ -35,6 +35,11 @@ export default defineConfig(({ mode }) => {
       strictPort: true,
       watch: { ignored: ['**/.figma/**'] },
       proxy: {
+        '/services': {
+          target: 'http://localhost:8080',
+          changeOrigin: true,
+          secure: false,
+        },
         '/api': {
           target: 'http://localhost:8080',
           changeOrigin: true,
