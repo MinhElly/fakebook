@@ -23,7 +23,7 @@ spring:
 
 jhipster:
   cors:
-    allowed-origins: 'http://localhost:9000,http://localhost:8100'
+    allowed-origins: 'http://localhost:9000,http://localhost:8100,http://localhost:8443'
     allowed-methods: '*'
     allowed-headers: '*'
     allow-credentials: true
