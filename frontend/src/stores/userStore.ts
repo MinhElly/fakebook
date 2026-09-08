@@ -15,7 +15,7 @@ export interface UserProfile {
 
 export interface UserState {
   profile: UserProfile;
-  updateProfile: (data: Partial<UserProfile>) => void;
+  updateProfile: (data: Partial<UserProfile>) => Promise<boolean>;
 }
 
 export const UserContext = createContext<UserState>({
@@ -31,7 +31,7 @@ export const UserContext = createContext<UserState>({
     birthday: "",
     gender: "",
   },
-  updateProfile: () => {},
+  updateProfile: async () => false,
 });
 
 export function useUserStore() {

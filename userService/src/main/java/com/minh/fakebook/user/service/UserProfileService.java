@@ -10,6 +10,8 @@ import java.util.Optional;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Service;
@@ -66,6 +68,7 @@ public class UserProfileService {
      * @param userProfileDTO the entity to update partially.
      * @return the persisted entity.
      */
+    @CacheEvict (value = "userProfile", key = "#userProfileDTO.id.toString()", condition = "#result.isPresent()")
     public Optional<UserProfileDTO> partialUpdate(UserProfileDTO userProfileDTO) {
         LOG.debug("Request to partially update UserProfile : {}", userProfileDTO);
 
@@ -106,6 +109,7 @@ public class UserProfileService {
      * Lay profile hien tai tu JWT, neu chua co thi tu dong khoi tao moi voi ID trung voi keycloak sub
      * 
      */
+    @Cacheable(value = "userProfile", key = "#jwt.subject")
     public UserProfileDTO getOrCreateProfile(Jwt jwt){
         UUID userId = UUID.fromString(jwt.getSubject());
         return userProfileRepository.findById(userId).map(userProfileMapper::toDto).orElseGet(()-> createProfileFromJwt(jwt, userId));
