@@ -86,17 +86,7 @@ public class SecurityConfiguration {
     @Bean
     public SecurityWebFilterChain springSecurityFilterChain(ServerHttpSecurity http) {
         http.cors(withDefaults())
-            .csrf(csrf ->
-                csrf
-                    .csrfTokenRepository(CookieServerCsrfTokenRepository.withHttpOnlyFalse())
-                    // See https://stackoverflow.com/q/74447118/65681
-                    .csrfTokenRequestHandler(new ServerCsrfTokenRequestAttributeHandler())
-                    // Microservice APIs are authenticated with Bearer JWTs, so they are not
-                    // vulnerable to browser session-based CSRF attacks.
-                    .requireCsrfProtectionMatcher(new NegatedServerWebExchangeMatcher(pathMatchers("/services/**")))
-            )
-            // See https://github.com/spring-projects/spring-security/issues/5766
-            .addFilterAt(new CookieCsrfFilter(), SecurityWebFiltersOrder.REACTOR_CONTEXT)
+            .csrf(csrf -> csrf.disable())
             .addFilterAfter(new SpaWebFilter(), SecurityWebFiltersOrder.HTTPS_REDIRECT)
             .headers(headers ->
                 headers
@@ -115,6 +105,7 @@ public class SecurityConfiguration {
                 // prettier-ignore
                 authz
                     .pathMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                    .pathMatchers("/management/health", "/management/health/**", "/management/info", "/management/prometheus").permitAll()
                     .pathMatchers(
                         "/",
                         "/*.*",
@@ -131,10 +122,6 @@ public class SecurityConfiguration {
                     .pathMatchers("/services/*/api/*/public/**").permitAll()
                     .pathMatchers("/services/**").authenticated()
                     .pathMatchers("/v3/api-docs/**").hasAuthority(AuthoritiesConstants.ADMIN)
-                    .pathMatchers("/management/health").permitAll()
-                    .pathMatchers("/management/health/**").permitAll()
-                    .pathMatchers("/management/info").permitAll()
-                    .pathMatchers("/management/prometheus").permitAll()
                     .pathMatchers("/management/**").hasAuthority(AuthoritiesConstants.ADMIN)
             )
             .oauth2Login(oauth2 -> oauth2.authorizationRequestResolver(authorizationRequestResolver(this.clientRegistrationRepository)))
