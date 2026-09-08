@@ -237,6 +237,10 @@ public class UserProfileResource {
         safeUpdateDto.setBio(userProfileDTO.getBio());
         safeUpdateDto.setBirthday(userProfileDTO.getBirthday());
         safeUpdateDto.setGender(userProfileDTO.getGender());
+        safeUpdateDto.setLocation(userProfileDTO.getLocation());
+        safeUpdateDto.setEducation(userProfileDTO.getEducation());
+        safeUpdateDto.setWork(userProfileDTO.getWork());
+        safeUpdateDto.setRelationship(userProfileDTO.getRelationship());
         safeUpdateDto.setAvatarMediaId(userProfileDTO.getAvatarMediaId());
         safeUpdateDto.setCoverMediaId(userProfileDTO.getCoverMediaId());
         safeUpdateDto.setUpdatedAt(Instant.now()); 

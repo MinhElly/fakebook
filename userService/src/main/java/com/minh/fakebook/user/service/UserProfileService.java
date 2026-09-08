@@ -129,7 +129,7 @@ public class UserProfileService {
                 .map(userProfileMapper::toDto)
                 .orElseThrow(() -> e);
         }
-    }
+    }   
 
     private String resolveDisplayName(Jwt jwt, String fallbackUsername){
         String name = jwt.getClaimAsString("name");
