@@ -53,24 +53,24 @@ export default function UserProvider({ children }: { children: React.ReactNode }
       });
   }, [status, user]);
 
-  async function updateProfile(data: Partial<UserProfile>) {
-    setProfile((prev) => ({ ...prev, ...data }));
-
-    if (status === "authenticated") {
-      try {
-        await api.patch("/services/userservice/api/user-profiles/me", {
-          displayName: data.name,
-          bio: data.bio,
-          birthday: data.birthday,
-          gender: data.gender,
-          location: data.location,
-          education: data.education,
-          work: data.work,
-          relationship: data.relationship,
-        });
-      } catch (err) {
-        console.error("Failed to sync profile update with backend:", err);
-      }
+  async function updateProfile(data: Partial<UserProfile>): Promise<boolean> {
+    try {
+      await api.patch("/services/userservice/api/user-profiles/me", {
+        displayName: data.name,
+        bio: data.bio,
+        birthday: data.birthday,
+        gender: data.gender,
+        location: data.location,
+        education: data.education,
+        work: data.work,
+        relationship: data.relationship,
+      });
+      // Chỉ cập nhật UI sau khi Backend xác nhận thành công (200 OK)
+      setProfile((prev) => ({ ...prev, ...data }));
+      return true;
+    } catch (err) {
+      console.error("Failed to sync profile update with backend:", err);
+      throw err;
     }
   }
 
