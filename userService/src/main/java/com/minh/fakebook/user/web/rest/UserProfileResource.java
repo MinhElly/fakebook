@@ -6,6 +6,8 @@ import com.minh.fakebook.user.service.UserProfileQueryService;
 import com.minh.fakebook.user.service.UserProfileService;
 import com.minh.fakebook.user.service.criteria.UserProfileCriteria;
 import com.minh.fakebook.user.service.dto.UserProfileDTO;
+import com.minh.fakebook.user.service.dto.UserProfileDetailDTO;
+import com.minh.fakebook.user.service.dto.UserSearchDTO;
 import com.minh.fakebook.user.web.rest.errors.BadRequestAlertException;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
@@ -258,5 +260,24 @@ public class UserProfileResource {
         return ResponseUtil.wrapOrNotFound(
                 result,
                 HeaderUtil.createEntityUpdateAlert(applicationName, true, ENTITY_NAME, id.toString()));
+    }
+
+    @GetMapping("/search")
+    public ResponseEntity<Page<UserSearchDTO>> searchUsers(
+            @RequestParam("query") String query,
+            @org.springdoc.core.annotations.ParameterObject Pageable pageable,
+            @AuthenticationPrincipal Jwt jwt) {
+        Page<UserSearchDTO> result = userProfileService.searchUsers(query, pageable, jwt);
+        return ResponseEntity.ok(result);
+    }
+
+    @GetMapping("/{id}/details")
+    public ResponseEntity<UserProfileDetailDTO> getUserProfileDetails(
+        @PathVariable("id") UUID id,
+        @AuthenticationPrincipal Jwt jwt
+    ) {
+        LOG.debug("REST request to get UserProfile details : {}", id);
+        Optional<UserProfileDetailDTO> result = userProfileService.getUserProfileDetails(id, jwt);
+        return ResponseUtil.wrapOrNotFound(result);
     }
 }

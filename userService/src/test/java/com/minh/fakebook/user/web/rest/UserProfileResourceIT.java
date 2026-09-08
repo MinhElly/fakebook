@@ -86,6 +86,7 @@ class UserProfileResourceIT {
      */
     public static UserProfile createEntity() {
         return new UserProfile()
+            .id(UUID.randomUUID())
             .username(DEFAULT_USERNAME)
             .displayName(DEFAULT_DISPLAY_NAME)
             .bio(DEFAULT_BIO)
@@ -103,6 +104,7 @@ class UserProfileResourceIT {
      */
     public static UserProfile createUpdatedEntity() {
         return new UserProfile()
+            .id(UUID.randomUUID())
             .username(UPDATED_USERNAME)
             .displayName(UPDATED_DISPLAY_NAME)
             .bio(UPDATED_BIO)
