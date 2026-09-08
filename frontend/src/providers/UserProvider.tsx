@@ -22,7 +22,7 @@ export default function UserProvider({ children }: { children: React.ReactNode }
   useEffect(() => {
     if (status !== "authenticated") return;
 
-    api.get("/user-profiles/me")
+    api.get("/services/userservice/api/user-profiles/me")
       .then(({ data }) => {
         const fullName = data.displayName ||
           (user?.firstName && user?.lastName ? `${user.firstName} ${user.lastName}` : (user?.username || user?.email));
@@ -52,7 +52,7 @@ export default function UserProvider({ children }: { children: React.ReactNode }
 
     if (status === "authenticated") {
       try {
-        await api.patch("/user-profiles/me", {
+        await api.patch("/services/userservice/api/user-profiles/me", {
           displayName: data.name,
           bio: data.bio,
         });
