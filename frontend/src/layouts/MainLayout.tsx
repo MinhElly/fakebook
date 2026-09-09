@@ -1,9 +1,17 @@
 import { Outlet, Navigate } from "react-router";
 import NavBar from "@/components/navbar/NavBar";
 import { useAuth } from "@/providers/AuthProvider";
+import { useFriendRequestRealtime } from "@/hooks/useFriendRequestRealtime";
+import FriendRequestToast from "@/components/ui/FriendRequestToast";
 
 export default function MainLayout() {
   const { status } = useAuth();
+  const {
+    activeToastRequest,
+    handleAcceptToast,
+    handleRejectToast,
+    handleCloseToast,
+  } = useFriendRequestRealtime(4000); // Polling 4s background
 
   if (status === "initializing") {
     return <div className="flex min-h-screen items-center justify-center bg-[#F0F2F5] text-sm font-medium text-[#65676B]" role="status">Đang kiểm tra phiên đăng nhập...</div>;
@@ -17,6 +25,16 @@ export default function MainLayout() {
       <div className="pt-14">
         <Outlet />
       </div>
+
+      {/* Real-time Friend Request Toast Notification at Bottom-Left */}
+      {activeToastRequest && (
+        <FriendRequestToast
+          request={activeToastRequest}
+          onAccept={handleAcceptToast}
+          onReject={handleRejectToast}
+          onClose={handleCloseToast}
+        />
+      )}
     </div>
   );
 }

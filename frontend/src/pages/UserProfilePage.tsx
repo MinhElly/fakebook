@@ -2,7 +2,16 @@ import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router";
 import ProfileLayout, { type ProfileUser } from "@/components/profile/ProfileLayout";
 import { getUserProfileDetails, type UserProfileDetail } from "@/services/profileService";
-import { sendFriendRequest, cancelFriendRequest } from "@/services/searchService";
+import {
+  getCurrentUserProfile,
+  getAllFriends,
+  sendFriendRequest,
+  cancelFriendRequest,
+  acceptFriendRequestById,
+  rejectFriendRequest,
+  unfriend,
+  getUserAvatarUrl,
+} from "@/services/friendsService";
 import { usePostStore } from "@/stores/postStore";
 import type { FriendUser } from "@/types";
 
@@ -12,9 +21,21 @@ export default function UserProfilePage() {
   const { posts } = usePostStore();
 
   const [profileDetail, setProfileDetail] = useState<UserProfileDetail | null>(null);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [friends, setFriends] = useState<FriendUser[]>([]);
+  const [mutualFriends, setMutualFriends] = useState<FriendUser[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const [showFriendMenu, setShowFriendMenu] = useState<boolean>(false);
 
+  // 1. Fetch current logged-in user profile
+  useEffect(() => {
+    getCurrentUserProfile()
+      .then((me) => setCurrentUserId(me.id))
+      .catch((err) => console.error("Không thể lấy thông tin tài khoản hiện tại:", err));
+  }, []);
+
+  // 2. Fetch target user profile details and target user's friends list
   useEffect(() => {
     if (!userId) {
       setError("Không tìm thấy thông tin ID người dùng.");
@@ -25,12 +46,33 @@ export default function UserProfilePage() {
     setLoading(true);
     setError(null);
 
-    getUserProfileDetails(userId)
-      .then((detail) => {
+    Promise.all([
+      getUserProfileDetails(userId),
+      getAllFriends(userId).catch(() => []),
+    ])
+      .then(([detail, targetFriendships]) => {
         setProfileDetail(detail);
+
+        // Format target user's friends
+        const formattedTargetFriends: FriendUser[] = targetFriendships.map((f) => {
+          const friendUser = f.friend?.id === userId ? f.user : f.friend;
+          return {
+            id: friendUser.id,
+            name: friendUser.displayName || friendUser.username || "Người dùng",
+            avatar: getUserAvatarUrl(friendUser),
+            cover: "/default-cover.svg",
+            mutualFriends: 0,
+            location: friendUser.location || "",
+            work: friendUser.work || "",
+            education: friendUser.education || "",
+            bio: friendUser.bio || "",
+          };
+        });
+
+        setFriends(formattedTargetFriends);
       })
       .catch((err) => {
-        console.error("Lỗi khi tải thông tin hồ sơ:", err);
+        console.error("Lỗi khi tải thông tin hồ sơ người dùng:", err);
         setError("Không thể tải thông tin hồ sơ người dùng.");
       })
       .finally(() => {
@@ -38,17 +80,123 @@ export default function UserProfilePage() {
       });
   }, [userId]);
 
-  // Handle action buttons (Thêm bạn bè / Hủy lời mời / Đồng ý)
+  // 3. Compute real mutual friends if currentUserId & targetUserId exist
+  useEffect(() => {
+    if (!currentUserId || !userId || currentUserId === userId || friends.length === 0) {
+      setMutualFriends([]);
+      return;
+    }
+
+    getAllFriends(currentUserId)
+      .then((myFriendships) => {
+        const myFriendIds = new Set(
+          myFriendships.map((f) => (f.friend?.id === currentUserId ? f.user?.id : f.friend?.id))
+        );
+        const actualMutual = friends.filter((f) => myFriendIds.has(String(f.id)));
+        setMutualFriends(actualMutual);
+      })
+      .catch(console.error);
+  }, [currentUserId, userId, friends]);
+
+  // Handle action buttons (Thêm bạn bè / Hủy lời mời / Chấp nhận / Bạn bè)
   const handleToggleFriend = async () => {
-    if (!profileDetail) return;
+    if (!profileDetail || !currentUserId) return;
     const currentStatus = profileDetail.friendshipStatus;
 
     if (currentStatus === "NONE") {
       setProfileDetail({ ...profileDetail, friendshipStatus: "PENDING_SENT" });
-      await sendFriendRequest(profileDetail.id);
+      try {
+        const req = await sendFriendRequest(currentUserId, profileDetail.id);
+        if (req && req.id) {
+          setProfileDetail((prev) => (prev ? { ...prev, friendRequestId: req.id } : prev));
+        }
+      } catch {
+        setProfileDetail((prev) => (prev ? { ...prev, friendshipStatus: "NONE" } : prev));
+      }
     } else if (currentStatus === "PENDING_SENT") {
       setProfileDetail({ ...profileDetail, friendshipStatus: "NONE" });
-      await cancelFriendRequest(profileDetail.id);
+      try {
+        if (profileDetail.friendRequestId) {
+          await cancelFriendRequest(profileDetail.friendRequestId);
+        }
+      } catch {
+        setProfileDetail((prev) => (prev ? { ...prev, friendshipStatus: "PENDING_SENT" } : prev));
+      }
+    } else if (currentStatus === "PENDING_RECEIVED") {
+      if (!profileDetail.friendRequestId) return;
+      setProfileDetail({ ...profileDetail, friendshipStatus: "FRIEND" });
+      try {
+        await acceptFriendRequestById(profileDetail.friendRequestId, currentUserId, profileDetail.id);
+        // Refresh friends list after accepting
+        getAllFriends(profileDetail.id).then((targetFriendships) => {
+          const formattedTargetFriends: FriendUser[] = targetFriendships.map((f) => {
+            const friendUser = f.friend?.id === profileDetail.id ? f.user : f.friend;
+            return {
+              id: friendUser.id,
+              name: friendUser.displayName || friendUser.username || "Người dùng",
+              avatar: getUserAvatarUrl(friendUser),
+              cover: "/default-cover.svg",
+              mutualFriends: 0,
+              location: friendUser.location || "",
+              work: friendUser.work || "",
+              education: friendUser.education || "",
+              bio: friendUser.bio || "",
+            };
+          });
+          setFriends(formattedTargetFriends);
+        });
+      } catch {
+        setProfileDetail((prev) => (prev ? { ...prev, friendshipStatus: "PENDING_RECEIVED" } : prev));
+      }
+    }
+  };
+
+  // Handle Decline / Reject Friend Request
+  const handleRejectRequest = async () => {
+    if (!profileDetail || !profileDetail.friendRequestId) return;
+    setProfileDetail({ ...profileDetail, friendshipStatus: "NONE" });
+    try {
+      await rejectFriendRequest(profileDetail.friendRequestId);
+    } catch {
+      setProfileDetail((prev) => (prev ? { ...prev, friendshipStatus: "PENDING_RECEIVED" } : prev));
+    }
+  };
+
+  // Handle Unfriend action
+  const handleUnfriend = async () => {
+    if (!profileDetail || !currentUserId) return;
+    if (!window.confirm(`Bạn có chắc chắn muốn hủy kết bạn với ${profileDetail.displayName}?`)) return;
+
+    setShowFriendMenu(false);
+    setProfileDetail({ ...profileDetail, friendshipStatus: "NONE" });
+
+    try {
+      const myFriendships = await getAllFriends(currentUserId);
+      const targetFriendship = myFriendships.find(
+        (f) => f.user?.id === profileDetail.id || f.friend?.id === profileDetail.id
+      );
+      if (targetFriendship && targetFriendship.id) {
+        await unfriend(targetFriendship.id);
+      }
+      // Update target user's friends list
+      const targetFriendships = await getAllFriends(profileDetail.id);
+      const formattedTargetFriends: FriendUser[] = targetFriendships.map((f) => {
+        const friendUser = f.friend?.id === profileDetail.id ? f.user : f.friend;
+        return {
+          id: friendUser.id,
+          name: friendUser.displayName || friendUser.username || "Người dùng",
+          avatar: getUserAvatarUrl(friendUser),
+          cover: "/default-cover.svg",
+          mutualFriends: 0,
+          location: friendUser.location || "",
+          work: friendUser.work || "",
+          education: friendUser.education || "",
+          bio: friendUser.bio || "",
+        };
+      });
+      setFriends(formattedTargetFriends);
+    } catch (err) {
+      console.error("Lỗi khi hủy kết bạn:", err);
     }
   };
 
@@ -81,12 +229,18 @@ export default function UserProfilePage() {
     );
   }
 
-  const isOwn = profileDetail.friendshipStatus === "SELF";
+  const isOwn = profileDetail.friendshipStatus === "SELF" || (currentUserId !== null && currentUserId === profileDetail.id);
 
   const user: ProfileUser = {
-    name: profileDetail.displayName,
-    avatar: profileDetail.avatarMediaId ? `/api/media/${profileDetail.avatarMediaId}` : "/default-avatar.svg",
-    cover: profileDetail.coverMediaId ? `/api/media/${profileDetail.coverMediaId}` : "/default-cover.svg",
+    name: profileDetail.displayName || profileDetail.username || "Người dùng",
+    avatar: getUserAvatarUrl({
+      id: profileDetail.id,
+      displayName: profileDetail.displayName,
+      avatarMediaId: profileDetail.avatarMediaId,
+    }),
+    cover: profileDetail.coverMediaId
+      ? `/services/mediaservice/api/media/${profileDetail.coverMediaId}`
+      : "/default-cover.svg",
     bio: profileDetail.bio,
     location: profileDetail.location,
     education: profileDetail.education,
@@ -94,36 +248,52 @@ export default function UserProfilePage() {
     relationship: profileDetail.relationship,
   };
 
-  // User posts placeholder
-  const targetUserPosts = posts.filter((p) => p.user === profileDetail.displayName);
-
-  // Mock mutual friends list based on count
-  const mutualFriendsMock: FriendUser[] = Array.from({ length: Math.min(profileDetail.mutualFriendsCount, 6) }).map((_, i) => ({
-    id: `mutual-${i}`,
-    name: `Bạn chung ${i + 1}`,
-    avatar: `https://images.unsplash.com/photo-${1500000000000 + i * 10000}?w=150&auto=format&fit=crop&q=80`,
-    mutualFriends: 0,
-  }));
+  // Target user's posts filter
+  const targetUserPosts = posts.filter(
+    (p) =>
+      p.user === profileDetail.displayName ||
+      p.user === profileDetail.username ||
+      p.user === user.name
+  );
 
   const actionButtons = isOwn ? (
     <button
       onClick={() => navigate("/profile")}
       className="flex items-center gap-2 bg-[#E4E6EB] hover:bg-[#D8DADF] text-[#1C1E21] text-sm font-semibold px-4 py-2 rounded-lg transition-colors"
     >
+      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+        <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z" />
+      </svg>
       Chỉnh sửa trang cá nhân
     </button>
   ) : (
     <div className="flex gap-2">
       {profileDetail.friendshipStatus === "FRIEND" && (
-        <button
-          onClick={handleToggleFriend}
-          className="flex items-center gap-2 bg-[#E4E6EB] hover:bg-[#D8DADF] text-[#1C1E21] text-sm font-semibold px-4 py-2 rounded-lg transition-colors"
-        >
-          <svg className="w-4 h-4 text-[#1C1E21]" fill="currentColor" viewBox="0 0 20 20">
-            <path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z" />
-          </svg>
-          Bạn bè
-        </button>
+        <div className="relative">
+          <button
+            onClick={() => setShowFriendMenu(!showFriendMenu)}
+            className="flex items-center gap-2 bg-[#E4E6EB] hover:bg-[#D8DADF] text-[#1C1E21] text-sm font-semibold px-4 py-2 rounded-lg transition-colors"
+          >
+            <svg className="w-4 h-4 text-[#1877F2]" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+            </svg>
+            Bạn bè
+          </button>
+
+          {showFriendMenu && (
+            <div className="absolute right-0 mt-1 w-48 bg-white rounded-xl shadow-lg border border-[#E4E6EB] py-1 z-20 animate-fade-in">
+              <button
+                onClick={handleUnfriend}
+                className="w-full text-left px-4 py-2.5 text-sm font-semibold text-red-600 hover:bg-[#F0F2F5] transition-colors flex items-center gap-2"
+              >
+                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M13.477 14.89A6 6 0 015.11 6.524l8.367 8.366zm1.414-1.414L6.525 5.11a6 6 0 018.366 8.367zM18 10a8 8 0 11-16 0 8 8 0 0116 0z" clipRule="evenodd" />
+                </svg>
+                Hủy kết bạn
+              </button>
+            </div>
+          )}
+        </div>
       )}
 
       {profileDetail.friendshipStatus === "PENDING_SENT" && (
@@ -131,17 +301,28 @@ export default function UserProfilePage() {
           onClick={handleToggleFriend}
           className="flex items-center gap-2 bg-[#E4E6EB] hover:bg-[#D8DADF] text-[#1C1E21] text-sm font-semibold px-4 py-2 rounded-lg transition-colors"
         >
+          <svg className="w-4 h-4 text-[#65676B]" fill="currentColor" viewBox="0 0 20 20">
+            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+          </svg>
           Hủy lời mời
         </button>
       )}
 
       {profileDetail.friendshipStatus === "PENDING_RECEIVED" && (
-        <button
-          onClick={handleToggleFriend}
-          className="flex items-center gap-2 bg-[#1877F2] hover:bg-[#166FE5] text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors"
-        >
-          Chấp nhận lời mời
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={handleToggleFriend}
+            className="flex items-center gap-2 bg-[#1877F2] hover:bg-[#166FE5] text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors"
+          >
+            Chấp nhận lời mời
+          </button>
+          <button
+            onClick={handleRejectRequest}
+            className="flex items-center gap-2 bg-[#E4E6EB] hover:bg-[#D8DADF] text-[#1C1E21] text-sm font-semibold px-4 py-2 rounded-lg transition-colors"
+          >
+            Từ chối
+          </button>
+        </div>
       )}
 
       {profileDetail.friendshipStatus === "NONE" && (
@@ -150,7 +331,7 @@ export default function UserProfilePage() {
           className="flex items-center gap-2 bg-[#1877F2] hover:bg-[#166FE5] text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors"
         >
           <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-            <path d="M8 9a3 3 0 100-6 3 3 0 000 6zM8 11a6 6 0 00-6 6h12a6 6 0 00-6-6zM16 7a1 1 0 10-2 0v1h-1a1 1 0 100 2h1v1a1 1 0 102 0v-1h1a1 1 0 100-2h-1V7z" />
+            <path d="M8 9a3 3 0 100-6 3 3 0 000 6zM8 11a6 6 0 00-6 6h12a6 6 0 00-6-6zM16 7a1 1 0 10-2 0v1h-1a1 1 0 102 0v-1h1a1 1 0 102 0v-1h1a1 1 0 100-2h-1V7z" />
           </svg>
           Thêm bạn bè
         </button>
@@ -170,8 +351,9 @@ export default function UserProfilePage() {
       user={user}
       isOwn={isOwn}
       posts={targetUserPosts}
-      mutualCount={profileDetail.mutualFriendsCount}
-      mutualFriends={mutualFriendsMock}
+      friends={friends}
+      mutualCount={mutualFriends.length || profileDetail.mutualFriendsCount}
+      mutualFriends={mutualFriends}
       actionButtons={actionButtons}
     />
   );

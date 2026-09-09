@@ -18,7 +18,7 @@ export default function Toast({ message, type, onClose, duration = 3000 }: Toast
   const isSuccess = type === "success";
 
   return (
-    <div className="fixed top-5 right-5 z-[200] flex items-center gap-3 px-4 py-3 rounded-xl shadow-xl bg-white border border-[#E4E6EB] transition-all animate-bounce-in">
+    <div className="fixed bottom-5 left-5 z-[200] flex items-center gap-3 px-4 py-3 rounded-xl shadow-xl bg-white border border-[#E4E6EB] transition-all animate-slide-up">
       <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${isSuccess ? "bg-green-100 text-green-600" : "bg-red-100 text-red-600"}`}>
         {isSuccess ? (
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
