@@ -206,7 +206,7 @@ public class UserProfileService {
             long mutual = friendshipRepository.countMutualFriends(currentUserId, profile.getId());
             dto.setMutualFriendsCount(mutual);
 
-            if (friendshipRepository.existsByUserIdAndFriendId(currentUserId, profile.getId())) {
+            if (friendshipRepository.existsFriendship(currentUserId, profile.getId())) {
                 dto.setFriendshipStatus("FRIEND");
             } else if (friendRequestRepository.existsBySenderIdAndReceiverIdAndStatus(currentUserId, profile.getId(),
                     FriendRequestStatus.PENDING)) {
@@ -250,8 +250,8 @@ public class UserProfileService {
                 long mutual = friendshipRepository.countMutualFriends(currentUserId, profile.getId());
                 dto.setMutualFriendsCount(mutual);
 
-                // 3. Xác định trạng thái kết bạn & lẫy friendRequestId nếu có
-                if (friendshipRepository.existsByUserIdAndFriendId(currentUserId, profile.getId())) {
+                // 3. Xác định trạng thái kết bạn & lấy friendRequestId nếu có
+                if (friendshipRepository.existsFriendship(currentUserId, profile.getId())) {
                     dto.setFriendshipStatus("FRIEND");
                 } else {
                     var sentReq = friendRequestRepository.findBySenderIdAndReceiverIdAndStatus(

@@ -16,5 +16,8 @@ public interface FriendshipRepository extends JpaRepository<Friendship, UUID>, J
     @Query("SELECT COUNT(f1.friend.id) FROM Friendship f1 JOIN Friendship f2 ON f1.friend.id = f2.friend.id WHERE f1.user.id = :userId1 AND f2.user.id = :userId2")
     long countMutualFriends(@Param("userId1") UUID userId1, @Param("userId2") UUID userId2);
 
-    boolean existsByUserIdAndFriendId(UUID userId, UUID friendId); 
+    boolean existsByUserIdAndFriendId(UUID userId, UUID friendId);
+
+    @Query("SELECT CASE WHEN COUNT(f) > 0 THEN true ELSE false END FROM Friendship f WHERE (f.user.id = :userId1 AND f.friend.id = :userId2) OR (f.user.id = :userId2 AND f.friend.id = :userId1)")
+    boolean existsFriendship(@Param("userId1") UUID userId1, @Param("userId2") UUID userId2);
 }
