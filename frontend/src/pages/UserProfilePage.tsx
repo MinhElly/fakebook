@@ -171,13 +171,7 @@ export default function UserProfilePage() {
     setProfileDetail({ ...profileDetail, friendshipStatus: "NONE" });
 
     try {
-      const myFriendships = await getAllFriends(currentUserId);
-      const targetFriendship = myFriendships.find(
-        (f) => f.user?.id === profileDetail.id || f.friend?.id === profileDetail.id
-      );
-      if (targetFriendship && targetFriendship.id) {
-        await unfriend(targetFriendship.id);
-      }
+      await unfriend(profileDetail.id);
       // Update target user's friends list
       const targetFriendships = await getAllFriends(profileDetail.id);
       const formattedTargetFriends: FriendUser[] = targetFriendships.map((f) => {

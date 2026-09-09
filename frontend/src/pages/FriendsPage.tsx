@@ -125,9 +125,11 @@ export default function FriendsPage() {
   };
 
   const handleUnfriend = async (user: UserSummary, friendshipId?: string) => {
-    if (!friendshipId) return;
-    await unfriend(friendshipId);
-    setFriends((prev) => prev.filter((f) => f.id !== friendshipId));
+    if (!user || !user.id) return;
+    await unfriend(user.id);
+    setFriends((prev) =>
+      prev.filter((f) => f.friend?.id !== user.id && f.user?.id !== user.id && f.id !== friendshipId)
+    );
     showToast(`Đã hủy kết bạn với ${user.displayName || user.username}.`);
   };
 
@@ -417,7 +419,7 @@ export default function FriendsPage() {
       />
 
       {/* Toast Notification */}
-      {toastMessage && <Toast message={toastMessage} onClose={() => setToastMessage(null)} />}
+      {toastMessage && <Toast message={toastMessage} type="success" onClose={() => setToastMessage(null)} />}
     </div>
   );
 }
