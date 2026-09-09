@@ -83,12 +83,11 @@ export async function getCurrentUserProfile(): Promise<UserSummary> {
 }
 
 // Lấy danh sách lời mời kết bạn đã nhận (PENDING) kèm bổ sung profile thông tin người gửi nếu bị thiếu
-export async function getFriendRequests(myUserId: string): Promise<FriendRequestItem[]> {
-  const response = await api.get<FriendRequestItem[]>("/services/userservice/api/friend-requests", {
+export async function getFriendRequests(myUserId?: string): Promise<FriendRequestItem[]> {
+  const response = await api.get<FriendRequestItem[]>("/services/userservice/api/friend-requests/received", {
     params: {
-      "receiverId.equals": myUserId,
-      "status.equals": "PENDING",
-      sort: "createdAt,desc",
+      page: 0,
+      size: 50,
     },
   });
   const rawList = response.data || [];
@@ -113,12 +112,11 @@ export async function getFriendRequests(myUserId: string): Promise<FriendRequest
 }
 
 // Lấy danh sách lời mời kết bạn đã gửi đi (PENDING)
-export async function getSentFriendRequests(myUserId: string): Promise<FriendRequestItem[]> {
-  const response = await api.get<FriendRequestItem[]>("/services/userservice/api/friend-requests", {
+export async function getSentFriendRequests(myUserId?: string): Promise<FriendRequestItem[]> {
+  const response = await api.get<FriendRequestItem[]>("/services/userservice/api/friend-requests/sent", {
     params: {
-      "senderId.equals": myUserId,
-      "status.equals": "PENDING",
-      sort: "createdAt,desc",
+      page: 0,
+      size: 50,
     },
   });
   const rawList = response.data || [];
@@ -142,30 +140,10 @@ export async function getSentFriendRequests(myUserId: string): Promise<FriendReq
   );
 }
 
-// Phê duyệt lời mời kết bạn (Chấp nhận) - Tạo bản ghi hai chiều để cả 2 user đều hiển thị bạn bè
+// Phê duyệt lời mời kết bạn (Chấp nhận) - Backend tự động tạo bản ghi hai chiều an toàn
 export async function acceptFriendRequest(request: FriendRequestItem): Promise<boolean> {
   try {
-    // 1. Cập nhật trạng thái FriendRequest thành ACCEPTED
-    await api.patch(`/services/userservice/api/friend-requests/${request.id}`, {
-      id: request.id,
-      status: "ACCEPTED",
-      respondedAt: new Date().toISOString(),
-    });
-
-    // 2. Tạo bản ghi Friendship hai chiều
-    await Promise.all([
-      api.post("/services/userservice/api/friendships", {
-        createdAt: new Date().toISOString(),
-        user: { id: request.receiver.id },
-        friend: { id: request.sender.id },
-      }).catch(() => null),
-      api.post("/services/userservice/api/friendships", {
-        createdAt: new Date().toISOString(),
-        user: { id: request.sender.id },
-        friend: { id: request.receiver.id },
-      }).catch(() => null),
-    ]);
-
+    await api.post(`/services/userservice/api/friend-requests/${request.id}/accept`);
     return true;
   } catch (error) {
     console.error("Lỗi khi chấp nhận lời mời kết bạn:", error);
@@ -173,28 +151,10 @@ export async function acceptFriendRequest(request: FriendRequestItem): Promise<b
   }
 }
 
-// Phê duyệt lời mời kết bạn theo ID lời mời, ID người nhận và ID người gửi
-export async function acceptFriendRequestById(requestId: string, myUserId: string, senderId: string): Promise<boolean> {
+// Phê duyệt lời mời kết bạn theo ID lời mời
+export async function acceptFriendRequestById(requestId: string, myUserId?: string, senderId?: string): Promise<boolean> {
   try {
-    await api.patch(`/services/userservice/api/friend-requests/${requestId}`, {
-      id: requestId,
-      status: "ACCEPTED",
-      respondedAt: new Date().toISOString(),
-    });
-
-    await Promise.all([
-      api.post("/services/userservice/api/friendships", {
-        createdAt: new Date().toISOString(),
-        user: { id: myUserId },
-        friend: { id: senderId },
-      }).catch(() => null),
-      api.post("/services/userservice/api/friendships", {
-        createdAt: new Date().toISOString(),
-        user: { id: senderId },
-        friend: { id: myUserId },
-      }).catch(() => null),
-    ]);
-
+    await api.post(`/services/userservice/api/friend-requests/${requestId}/accept`);
     return true;
   } catch (error) {
     console.error("Lỗi khi chấp nhận lời mời kết bạn:", error);
@@ -205,22 +165,18 @@ export async function acceptFriendRequestById(requestId: string, myUserId: strin
 // Từ chối lời mời kết bạn
 export async function rejectFriendRequest(requestId: string): Promise<boolean> {
   try {
-    await api.delete(`/services/userservice/api/friend-requests/${requestId}`);
+    await api.post(`/services/userservice/api/friend-requests/${requestId}/reject`);
     return true;
   } catch (error) {
-    console.error("Lỗi khi xóa/từ chối lời mời kết bạn:", error);
+    console.error("Lỗi khi từ chối lời mời kết bạn:", error);
     throw error;
   }
 }
 
-// Gửi lời mời kết bạn mới
-export async function sendFriendRequest(myUserId: string, targetUserId: string): Promise<FriendRequestItem> {
-  const response = await api.post<FriendRequestItem>("/services/userservice/api/friend-requests", {
-    status: "PENDING",
-    createdAt: new Date().toISOString(),
-    sender: { id: myUserId },
-    receiver: { id: targetUserId },
-  });
+// Gửi lời mời kết bạn mới (Gọi API an toàn POST /api/friend-requests/user/{targetUserId})
+export async function sendFriendRequest(arg1: string, arg2?: string): Promise<FriendRequestItem> {
+  const targetUserId = arg2 || arg1;
+  const response = await api.post<FriendRequestItem>(`/services/userservice/api/friend-requests/user/${targetUserId}`);
 
   let item = response.data;
   if (item && item.receiver && (!item.receiver.displayName || !item.receiver.username)) {
@@ -230,12 +186,27 @@ export async function sendFriendRequest(myUserId: string, targetUserId: string):
   return item;
 }
 
-// Hủy lời mời kết bạn đã gửi
-export async function cancelFriendRequest(requestId: string): Promise<boolean> {
+// Hủy lời mời kết bạn đã gửi (Hỗ trợ linh hoạt cả requestId lẫn targetUserId)
+export async function cancelFriendRequest(requestIdOrTargetUserId: string): Promise<boolean> {
   try {
-    await api.delete(`/services/userservice/api/friend-requests/${requestId}`);
+    await api.delete(`/services/userservice/api/friend-requests/${requestIdOrTargetUserId}/cancel`);
     return true;
   } catch (error) {
+    try {
+      const res = await api.get<FriendRequestItem[]>("/services/userservice/api/friend-requests/sent", {
+        params: { page: 0, size: 100 },
+      });
+      const sentList = res.data || [];
+      const found = sentList.find(
+        (req) => req.id === requestIdOrTargetUserId || req.receiver?.id === requestIdOrTargetUserId
+      );
+      if (found && found.id) {
+        await api.delete(`/services/userservice/api/friend-requests/${found.id}/cancel`);
+        return true;
+      }
+    } catch (fallbackErr) {
+      console.error("Lỗi khi tìm lời mời kết bạn để hủy:", fallbackErr);
+    }
     console.error("Lỗi khi hủy lời mời kết bạn đã gửi:", error);
     throw error;
   }

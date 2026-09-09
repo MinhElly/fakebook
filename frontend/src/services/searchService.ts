@@ -33,15 +33,28 @@ export async function searchUsers(query: string, page = 0, size = 20): Promise<{
 }
 
 export async function sendFriendRequest(targetUserId: string): Promise<boolean> {
-  await api.post("/services/userservice/api/friend-requests", {
-    receiver: { id: targetUserId },
-    status: "PENDING",
-    createdAt: new Date().toISOString(),
-  });
+  await api.post(`/services/userservice/api/friend-requests/user/${targetUserId}`);
   return true;
 }
 
-export async function cancelFriendRequest(targetUserId: string): Promise<boolean> {
-  await api.delete(`/services/userservice/api/friend-requests/target/${targetUserId}`);
-  return true;
+export async function cancelFriendRequest(targetUserId: string, requestId?: string): Promise<boolean> {
+  if (requestId) {
+    await api.delete(`/services/userservice/api/friend-requests/${requestId}/cancel`);
+    return true;
+  }
+  try {
+    const res = await api.get<any[]>("/services/userservice/api/friend-requests/sent", {
+      params: { page: 0, size: 100 },
+    });
+    const sentList = res.data || [];
+    const found = sentList.find((req: any) => req.receiver?.id === targetUserId);
+    if (found && found.id) {
+      await api.delete(`/services/userservice/api/friend-requests/${found.id}/cancel`);
+      return true;
+    }
+  } catch (err) {
+    console.error("Lỗi khi tìm và hủy lời mời kết bạn:", err);
+  }
+  return false;
 }
+
