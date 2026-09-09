@@ -212,34 +212,8 @@ export async function cancelFriendRequest(requestIdOrTargetUserId: string): Prom
   }
 }
 
-// Lấy danh sách tất cả bạn bè của user hiện tại (hỗ trợ truy vấn 2 chiều và tự động bổ sung profile)
-export async function getAllFriends(myUserId: string): Promise<FriendshipItem[]> {
-  const [res1, res2] = await Promise.all([
-    api.get<FriendshipItem[]>("/services/userservice/api/friendships", {
-      params: { "userId.equals": myUserId, sort: "createdAt,desc" },
-    }).catch(() => ({ data: [] })),
-    api.get<FriendshipItem[]>("/services/userservice/api/friendships", {
-      params: { "friendId.equals": myUserId, sort: "createdAt,desc" },
-    }).catch(() => ({ data: [] })),
-  ]);
-
-  const rawList1 = res1.data || [];
-  const rawList2 = res2.data || [];
-  const combined = [...rawList1, ...rawList2];
-
-  // Khử trùng lặp theo ID bạn bè đối phương
-  const friendMap = new Map<string, FriendshipItem>();
-  for (const item of combined) {
-    const targetFriendUser = item.friend?.id === myUserId ? item.user : item.friend;
-    const targetId = targetFriendUser?.id;
-    if (targetId && !friendMap.has(targetId)) {
-      friendMap.set(targetId, item);
-    }
-  }
-
-  const list = Array.from(friendMap.values());
-
-  // Bổ sung profile thông tin hiển thị nếu bị thiếu từ MapStruct backend
+// Helper bổ sung profile cho danh sách bạn bè
+async function enrichFriendshipsList(list: FriendshipItem[]): Promise<FriendshipItem[]> {
   return Promise.all(
     list.map(async (item) => {
       let user = item.user;
@@ -257,10 +231,33 @@ export async function getAllFriends(myUserId: string): Promise<FriendshipItem[]>
   );
 }
 
-// Hủy kết bạn
-export async function unfriend(friendshipId: string): Promise<boolean> {
+// Lấy danh sách bạn bè của chính mình (gọi API GET /services/userservice/api/friendships/me)
+export async function getMyFriends(): Promise<FriendshipItem[]> {
+  const response = await api.get<FriendshipItem[]>("/services/userservice/api/friendships/me");
+  const rawList = response.data || [];
+  return enrichFriendshipsList(rawList);
+}
+
+// Lấy danh sách bạn bè của một user bất kỳ (gọi API GET /services/userservice/api/friendships/user/{userId})
+export async function getUserFriends(userId: string): Promise<FriendshipItem[]> {
+  if (!userId) return [];
+  const response = await api.get<FriendshipItem[]>(`/services/userservice/api/friendships/user/${userId}`);
+  const rawList = response.data || [];
+  return enrichFriendshipsList(rawList);
+}
+
+// Legacy / convenience wrapper cho danh sách bạn bè
+export async function getAllFriends(userId?: string): Promise<FriendshipItem[]> {
+  if (userId) {
+    return getUserFriends(userId);
+  }
+  return getMyFriends();
+}
+
+// Hủy kết bạn theo ID người bạn (gọi API DELETE /services/userservice/api/friendships/user/{friendUserId})
+export async function unfriend(friendUserId: string): Promise<boolean> {
   try {
-    await api.delete(`/services/userservice/api/friendships/${friendshipId}`);
+    await api.delete(`/services/userservice/api/friendships/user/${friendUserId}`);
     return true;
   } catch (error) {
     console.error("Lỗi khi hủy kết bạn:", error);

@@ -53,7 +53,7 @@ export interface Contact {
 export type DropdownType = "messages" | "notifications" | "profile" | null;
 
 export interface FriendUser {
-  id: number;
+  id: string | number;
   name: string;
   avatar: string;
   cover: string;
@@ -67,7 +67,7 @@ export interface FriendUser {
 export type FriendStatus = "none" | "pending_sent" | "pending_received" | "friends";
 
 export interface FriendRequest {
-  id: number;
+  id: string | number;
   from: FriendUser;
   time: string;
 }

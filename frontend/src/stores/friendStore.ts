@@ -5,16 +5,16 @@ export interface FriendState {
   friends: FriendUser[];
   following: FriendUser[];
   pendingReceived: FriendUser[];
-  pendingSent: number[];
-  getStatus: (userId: number) => FriendStatus;
-  isFollowing: (userId: number) => boolean;
+  pendingSent: (string | number)[];
+  getStatus: (userId: string | number) => FriendStatus;
+  isFollowing: (userId: string | number) => boolean;
   sendRequest: (user: FriendUser) => void;
-  cancelRequest: (userId: number) => void;
-  acceptRequest: (userId: number) => void;
-  rejectRequest: (userId: number) => void;
-  removeFriend: (userId: number) => void;
+  cancelRequest: (userId: string | number) => void;
+  acceptRequest: (userId: string | number) => void;
+  rejectRequest: (userId: string | number) => void;
+  removeFriend: (userId: string | number) => void;
   follow: (user: FriendUser) => void;
-  unfollow: (userId: number) => void;
+  unfollow: (userId: string | number) => void;
 }
 
 export const FriendContext = createContext<FriendState>({
