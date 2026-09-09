@@ -13,14 +13,7 @@ import org.mapstruct.*;
  */
 @Mapper(componentModel = "spring")
 public interface FriendRequestMapper extends EntityMapper<FriendRequestDTO, FriendRequest> {
-    @Mapping(target = "sender", source = "sender", qualifiedByName = "userProfileId")
-    @Mapping(target = "receiver", source = "receiver", qualifiedByName = "userProfileId")
     FriendRequestDTO toDto(FriendRequest s);
-
-    @Named("userProfileId")
-    @BeanMapping(ignoreByDefault = true)
-    @Mapping(target = "id", source = "id")
-    UserProfileDTO toDtoUserProfileId(UserProfile userProfile);
 
     default String map(UUID value) {
         return Objects.toString(value, null);
