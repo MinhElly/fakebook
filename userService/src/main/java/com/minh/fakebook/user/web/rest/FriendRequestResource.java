@@ -241,7 +241,7 @@ public class FriendRequestResource {
             FriendRequestDTO result = friendRequestService.rejectFriendRequest(requestId,receiverId);
             return ResponseEntity.status(HttpStatus.OK).body(result);
     }
-    @DeleteMapping ("/{requestId}")
+    @DeleteMapping("/{requestId}/cancel")
     public ResponseEntity<FriendRequestDTO> cancelFriendRequest(
         @PathVariable("requestId") UUID requestId,
         @AuthenticationPrincipal Jwt jwt){
