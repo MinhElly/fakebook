@@ -8,6 +8,8 @@ import java.util.Optional;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -95,5 +97,22 @@ public class FriendshipService {
     public void delete(UUID id) {
         LOG.debug("Request to delete Friendship : {}", id);
         friendshipRepository.deleteById(id);
+    }
+    public void unFriend(UUID currentUserId, UUID friendUserId ){
+        if(currentUserId.equals(friendUserId)){
+            throw new IllegalArgumentException("Cannot unfriend yourself");
+        }
+        if(!friendshipRepository.existsFriendship(currentUserId, friendUserId)){
+            throw new IllegalStateException("You are not friend with this user");
+        }else{
+            friendshipRepository.deleteFriendship(currentUserId, friendUserId);
+        
+        }  
+    }
+    public Page<FriendshipDTO> getMyFriendsList(UUID userId, Pageable pageable){
+        return friendshipRepository.findByUserId(userId, pageable).map(friendshipMapper::toDto);    
+    }
+    public Page<FriendshipDTO> getUserFriendsList(UUID userId, Pageable pageable){
+        return friendshipRepository.findByUserId(userId, pageable).map(friendshipMapper::toDto);    
     }
 }

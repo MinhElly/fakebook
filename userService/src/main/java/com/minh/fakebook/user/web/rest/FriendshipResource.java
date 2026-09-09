@@ -17,10 +17,14 @@ import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 import tech.jhipster.web.util.HeaderUtil;
@@ -65,6 +69,7 @@ public class FriendshipResource {
      * @throws URISyntaxException if the Location URI syntax is incorrect.
      */
     @PostMapping("")
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<FriendshipDTO> createFriendship(@Valid @RequestBody FriendshipDTO friendshipDTO) throws URISyntaxException {
         LOG.debug("REST request to save Friendship : {}", friendshipDTO);
         if (friendshipDTO.getId() != null) {
@@ -87,6 +92,7 @@ public class FriendshipResource {
      * @throws URISyntaxException if the Location URI syntax is incorrect.
      */
     @PutMapping("/{id}")
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<FriendshipDTO> updateFriendship(
         @PathVariable(value = "id", required = false) final UUID id,
         @Valid @RequestBody FriendshipDTO friendshipDTO
@@ -121,6 +127,7 @@ public class FriendshipResource {
      * @throws URISyntaxException if the Location URI syntax is incorrect.
      */
     @PatchMapping(value = "/{id}", consumes = { "application/json", "application/merge-patch+json" })
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<FriendshipDTO> partialUpdateFriendship(
         @PathVariable(value = "id", required = false) final UUID id,
         @NotNull @RequestBody FriendshipDTO friendshipDTO
@@ -153,6 +160,7 @@ public class FriendshipResource {
      * @return the {@link ResponseEntity} with status {@code 200 (OK)} and the list of Friendships in body.
      */
     @GetMapping("")
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<List<FriendshipDTO>> getAllFriendships(
         FriendshipCriteria criteria,
         @org.springdoc.core.annotations.ParameterObject Pageable pageable
@@ -171,6 +179,7 @@ public class FriendshipResource {
      * @return the {@link ResponseEntity} with status {@code 200 (OK)} and the count in body.
      */
     @GetMapping("/count")
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<Long> countFriendships(FriendshipCriteria criteria) {
         LOG.debug("REST request to count Friendships by criteria: {}", criteria);
         return ResponseEntity.ok().body(friendshipQueryService.countByCriteria(criteria));
@@ -183,6 +192,7 @@ public class FriendshipResource {
      * @return the {@link ResponseEntity} with status {@code 200 (OK)} and with body the friendshipDTO, or with status {@code 404 (Not Found)}.
      */
     @GetMapping("/{id}")
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<FriendshipDTO> getFriendship(@PathVariable("id") UUID id) {
         LOG.debug("REST request to get Friendship : {}", id);
         Optional<FriendshipDTO> friendshipDTO = friendshipService.findOne(id);
@@ -196,6 +206,7 @@ public class FriendshipResource {
      * @return the {@link ResponseEntity} with status {@code 204 (NO_CONTENT)}.
      */
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<Void> deleteFriendship(@PathVariable("id") UUID id) {
         LOG.debug("REST request to delete Friendship : {}", id);
         friendshipService.delete(id);
@@ -203,4 +214,34 @@ public class FriendshipResource {
             .headers(HeaderUtil.createEntityDeletionAlert(applicationName, true, ENTITY_NAME, id.toString()))
             .build();
     }
+
+    @DeleteMapping ("/user/{friendId}")
+    public ResponseEntity<Void> unFriend(
+        @PathVariable ("friendId") UUID friendUserId,
+        @AuthenticationPrincipal Jwt jwt){
+            UUID currentUserId = UUID.fromString(jwt.getSubject());
+            friendshipService.unFriend(currentUserId, friendUserId);
+            return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping ("/me")
+    public ResponseEntity<List<FriendshipDTO>> getMyFriendsList(
+        @AuthenticationPrincipal Jwt jwt,
+        Pageable pageable){
+            UUID userId = UUID.fromString(jwt.getSubject());
+            Page<FriendshipDTO> page = friendshipService.getMyFriendsList(userId, pageable);
+            HttpHeaders headers = PaginationUtil.generatePaginationHttpHeaders(ServletUriComponentsBuilder.fromCurrentRequest(),page );
+            return ResponseEntity.ok().headers(headers).body(page.getContent());
+    }
+
+    @GetMapping ("/user/{userId}")
+    public ResponseEntity<List<FriendshipDTO>> getUserFriendsList(
+        @PathVariable("userId") UUID userId,
+        @AuthenticationPrincipal Jwt jwt,
+        Pageable pageable){
+            Page<FriendshipDTO> page = friendshipService.getUserFriendsList(userId, pageable);
+            HttpHeaders headers = PaginationUtil.generatePaginationHttpHeaders(ServletUriComponentsBuilder.fromCurrentRequest(),page );
+            return ResponseEntity.ok().headers(headers).body(page.getContent());
+        }
+    
 }

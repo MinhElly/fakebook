@@ -2,6 +2,9 @@ package com.minh.fakebook.user.repository;
 
 import com.minh.fakebook.user.domain.Friendship;
 import java.util.UUID;
+
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.*;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -20,4 +23,10 @@ public interface FriendshipRepository extends JpaRepository<Friendship, UUID>, J
 
     @Query("SELECT CASE WHEN COUNT(f) > 0 THEN true ELSE false END FROM Friendship f WHERE (f.user.id = :userId1 AND f.friend.id = :userId2) OR (f.user.id = :userId2 AND f.friend.id = :userId1)")
     boolean existsFriendship(@Param("userId1") UUID userId1, @Param("userId2") UUID userId2);
-}
+
+    @Modifying
+    @Query("DELETE FROM Friendship f WHERE (f.user.id = :userId1 AND f.friend.id = :userId2) OR (f.user.id = :userId2 AND f.friend.id = :userId1)")
+    void deleteFriendship(@Param("userId1") UUID userId1, @Param("userId2") UUID userId2);
+
+    Page<Friendship> findByUserId(UUID userId, Pageable pageable);
+} 
