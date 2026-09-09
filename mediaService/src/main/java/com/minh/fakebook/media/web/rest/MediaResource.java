@@ -196,7 +196,26 @@ public class MediaResource {
         LOG.debug("REST request to delete Media : {}", id);
         mediaService.delete(id);
         return ResponseEntity.noContent()
-            .headers(HeaderUtil.createEntityDeletionAlert(applicationName, true, ENTITY_NAME, id.toString()))
-            .build();
+                .headers(HeaderUtil.createEntityDeletionAlert(applicationName, true, ENTITY_NAME, id.toString()))
+                .build();
+    }
+    
+    /**
+     * {@code POST  /medias/upload} : Upload a new media file (Image/Video).
+     *
+     * @param file the multipart file to upload.
+     * @return the {@link org.springframework.http.ResponseEntity} with status {@code 201 (Created)} and with body the new mediaDTO.
+     */
+    @org.springframework.web.bind.annotation.PostMapping(value = "/medias/upload", consumes = { "multipart/form-data" })
+    public org.springframework.http.ResponseEntity<com.minh.fakebook.media.service.dto.MediaDTO> uploadMedia(
+            @org.springframework.web.bind.annotation.RequestParam("file") org.springframework.web.multipart.MultipartFile file)
+            throws java.net.URISyntaxException {
+        LOG.debug("REST request to upload Media file: {}", file.getOriginalFilename());
+
+        com.minh.fakebook.media.service.dto.MediaDTO result = mediaService.uploadMedia(file);
+
+        return org.springframework.http.ResponseEntity
+                .created(new java.net.URI("/api/medias/" + result.getId()))
+                .body(result);
     }
 }
