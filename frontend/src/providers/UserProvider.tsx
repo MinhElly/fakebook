@@ -30,9 +30,15 @@ export default function UserProvider({ children }: { children: React.ReactNode }
         setProfile((prev) => ({
           ...prev,
           name: fullName || prev.name,
-          bio: data.bio || prev.bio,
-          avatar: data.avatarMediaId ? `/api/media/${data.avatarMediaId}` : prev.avatar,
-          cover: data.coverMediaId ? `/api/media/${data.coverMediaId}` : prev.cover,
+          bio: data.bio ?? prev.bio,
+          birthday: data.birthday ?? prev.birthday,
+          gender: data.gender ?? prev.gender,
+          location: data.location ?? prev.location,
+          education: data.education ?? prev.education,
+          work: data.work ?? prev.work,
+          relationship: data.relationship ?? prev.relationship,
+          avatar: data.avatarMediaId ? `/services/mediaservice/api/media/${data.avatarMediaId}` : prev.avatar,
+          cover: data.coverMediaId ? `/services/mediaservice/api/media/${data.coverMediaId}` : prev.cover,
         }));
       })
       .catch(() => {
@@ -47,18 +53,24 @@ export default function UserProvider({ children }: { children: React.ReactNode }
       });
   }, [status, user]);
 
-  async function updateProfile(data: Partial<UserProfile>) {
-    setProfile((prev) => ({ ...prev, ...data }));
-
-    if (status === "authenticated") {
-      try {
-        await api.patch("/services/userservice/api/user-profiles/me", {
-          displayName: data.name,
-          bio: data.bio,
-        });
-      } catch (err) {
-        console.error("Failed to sync profile update with backend:", err);
-      }
+  async function updateProfile(data: Partial<UserProfile>): Promise<boolean> {
+    try {
+      await api.patch("/services/userservice/api/user-profiles/me", {
+        displayName: data.name,
+        bio: data.bio,
+        birthday: data.birthday,
+        gender: data.gender,
+        location: data.location,
+        education: data.education,
+        work: data.work,
+        relationship: data.relationship,
+      });
+      // Chỉ cập nhật UI sau khi Backend xác nhận thành công (200 OK)
+      setProfile((prev) => ({ ...prev, ...data }));
+      return true;
+    } catch (err) {
+      console.error("Failed to sync profile update with backend:", err);
+      throw err;
     }
   }
 

@@ -20,7 +20,12 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 import tech.jhipster.web.util.HeaderUtil;
@@ -65,11 +70,12 @@ public class FriendRequestResource {
      * @throws URISyntaxException if the Location URI syntax is incorrect.
      */
     @PostMapping("")
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<FriendRequestDTO> createFriendRequest(@Valid @RequestBody FriendRequestDTO friendRequestDTO)
         throws URISyntaxException {
         LOG.debug("REST request to save FriendRequest : {}", friendRequestDTO);
         if (friendRequestDTO.getId() != null) {
-            throw new BadRequestAlertException("A new friendRequest cannot already have an ID", ENTITY_NAME, "idexists");
+            throw new BadRequestAlertException("A new friendRequest cannot already have an ID" , ENTITY_NAME, "idexists");
         }
         friendRequestDTO = friendRequestService.save(friendRequestDTO);
         return ResponseEntity.created(new URI("/api/friend-requests/" + friendRequestDTO.getId()))
@@ -88,6 +94,7 @@ public class FriendRequestResource {
      * @throws URISyntaxException if the Location URI syntax is incorrect.
      */
     @PutMapping("/{id}")
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<FriendRequestDTO> updateFriendRequest(
         @PathVariable(value = "id", required = false) final UUID id,
         @Valid @RequestBody FriendRequestDTO friendRequestDTO
@@ -122,6 +129,7 @@ public class FriendRequestResource {
      * @throws URISyntaxException if the Location URI syntax is incorrect.
      */
     @PatchMapping(value = "/{id}", consumes = { "application/json", "application/merge-patch+json" })
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<FriendRequestDTO> partialUpdateFriendRequest(
         @PathVariable(value = "id", required = false) final UUID id,
         @NotNull @RequestBody FriendRequestDTO friendRequestDTO
@@ -154,6 +162,7 @@ public class FriendRequestResource {
      * @return the {@link ResponseEntity} with status {@code 200 (OK)} and the list of Friend Requests in body.
      */
     @GetMapping("")
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<List<FriendRequestDTO>> getAllFriendRequests(
         FriendRequestCriteria criteria,
         @org.springdoc.core.annotations.ParameterObject Pageable pageable
@@ -172,6 +181,7 @@ public class FriendRequestResource {
      * @return the {@link ResponseEntity} with status {@code 200 (OK)} and the count in body.
      */
     @GetMapping("/count")
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<Long> countFriendRequests(FriendRequestCriteria criteria) {
         LOG.debug("REST request to count FriendRequests by criteria: {}", criteria);
         return ResponseEntity.ok().body(friendRequestQueryService.countByCriteria(criteria));
@@ -184,6 +194,7 @@ public class FriendRequestResource {
      * @return the {@link ResponseEntity} with status {@code 200 (OK)} and with body the friendRequestDTO, or with status {@code 404 (Not Found)}.
      */
     @GetMapping("/{id}")
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<FriendRequestDTO> getFriendRequest(@PathVariable("id") UUID id) {
         LOG.debug("REST request to get FriendRequest : {}", id);
         Optional<FriendRequestDTO> friendRequestDTO = friendRequestService.findOne(id);
@@ -197,11 +208,64 @@ public class FriendRequestResource {
      * @return the {@link ResponseEntity} with status {@code 204 (NO_CONTENT)}.
      */
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<Void> deleteFriendRequest(@PathVariable("id") UUID id) {
         LOG.debug("REST request to delete FriendRequest : {}", id);
         friendRequestService.delete(id);
         return ResponseEntity.noContent()
             .headers(HeaderUtil.createEntityDeletionAlert(applicationName, true, ENTITY_NAME, id.toString()))
             .build();
+    }
+    @PostMapping ("/user/{id}")
+    public ResponseEntity<FriendRequestDTO> sendFriendRequest(
+        @PathVariable("id") UUID targetUserId, 
+        @AuthenticationPrincipal Jwt jwt){
+        UUID senderId = UUID.fromString(jwt.getSubject());
+        FriendRequestDTO result = friendRequestService.sendFriendRequest(senderId, targetUserId);
+        return ResponseEntity.status(HttpStatus.CREATED).body(result);
+    }
+    
+    @PostMapping ("/{requestId}/accept")
+    public ResponseEntity<FriendRequestDTO> acceptFriendRequest(
+        @PathVariable("requestId") UUID requestId,
+        @AuthenticationPrincipal Jwt jwt){
+            UUID receiverId = UUID.fromString(jwt.getSubject());
+            FriendRequestDTO result = friendRequestService.acceptFriendRequest(requestId,receiverId);
+            return ResponseEntity.status(HttpStatus.OK).body(result);
+    }
+    @PostMapping ("/{requestId}/reject")
+    public ResponseEntity<FriendRequestDTO> rejectFriendRequest(
+        @PathVariable("requestId") UUID requestId,
+        @AuthenticationPrincipal Jwt jwt){
+            UUID receiverId = UUID.fromString(jwt.getSubject());
+            FriendRequestDTO result = friendRequestService.rejectFriendRequest(requestId,receiverId);
+            return ResponseEntity.status(HttpStatus.OK).body(result);
+    }
+    @DeleteMapping("/{requestId}/cancel")
+    public ResponseEntity<FriendRequestDTO> cancelFriendRequest(
+        @PathVariable("requestId") UUID requestId,
+        @AuthenticationPrincipal Jwt jwt){
+            UUID senderId = UUID.fromString(jwt.getSubject());
+            FriendRequestDTO result = friendRequestService.cancelFriendRequest(requestId,senderId);
+            return ResponseEntity.status(HttpStatus.OK).body(result);
+    }
+    @GetMapping ("/received")
+    public ResponseEntity<List<FriendRequestDTO>> getFriendRequestsList(
+        Pageable pageable,
+        @AuthenticationPrincipal Jwt jwt){
+            UUID currentUserId = UUID.fromString(jwt.getSubject());
+            Page<FriendRequestDTO> page = friendRequestService.getReceivedPendingRequests(currentUserId, pageable);
+             HttpHeaders headers = PaginationUtil.generatePaginationHttpHeaders(ServletUriComponentsBuilder.fromCurrentRequest(), page);
+             return ResponseEntity.ok().headers(headers).body(page.getContent()); 
+    }
+
+    @GetMapping ("/sent")
+    public ResponseEntity<List<FriendRequestDTO>> getSentFriendRequestsList(
+        Pageable pageable,
+        @AuthenticationPrincipal Jwt jwt){
+            UUID currentUserId = UUID.fromString(jwt.getSubject());
+            Page<FriendRequestDTO> page = friendRequestService.getSentedPendingRequests(currentUserId, pageable);
+             HttpHeaders headers = PaginationUtil.generatePaginationHttpHeaders(ServletUriComponentsBuilder.fromCurrentRequest(), page);
+             return ResponseEntity.ok().headers(headers).body(page.getContent()); 
     }
 }

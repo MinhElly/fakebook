@@ -6,16 +6,16 @@ export default function FriendProvider({ children }: { children: React.ReactNode
   const [friends] = useState<FriendUser[]>([]);
   const [following] = useState<FriendUser[]>([]);
   const [pendingReceived] = useState<FriendUser[]>([]);
-  const [pendingSent] = useState<number[]>([]);
+  const [pendingSent] = useState<(string | number)[]>([]);
 
-  function getStatus(userId: number): FriendStatus {
+  function getStatus(userId: string | number): FriendStatus {
     if (friends.some(f => f.id === userId)) return "friends";
     if (pendingSent.includes(userId)) return "pending_sent";
     if (pendingReceived.some(f => f.id === userId)) return "pending_received";
     return "none";
   }
 
-  function isFollowing(userId: number) {
+  function isFollowing(userId: string | number) {
     return following.some(f => f.id === userId);
   }
 
@@ -23,19 +23,19 @@ export default function FriendProvider({ children }: { children: React.ReactNode
     void user;
   }
 
-  function cancelRequest(userId: number) {
+  function cancelRequest(userId: string | number) {
     void userId;
   }
 
-  function acceptRequest(userId: number) {
+  function acceptRequest(userId: string | number) {
     void userId;
   }
 
-  function rejectRequest(userId: number) {
+  function rejectRequest(userId: string | number) {
     void userId;
   }
 
-  function removeFriend(userId: number) {
+  function removeFriend(userId: string | number) {
     void userId;
   }
 
@@ -43,7 +43,7 @@ export default function FriendProvider({ children }: { children: React.ReactNode
     void user;
   }
 
-  function unfollow(userId: number) {
+  function unfollow(userId: string | number) {
     void userId;
   }
 

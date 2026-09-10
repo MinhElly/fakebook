@@ -35,6 +35,16 @@ export default function NavBar() {
     setOpenDropdown(prev => prev === d ? null : d);
   }
 
+  const [searchQuery, setSearchQuery] = useState("");
+
+  function handleSearchSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (searchQuery.trim()) {
+      navigate(`/search?q=${encodeURIComponent(searchQuery.trim())}`);
+      setSearchOpen(false);
+    }
+  }
+
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 bg-white shadow-sm h-14 flex items-center px-2 md:px-4 gap-2">
 
@@ -48,10 +58,15 @@ export default function NavBar() {
         </button>
 
         {/* Desktop search bar */}
-        <div className="hidden md:flex items-center gap-2 bg-[#F0F2F5] rounded-full px-3 h-10 flex-1">
+        <form onSubmit={handleSearchSubmit} className="hidden md:flex items-center gap-2 bg-[#F0F2F5] rounded-full px-3 h-10 flex-1">
           <svg className="w-4 h-4 text-[#65676B] flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clipRule="evenodd"/></svg>
-          <input className="bg-transparent outline-none text-sm w-full text-[#1C1E21] placeholder-[#65676B]" placeholder="Tìm kiếm trên Facebook" />
-        </div>
+          <input
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="bg-transparent outline-none text-sm w-full text-[#1C1E21] placeholder-[#65676B]"
+            placeholder="Tìm kiếm trên Facebook"
+          />
+        </form>
 
         {/* Mobile search icon */}
         <button
@@ -65,10 +80,16 @@ export default function NavBar() {
       {/* Mobile search bar (expands below on mobile) */}
       {searchOpen && (
         <div className="md:hidden absolute top-14 left-0 right-0 bg-white shadow-md px-4 py-2 z-50">
-          <div className="flex items-center gap-2 bg-[#F0F2F5] rounded-full px-3 h-10">
+          <form onSubmit={handleSearchSubmit} className="flex items-center gap-2 bg-[#F0F2F5] rounded-full px-3 h-10">
             <svg className="w-4 h-4 text-[#65676B] flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clipRule="evenodd"/></svg>
-            <input autoFocus className="bg-transparent outline-none text-sm w-full text-[#1C1E21] placeholder-[#65676B]" placeholder="Tìm kiếm trên Facebook" onBlur={() => setSearchOpen(false)} />
-          </div>
+            <input
+              autoFocus
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="bg-transparent outline-none text-sm w-full text-[#1C1E21] placeholder-[#65676B]"
+              placeholder="Tìm kiếm trên Facebook"
+            />
+          </form>
         </div>
       )}
 
