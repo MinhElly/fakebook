@@ -11,7 +11,7 @@ export default function MainLayout() {
     handleAcceptToast,
     handleRejectToast,
     handleCloseToast,
-  } = useFriendRequestRealtime(4000); // Polling 4s background
+  } = useFriendRequestRealtime(status === "authenticated", 4000); // Polling 4s background
 
   if (status === "initializing") {
     return <div className="flex min-h-screen items-center justify-center bg-[#F0F2F5] text-sm font-medium text-[#65676B]" role="status">Đang kiểm tra phiên đăng nhập...</div>;

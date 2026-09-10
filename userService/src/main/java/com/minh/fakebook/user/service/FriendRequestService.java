@@ -16,8 +16,13 @@ import jakarta.persistence.EntityNotFoundException;
 import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
+
+import org.hibernate.annotations.Cache;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -139,7 +144,11 @@ public class FriendRequestService {
         LOG.debug("Request to delete FriendRequest : {}", id);
         friendRequestRepository.deleteById(id);
     }
-@Transactional 
+    @Transactional 
+    @Caching (evict = {
+        @CacheEvict(value = "pendingSentRequests", allEntries = true),
+        @CacheEvict(value = "pendingReceivedRequests", allEntries = true)
+    })
     public FriendRequestDTO sendFriendRequest (UUID senderId, UUID targetUserId){
         if(senderId.equals(targetUserId)){
             throw new IllegalArgumentException("Sender and target user must be different people");
@@ -165,7 +174,12 @@ public class FriendRequestService {
         friendRequest = friendRequestRepository.save(friendRequest);
         return friendRequestMapper.toDto(friendRequest);  
     }
-    @Transactional 
+    @Transactional
+    @Caching(evict = {
+        @CacheEvict (value = "pendingReceivedRequests", allEntries = true),
+        @CacheEvict (value = "pendingSentRequests", allEntries = true),
+        @CacheEvict (value = "userFriends", allEntries = true)
+    }) 
     public FriendRequestDTO acceptFriendRequest(UUID receiverId, UUID currentId){
         FriendRequest friendRequest = friendRequestRepository.findById(receiverId).orElseThrow(() -> new EntityNotFoundException("Friend request not found"));
         if(friendRequest.getStatus() != FriendRequestStatus.PENDING) {
@@ -200,7 +214,8 @@ public class FriendRequestService {
         return friendRequestMapper.toDto(saved);
 
     }
-    @Transactional 
+    @Transactional
+    @CacheEvict (value = "pendingReceivedRequests", allEntries = true) 
     public FriendRequestDTO rejectFriendRequest(UUID requestId, UUID currentId){
         FriendRequest friendRequest = friendRequestRepository.findById(requestId).orElseThrow(() -> new EntityNotFoundException("Friend request not found"));
         if(friendRequest.getStatus() != FriendRequestStatus.PENDING) {
@@ -222,6 +237,7 @@ public class FriendRequestService {
         return friendRequestMapper.toDto(saved);
     }
     @Transactional
+    @CacheEvict (value = "pendingSentRequests", allEntries = true) 
     public FriendRequestDTO cancelFriendRequest(UUID requestId, UUID currentId){
         FriendRequest friendRequest = friendRequestRepository.findById(requestId).orElseThrow(() -> new EntityNotFoundException("Friend request not found"));
         if(friendRequest.getStatus() != FriendRequestStatus.PENDING) {
@@ -242,12 +258,12 @@ public class FriendRequestService {
 
         return friendRequestMapper.toDto(saved);
     }
-
+    @Cacheable (value = "pendingReceivedRequests", key = "#receiverId.toString() + '_' + #pageable.getPageNumber() + '_' + #pageable.getPageSize()")
     public Page<FriendRequestDTO> getReceivedPendingRequests(UUID receiverId, Pageable pageable) {
         return friendRequestRepository.findByReceiverIdAndStatus(receiverId, FriendRequestStatus.PENDING, pageable)
                 .map(friendRequestMapper::toDto);
     }
-
+    @Cacheable (value = "pendingSentRequests", key = "#senderId.toString() + '_' + #pageable.getPageNumber() + '_' + #pageable.getPageSize()")
     public Page<FriendRequestDTO> getSentedPendingRequests(UUID senderId, Pageable pageable) {
         return friendRequestRepository.findBySenderIdAndStatus(senderId, FriendRequestStatus.PENDING, pageable)
                 .map(friendRequestMapper::toDto);

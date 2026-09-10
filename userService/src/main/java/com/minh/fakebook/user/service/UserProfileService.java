@@ -11,8 +11,13 @@ import com.minh.fakebook.user.service.dto.UserSearchDTO;
 import com.minh.fakebook.user.service.mapper.UserProfileMapper;
 
 import java.time.Instant;
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collector;
+import java.util.stream.Collectors;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -187,6 +192,21 @@ public class UserProfileService {
         UUID currentUserId = UUID.fromString(jwt.getSubject());
         Page<UserProfile> profiles = userProfileRepository
                 .findByDisplayNameContainingIgnoreCaseOrUsernameContainingIgnoreCase(query, query, pageable);
+        
+        if(profiles.isEmpty()){
+            return Page.empty(pageable);
+        }
+        List<UUID> targetUserId = profiles.stream()
+        .map(UserProfile::getId)
+        .filter(id -> !id.equals(currentUserId))
+        .collect(Collectors.toList());
+
+        Set<UUID> friendIds = friendshipRepository.findFriendIdsIn(currentUserId, targetUserId);
+
+        Set<UUID> pendingSentIds = friendRequestRepository.findPendingReceiverIdsIn(currentUserId, targetUserId, FriendRequestStatus.PENDING);
+        Set<UUID> pendingReceivedIds = friendRequestRepository.findPendingSenderIdsIn(currentUserId, targetUserId, FriendRequestStatus.PENDING);
+        
+        Map<UUID, Long> mutualFriendsMap = friendshipRepository.countMutualFriendsForUsers(currentUserId, targetUserId).stream().collect(Collectors.toMap(t -> t.get(0, UUID.class), t -> t.get(1, Long.class)));
         return profiles.map(profile -> {
             UserSearchDTO dto = new UserSearchDTO();
             dto.setId(profile.getId());
@@ -203,16 +223,14 @@ public class UserProfileService {
                 dto.setMutualFriendsCount(0);
                 return dto;
             }
-            long mutual = friendshipRepository.countMutualFriends(currentUserId, profile.getId());
-            dto.setMutualFriendsCount(mutual);
+           
+            dto.setMutualFriendsCount(mutualFriendsMap.getOrDefault(profile.getId(), 0L));
 
-            if (friendshipRepository.existsFriendship(currentUserId, profile.getId())) {
+            if (friendIds.contains(profile.getId())) {
                 dto.setFriendshipStatus("FRIEND");
-            } else if (friendRequestRepository.existsBySenderIdAndReceiverIdAndStatus(currentUserId, profile.getId(),
-                    FriendRequestStatus.PENDING)) {
+            } else if (pendingSentIds.contains(profile.getId())) {
                 dto.setFriendshipStatus("PENDING_SENT");
-            } else if (friendRequestRepository.existsBySenderIdAndReceiverIdAndStatus(profile.getId(), currentUserId,
-                    FriendRequestStatus.PENDING)) {
+            } else if (pendingReceivedIds.contains(profile.getId())) {
                 dto.setFriendshipStatus("PENDING_RECEIVED");
             } else {
                 dto.setFriendshipStatus("NONE");

@@ -1,6 +1,12 @@
 package com.minh.fakebook.user.repository;
 
 import com.minh.fakebook.user.domain.Friendship;
+
+import jakarta.persistence.Tuple;
+
+import java.util.Collection;
+import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 import org.springframework.data.domain.Page;
@@ -29,4 +35,15 @@ public interface FriendshipRepository extends JpaRepository<Friendship, UUID>, J
     void deleteFriendship(@Param("userId1") UUID userId1, @Param("userId2") UUID userId2);
 
     Page<Friendship> findByUserId(UUID userId, Pageable pageable);
-} 
+
+    @Query("SELECT f.friend.id FROM Friendship f WHERE f.user.id = :currentUserId AND f.friend.id IN :targetIds")
+    Set<UUID> findFriendIdsIn(@Param ("currentUserId")UUID currentUserId, @Param ("targetIds") Collection<UUID> targetIds);
+
+    @Query("SELECT f2.user.id AS userId, COUNT(f1.friend.id) AS count " + 
+        "FROM Friendship f1 JOIN Friendship f2 ON f1.friend.id = f2.friend.id " +
+        "WHERE f1.user.id = :currentUserId AND f2.user.id IN :targetIds " +
+        "GROUP BY f2.user.id"
+    )
+    List<Tuple> countMutualFriendsForUsers(@Param("currentUserId") UUID currentUserId, @Param("targetIds") Collection<UUID> targetIds);
+    
+}
