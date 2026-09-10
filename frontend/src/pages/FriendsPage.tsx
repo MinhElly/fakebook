@@ -58,7 +58,7 @@ export default function FriendsPage() {
       setMyUser(user);
 
       if (user && user.id) {
-        // 2. Parallel fetch requests, sent requests, suggestions & friends
+        // 2. Parallel fetch requests, sent requests, suggestions & friends concurrently
         const [reqRes, sentRes, sugRes, friendsRes] = await Promise.all([
           getFriendRequests(user.id).catch(() => []),
           getSentFriendRequests(user.id).catch(() => []),
@@ -248,6 +248,7 @@ export default function FriendsPage() {
                       key={user.id}
                       user={user}
                       cardType="suggestion"
+                      mutualFriendsCount={user.mutualFriendsCount}
                       onAddFriend={handleAddFriend}
                       onRemoveSuggestion={handleRemoveSuggestion}
                     />
@@ -328,6 +329,7 @@ export default function FriendsPage() {
                     key={user.id}
                     user={user}
                     cardType="suggestion"
+                    mutualFriendsCount={user.mutualFriendsCount}
                     onAddFriend={handleAddFriend}
                     onRemoveSuggestion={handleRemoveSuggestion}
                   />
