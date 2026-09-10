@@ -77,7 +77,7 @@ public class CacheConfiguration {
         objectMapper.registerModule(pageModule);
 
         objectMapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
-        GenericJackson2JsonRedisSerializer jsonSerializer = GenericJackson2JsonRedisSerializer.builder().objectMapper(objectMapper).defaultTyping(true).build();
+        GenericJackson2JsonRedisSerializer jsonSerializer = GenericJackson2JsonRedisSerializer.builder().objectMapper(objectMapper).build();
         RedisCacheConfiguration cacheConfig = RedisCacheConfiguration.defaultCacheConfig()
         .entryTtl(Duration.ofMinutes(30))
         .disableCachingNullValues()
