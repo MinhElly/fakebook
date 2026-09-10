@@ -101,7 +101,10 @@ public class FriendshipService {
         LOG.debug("Request to delete Friendship : {}", id);
         friendshipRepository.deleteById(id);
     }
-    @CacheEvict (value = "userFriends", allEntries = true)
+    @Caching(evict = {
+        @CacheEvict(value = "userFriends", allEntries = true),
+        @CacheEvict(value = "friendSuggestions", allEntries = true)
+    })
     public void unFriend(UUID currentUserId, UUID friendUserId ){
         if(currentUserId.equals(friendUserId)){
             throw new IllegalArgumentException("Cannot unfriend yourself");

@@ -147,7 +147,8 @@ public class FriendRequestService {
     @Transactional 
     @Caching (evict = {
         @CacheEvict(value = "pendingSentRequests", allEntries = true),
-        @CacheEvict(value = "pendingReceivedRequests", allEntries = true)
+        @CacheEvict(value = "pendingReceivedRequests", allEntries = true),
+        @CacheEvict(value = "friendSuggestions", allEntries = true)
     })
     public FriendRequestDTO sendFriendRequest (UUID senderId, UUID targetUserId){
         if(senderId.equals(targetUserId)){
@@ -178,7 +179,8 @@ public class FriendRequestService {
     @Caching(evict = {
         @CacheEvict (value = "pendingReceivedRequests", allEntries = true),
         @CacheEvict (value = "pendingSentRequests", allEntries = true),
-        @CacheEvict (value = "userFriends", allEntries = true)
+        @CacheEvict (value = "userFriends", allEntries = true),
+        @CacheEvict (value = "friendSuggestions", allEntries = true)
     }) 
     public FriendRequestDTO acceptFriendRequest(UUID receiverId, UUID currentId){
         FriendRequest friendRequest = friendRequestRepository.findById(receiverId).orElseThrow(() -> new EntityNotFoundException("Friend request not found"));
@@ -215,7 +217,10 @@ public class FriendRequestService {
 
     }
     @Transactional
-    @CacheEvict (value = "pendingReceivedRequests", allEntries = true) 
+    @Caching(evict = {
+        @CacheEvict (value = "pendingReceivedRequests", allEntries = true),
+        @CacheEvict (value = "friendSuggestions", allEntries = true)
+    })
     public FriendRequestDTO rejectFriendRequest(UUID requestId, UUID currentId){
         FriendRequest friendRequest = friendRequestRepository.findById(requestId).orElseThrow(() -> new EntityNotFoundException("Friend request not found"));
         if(friendRequest.getStatus() != FriendRequestStatus.PENDING) {
@@ -237,7 +242,10 @@ public class FriendRequestService {
         return friendRequestMapper.toDto(saved);
     }
     @Transactional
-    @CacheEvict (value = "pendingSentRequests", allEntries = true) 
+    @Caching(evict = {
+        @CacheEvict (value = "pendingSentRequests", allEntries = true),
+        @CacheEvict (value = "friendSuggestions", allEntries = true)
+    })
     public FriendRequestDTO cancelFriendRequest(UUID requestId, UUID currentId){
         FriendRequest friendRequest = friendRequestRepository.findById(requestId).orElseThrow(() -> new EntityNotFoundException("Friend request not found"));
         if(friendRequest.getStatus() != FriendRequestStatus.PENDING) {
