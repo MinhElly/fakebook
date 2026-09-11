@@ -15,6 +15,9 @@ import java.util.Optional;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -108,6 +111,12 @@ public class FollowService {
         LOG.debug("Request to delete Follow : {}", id);
         followRepository.deleteById(id);
     }
+
+    @Caching(evict = {
+        @CacheEvict(value = "userFollowing", allEntries = true),
+        @CacheEvict(value = "userFollowers", allEntries = true),
+        @CacheEvict(value = "friendSuggestions", allEntries = true)
+    })
     public FollowDTO followUser(UUID senderId, UUID targetUserId){
         if(senderId.equals(targetUserId)){
             throw new IllegalArgumentException("Sender and targer user must be different people");
@@ -124,6 +133,12 @@ public class FollowService {
         follow.setCreatedAt(Instant.now());
         return followMapper.toDto(followRepository.save(follow));
     }
+
+    @Caching(evict = {
+        @CacheEvict(value = "userFollowing", allEntries = true),
+        @CacheEvict(value = "userFollowers", allEntries = true),
+        @CacheEvict(value = "friendSuggestions", allEntries = true)
+    })
     public void unfollowUser(UUID currentUserId, UUID targetUserId){
     if(currentUserId.equals(targetUserId)){
        throw new IllegalArgumentException("Cannot unfollow yourself");
@@ -134,9 +149,15 @@ public class FollowService {
         followRepository.deleteFollowing(currentUserId, targetUserId);
         }  
     }
+
+    @Transactional(readOnly = true)
+    @Cacheable(value = "userFollowing", key = "#userId.toString() + '_' + #pageable.pageNumber + '_' + #pageable.pageSize")
     public Page<FollowDTO> getFollowingList(UUID userId, Pageable pageable){
         return followRepository.findFollowing(userId, pageable).map(followMapper::toDto);    
     }
+
+    @Transactional(readOnly = true)
+    @Cacheable(value = "userFollowers", key = "#userId.toString() + '_' + #pageable.pageNumber + '_' + #pageable.pageSize")
     public Page<FollowDTO> getFollowerList(UUID userId, Pageable pageable){
         return followRepository.findFollowers(userId, pageable).map(followMapper::toDto);    
     }

@@ -1,8 +1,9 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
-import { useSearchParams } from "react-router";
+import { useSearchParams, useNavigate } from "react-router";
 import FriendsSidebar from "@/components/friends/FriendsSidebar";
 import FriendCard from "@/components/friends/FriendCard";
 import SentRequestsModal from "@/components/friends/SentRequestsModal";
+import FollowButton from "@/components/profile/FollowButton";
 import Toast from "@/components/ui/Toast";
 import {
   getCurrentUserProfile,
@@ -15,14 +16,17 @@ import {
   sendFriendRequest,
   cancelFriendRequest,
   unfriend,
+  getUserAvatarUrl,
   type FriendRequestItem,
   type FriendshipItem,
   type FriendSuggestionItem,
   type FriendTabType,
   type UserSummary,
 } from "@/services/friendsService";
+import { getMyFollowingList, getMyFollowerList, type FollowDTO } from "@/services/followService";
 
 export default function FriendsPage() {
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const activeTab = (searchParams.get("tab") as FriendTabType) || "overview";
 
@@ -31,6 +35,8 @@ export default function FriendsPage() {
   const [sentRequests, setSentRequests] = useState<FriendRequestItem[]>([]);
   const [suggestions, setSuggestions] = useState<FriendSuggestionItem[]>([]);
   const [friends, setFriends] = useState<FriendshipItem[]>([]);
+  const [followingList, setFollowingList] = useState<FollowDTO[]>([]);
+  const [followerList, setFollowerList] = useState<FollowDTO[]>([]);
 
   const [loading, setLoading] = useState<boolean>(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -58,18 +64,22 @@ export default function FriendsPage() {
       setMyUser(user);
 
       if (user && user.id) {
-        // 2. Parallel fetch requests, sent requests, suggestions & friends concurrently
-        const [reqRes, sentRes, sugRes, friendsRes] = await Promise.all([
+        // 2. Parallel fetch requests, sent requests, suggestions, friends, following & followers
+        const [reqRes, sentRes, sugRes, friendsRes, followingRes, followerRes] = await Promise.all([
           getFriendRequests(user.id).catch(() => []),
           getSentFriendRequests(user.id).catch(() => []),
           getFriendSuggestions(user.id).catch(() => []),
           getAllFriends(user.id).catch(() => []),
+          getMyFollowingList().catch(() => []),
+          getMyFollowerList().catch(() => []),
         ]);
 
         setRequests(reqRes);
         setSentRequests(sentRes);
         setSuggestions(sugRes);
         setFriends(friendsRes);
+        setFollowingList(followingRes);
+        setFollowerList(followerRes);
       }
     } catch (err) {
       console.error("Lỗi khi tải dữ liệu trang bạn bè:", err);
@@ -401,6 +411,138 @@ export default function FriendsPage() {
                       cardType="friend"
                       onUnfriend={handleUnfriend}
                     />
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── TAB 5: FOLLOWING ──────────────────────────────────────── */}
+        {activeTab === "following" && (
+          <div>
+            <div className="mb-6">
+              <h1 className="text-2xl font-bold text-[#1C1E21]">Đang theo dõi</h1>
+              <p className="text-sm text-[#65676B] mt-0.5">
+                Tất cả {followingList.length} người dùng bạn đang theo dõi
+              </p>
+            </div>
+
+            {loading ? (
+              <SkeletonGrid />
+            ) : followingList.length === 0 ? (
+              <div className="bg-white rounded-2xl border border-[#E4E6EB] p-12 text-center max-w-md mx-auto my-8">
+                <p className="text-base font-semibold text-[#050505]">Bạn chưa theo dõi người dùng nào</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                {followingList.map((item) => {
+                  const target = item.following || item.follower;
+                  if (!target) return null;
+                  const u: FriendUser = {
+                    id: target.id,
+                    name: target.displayName || target.username || "Người dùng",
+                    avatar: getUserAvatarUrl(target),
+                    cover: "/default-cover.svg",
+                    mutualFriends: 0,
+                    location: target.location || "",
+                    work: target.work || "",
+                    education: target.education || "",
+                    bio: target.bio || "",
+                  };
+                  return (
+                    <div
+                      key={item.id || target.id}
+                      className="bg-white border border-[#E4E6EB] rounded-xl p-4 shadow-sm flex items-center justify-between gap-4 hover:border-[#1877F2]/40 transition-all"
+                    >
+                      <div className="flex items-center gap-3.5 min-w-0 flex-1">
+                        <img
+                          src={u.avatar}
+                          alt={u.name}
+                          onClick={() => navigate(`/profile/${u.id}`)}
+                          className="w-16 h-16 rounded-full object-cover border border-[#E4E6EB] flex-shrink-0 cursor-pointer hover:opacity-90 transition-opacity"
+                        />
+                        <div className="min-w-0 flex-1">
+                          <h3
+                            onClick={() => navigate(`/profile/${u.id}`)}
+                            className="font-bold text-base text-[#1C1E21] truncate cursor-pointer hover:underline"
+                          >
+                            {u.name}
+                          </h3>
+                          {u.bio && <p className="text-xs text-[#65676B] truncate mt-0.5">{u.bio}</p>}
+                          {u.location && !u.bio && <p className="text-xs text-[#65676B] truncate mt-0.5">🏠 {u.location}</p>}
+                        </div>
+                      </div>
+                      <div className="flex-shrink-0">
+                        <FollowButton user={u} size="sm" />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── TAB 6: FOLLOWERS ──────────────────────────────────────── */}
+        {activeTab === "followers" && (
+          <div>
+            <div className="mb-6">
+              <h1 className="text-2xl font-bold text-[#1C1E21]">Người theo dõi</h1>
+              <p className="text-sm text-[#65676B] mt-0.5">
+                Tất cả {followerList.length} người dùng đang theo dõi bạn
+              </p>
+            </div>
+
+            {loading ? (
+              <SkeletonGrid />
+            ) : followerList.length === 0 ? (
+              <div className="bg-white rounded-2xl border border-[#E4E6EB] p-12 text-center max-w-md mx-auto my-8">
+                <p className="text-base font-semibold text-[#050505]">Chưa có ai theo dõi bạn</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                {followerList.map((item) => {
+                  const target = item.follower || item.following;
+                  if (!target) return null;
+                  const u: FriendUser = {
+                    id: target.id,
+                    name: target.displayName || target.username || "Người dùng",
+                    avatar: getUserAvatarUrl(target),
+                    cover: "/default-cover.svg",
+                    mutualFriends: 0,
+                    location: target.location || "",
+                    work: target.work || "",
+                    education: target.education || "",
+                    bio: target.bio || "",
+                  };
+                  return (
+                    <div
+                      key={item.id || target.id}
+                      className="bg-white border border-[#E4E6EB] rounded-xl p-4 shadow-sm flex items-center justify-between gap-4 hover:border-[#1877F2]/40 transition-all"
+                    >
+                      <div className="flex items-center gap-3.5 min-w-0 flex-1">
+                        <img
+                          src={u.avatar}
+                          alt={u.name}
+                          onClick={() => navigate(`/profile/${u.id}`)}
+                          className="w-16 h-16 rounded-full object-cover border border-[#E4E6EB] flex-shrink-0 cursor-pointer hover:opacity-90 transition-opacity"
+                        />
+                        <div className="min-w-0 flex-1">
+                          <h3
+                            onClick={() => navigate(`/profile/${u.id}`)}
+                            className="font-bold text-base text-[#1C1E21] truncate cursor-pointer hover:underline"
+                          >
+                            {u.name}
+                          </h3>
+                          {u.bio && <p className="text-xs text-[#65676B] truncate mt-0.5">{u.bio}</p>}
+                          {u.location && !u.bio && <p className="text-xs text-[#65676B] truncate mt-0.5">🏠 {u.location}</p>}
+                        </div>
+                      </div>
+                      <div className="flex-shrink-0">
+                        <FollowButton user={u} size="sm" />
+                      </div>
+                    </div>
                   );
                 })}
               </div>
