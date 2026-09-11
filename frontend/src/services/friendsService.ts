@@ -51,7 +51,7 @@ export interface FriendSuggestionItem {
   mutualFriendsCount?: number;
 }
 
-export type FriendTabType = "overview" | "requests" | "suggestions" | "all";
+export type FriendTabType = "overview" | "requests" | "suggestions" | "all" | "following" | "followers";
 
 // In-memory cache for user profile summaries to avoid redundant API calls
 const userProfileCache = new Map<string, UserSummary>();
@@ -189,7 +189,7 @@ export async function sendFriendRequest(arg1: string, arg2?: string): Promise<Fr
 // Hủy lời mời kết bạn đã gửi (Hỗ trợ linh hoạt cả requestId lẫn targetUserId)
 export async function cancelFriendRequest(requestIdOrTargetUserId: string): Promise<boolean> {
   try {
-    await api.delete(`/services/userservice/api/friend-requests/${requestIdOrTargetUserId}/cancel`);
+    await api.post(`/services/userservice/api/friend-requests/${requestIdOrTargetUserId}/cancel`);
     return true;
   } catch (error) {
     try {
@@ -201,7 +201,7 @@ export async function cancelFriendRequest(requestIdOrTargetUserId: string): Prom
         (req) => req.id === requestIdOrTargetUserId || req.receiver?.id === requestIdOrTargetUserId
       );
       if (found && found.id) {
-        await api.delete(`/services/userservice/api/friend-requests/${found.id}/cancel`);
+        await api.post(`/services/userservice/api/friend-requests/${found.id}/cancel`);
         return true;
       }
     } catch (fallbackErr) {
