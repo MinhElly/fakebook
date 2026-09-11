@@ -5,6 +5,7 @@ import com.minh.fakebook.user.service.FollowQueryService;
 import com.minh.fakebook.user.service.FollowService;
 import com.minh.fakebook.user.service.criteria.FollowCriteria;
 import com.minh.fakebook.user.service.dto.FollowDTO;
+import com.minh.fakebook.user.service.dto.FriendshipDTO;
 import com.minh.fakebook.user.web.rest.errors.BadRequestAlertException;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
@@ -20,7 +21,11 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 import tech.jhipster.web.util.HeaderUtil;
@@ -61,6 +66,7 @@ public class FollowResource {
      * @throws URISyntaxException if the Location URI syntax is incorrect.
      */
     @PostMapping("")
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<FollowDTO> createFollow(@Valid @RequestBody FollowDTO followDTO) throws URISyntaxException {
         LOG.debug("REST request to save Follow : {}", followDTO);
         if (followDTO.getId() != null) {
@@ -83,6 +89,7 @@ public class FollowResource {
      * @throws URISyntaxException if the Location URI syntax is incorrect.
      */
     @PutMapping("/{id}")
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<FollowDTO> updateFollow(
         @PathVariable(value = "id", required = false) final UUID id,
         @Valid @RequestBody FollowDTO followDTO
@@ -117,6 +124,7 @@ public class FollowResource {
      * @throws URISyntaxException if the Location URI syntax is incorrect.
      */
     @PatchMapping(value = "/{id}", consumes = { "application/json", "application/merge-patch+json" })
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<FollowDTO> partialUpdateFollow(
         @PathVariable(value = "id", required = false) final UUID id,
         @NotNull @RequestBody FollowDTO followDTO
@@ -149,6 +157,7 @@ public class FollowResource {
      * @return the {@link ResponseEntity} with status {@code 200 (OK)} and the list of Follows in body.
      */
     @GetMapping("")
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<List<FollowDTO>> getAllFollows(
         FollowCriteria criteria,
         @org.springdoc.core.annotations.ParameterObject Pageable pageable
@@ -167,6 +176,7 @@ public class FollowResource {
      * @return the {@link ResponseEntity} with status {@code 200 (OK)} and the count in body.
      */
     @GetMapping("/count")
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<Long> countFollows(FollowCriteria criteria) {
         LOG.debug("REST request to count Follows by criteria: {}", criteria);
         return ResponseEntity.ok().body(followQueryService.countByCriteria(criteria));
@@ -179,6 +189,7 @@ public class FollowResource {
      * @return the {@link ResponseEntity} with status {@code 200 (OK)} and with body the followDTO, or with status {@code 404 (Not Found)}.
      */
     @GetMapping("/{id}")
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<FollowDTO> getFollow(@PathVariable("id") UUID id) {
         LOG.debug("REST request to get Follow : {}", id);
         Optional<FollowDTO> followDTO = followService.findOne(id);
@@ -192,11 +203,62 @@ public class FollowResource {
      * @return the {@link ResponseEntity} with status {@code 204 (NO_CONTENT)}.
      */
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<Void> deleteFollow(@PathVariable("id") UUID id) {
         LOG.debug("REST request to delete Follow : {}", id);
         followService.delete(id);
         return ResponseEntity.noContent()
             .headers(HeaderUtil.createEntityDeletionAlert(applicationName, true, ENTITY_NAME, id.toString()))
             .build();
+    }
+    @PostMapping ("/user/{id}")
+    public ResponseEntity<FollowDTO> followUser(
+        @PathVariable("id") UUID targetUserId,
+        @AuthenticationPrincipal Jwt jwt){
+            UUID senderId = UUID.fromString(jwt.getSubject());
+            FollowDTO result = followService.followUser(senderId,targetUserId);
+            return ResponseEntity.status(HttpStatus.CREATED).body(result);
+        }
+    @DeleteMapping("/user/{id}")
+    public ResponseEntity<Void> unfollowUser(
+        @PathVariable("id") UUID targetUserId,
+        @AuthenticationPrincipal Jwt jwt){
+            UUID senderId = UUID.fromString(jwt.getSubject());
+            followService.unfollowUser(senderId, targetUserId);
+            return ResponseEntity.noContent().build();
+    }
+    @GetMapping("/me/following")
+    public ResponseEntity<List<FollowDTO>> getMyFollowingList(
+        @AuthenticationPrincipal Jwt jwt,
+        @org.springdoc.core.annotations.ParameterObject Pageable pageable){
+            UUID userId = UUID.fromString(jwt.getSubject());
+            Page<FollowDTO> page = followService.getFollowingList(userId, pageable);
+            HttpHeaders headers = PaginationUtil.generatePaginationHttpHeaders(ServletUriComponentsBuilder.fromCurrentRequest(),page );
+            return ResponseEntity.ok().headers(headers).body(page.getContent());
+    }
+    @GetMapping("/me/follower")
+    public ResponseEntity<List<FollowDTO>> getMyFollowerList(
+        @AuthenticationPrincipal Jwt jwt,
+        @org.springdoc.core.annotations.ParameterObject Pageable pageable){
+            UUID userId = UUID.fromString(jwt.getSubject());
+            Page<FollowDTO> page = followService.getFollowerList(userId, pageable);
+            HttpHeaders headers = PaginationUtil.generatePaginationHttpHeaders(ServletUriComponentsBuilder.fromCurrentRequest(),page );
+            return ResponseEntity.ok().headers(headers).body(page.getContent());
+    }
+    @GetMapping("/user/{userId}/following")
+    public ResponseEntity<List<FollowDTO>> getUserFollowingList(
+        @PathVariable("userId") UUID userId,
+        @org.springdoc.core.annotations.ParameterObject Pageable pageable){
+            Page<FollowDTO> page = followService.getFollowingList(userId, pageable);
+            HttpHeaders headers = PaginationUtil.generatePaginationHttpHeaders(ServletUriComponentsBuilder.fromCurrentRequest(),page );
+            return ResponseEntity.ok().headers(headers).body(page.getContent());
+    }
+    @GetMapping("/user/{userId}/follower")
+    public ResponseEntity<List<FollowDTO>> getUserFollowerList(
+        @PathVariable("userId") UUID userId,
+        @org.springdoc.core.annotations.ParameterObject Pageable pageable){
+            Page<FollowDTO> page = followService.getFollowerList(userId, pageable);
+            HttpHeaders headers = PaginationUtil.generatePaginationHttpHeaders(ServletUriComponentsBuilder.fromCurrentRequest(),page );
+            return ResponseEntity.ok().headers(headers).body(page.getContent());
     }
 }

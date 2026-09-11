@@ -180,8 +180,8 @@ public class FriendRequestService {
         @CacheEvict (value = "userFriends", allEntries = true),
         @CacheEvict (value = "friendSuggestions", allEntries = true)
     }) 
-    public FriendRequestDTO acceptFriendRequest(UUID receiverId, UUID currentId){
-        FriendRequest friendRequest = friendRequestRepository.findById(receiverId).orElseThrow(() -> new EntityNotFoundException("Friend request not found"));
+    public FriendRequestDTO acceptFriendRequest(UUID requestId, UUID currentId){
+        FriendRequest friendRequest = friendRequestRepository.findById(requestId).orElseThrow(() -> new EntityNotFoundException("Friend request not found"));
         if(friendRequest.getStatus() != FriendRequestStatus.PENDING) {
             throw new IllegalStateException("Friend request is not in pending status");
         }
@@ -270,7 +270,7 @@ public class FriendRequestService {
                 .map(friendRequestMapper::toDto);
     }
     @Cacheable (value = "pendingSentRequests", key = "#senderId.toString() + '_' + #pageable.getPageNumber() + '_' + #pageable.getPageSize()")
-    public Page<FriendRequestDTO> getSentedPendingRequests(UUID senderId, Pageable pageable) {
+    public Page<FriendRequestDTO> getSentPendingRequests(UUID senderId, Pageable pageable) {
         return friendRequestRepository.findBySenderIdAndStatus(senderId, FriendRequestStatus.PENDING, pageable)
                 .map(friendRequestMapper::toDto);
     }
