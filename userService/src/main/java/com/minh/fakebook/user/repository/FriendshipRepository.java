@@ -1,7 +1,6 @@
 package com.minh.fakebook.user.repository;
 
 import com.minh.fakebook.user.domain.Friendship;
-import com.minh.fakebook.user.service.dto.FriendSuggestionProjection;
 
 import jakarta.persistence.Tuple;
 

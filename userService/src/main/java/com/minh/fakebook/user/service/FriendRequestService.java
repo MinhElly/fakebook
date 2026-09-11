@@ -9,7 +9,7 @@ import com.minh.fakebook.user.repository.FriendshipRepository;
 import com.minh.fakebook.user.repository.UserProfileRepository;
 import com.minh.fakebook.user.service.dto.FriendRequestDTO;
 import com.minh.fakebook.user.service.mapper.FriendRequestMapper;
-import com.minh.fakebook.user.web.rest.errors.BadRequestAlertException;
+
 
 import jakarta.persistence.EntityNotFoundException;
 
@@ -72,15 +72,13 @@ public class FriendRequestService {
 
             if (senderId != null && receiverId != null) {
                 if (friendshipRepository.existsFriendship(senderId, receiverId)) {
-                    throw new BadRequestAlertException("Hai người dùng đã là bạn bè của nhau",
-                            "userServiceFriendRequest", "alreadyfriends");
+                    throw new IllegalArgumentException("Hai người dùng đã là bạn bè của nhau");
                 }
                 if (friendRequestRepository.existsBySenderIdAndReceiverIdAndStatus(senderId, receiverId,
                         FriendRequestStatus.PENDING) ||
                         friendRequestRepository.existsBySenderIdAndReceiverIdAndStatus(receiverId, senderId,
                                 FriendRequestStatus.PENDING)) {
-                    throw new BadRequestAlertException("Lời mời kết bạn đã tồn tại và đang chờ phản hồi",
-                            "userServiceFriendRequest", "alreadyrequested");
+                    throw new IllegalArgumentException("Lời mời kết bạn đã tồn tại và đang chờ phản hồi");
                 }
             }
         }

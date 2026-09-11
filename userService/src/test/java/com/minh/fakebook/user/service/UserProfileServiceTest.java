@@ -46,22 +46,29 @@ class UserProfileServiceTest {
     }
 
     @Test
-    void testGetFriendSuggestionsSerialization() throws Exception {
+    void testUserProfileDtoSerialization() throws Exception {
         Jwt jwt = Jwt.withTokenValue("token")
             .header("alg", "none")
             .claim("sub", user1.getId().toString())
             .claim("preferred_username", user1.getUsername())
             .build();
 
-        List<UserSearchDTO> suggestions = userProfileService.getFriendSuggestions(jwt);
+        com.minh.fakebook.user.service.dto.UserProfileDTO profile = userProfileService.getOrCreateProfile(jwt);
 
         com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
         mapper.registerModule(new com.fasterxml.jackson.datatype.jsr310.JavaTimeModule());
-        org.springframework.data.redis.serializer.GenericJackson2JsonRedisSerializer serializer =
-            new org.springframework.data.redis.serializer.GenericJackson2JsonRedisSerializer(mapper);
+        com.fasterxml.jackson.databind.jsontype.PolymorphicTypeValidator ptv = 
+            com.fasterxml.jackson.databind.jsontype.BasicPolymorphicTypeValidator.builder()
+                .allowIfBaseType(Object.class)
+                .build();
+        mapper.activateDefaultTyping(ptv, com.fasterxml.jackson.databind.ObjectMapper.DefaultTyping.NON_FINAL, com.fasterxml.jackson.annotation.JsonTypeInfo.As.PROPERTY);
 
-        byte[] serialized = serializer.serialize(suggestions);
+        org.springframework.data.redis.serializer.GenericJackson2JsonRedisSerializer serializer =
+            org.springframework.data.redis.serializer.GenericJackson2JsonRedisSerializer.builder().objectMapper(mapper).build();
+
+        byte[] serialized = serializer.serialize(profile);
         Object deserialized = serializer.deserialize(serialized);
         assertThat(deserialized).isNotNull();
+        assertThat(deserialized).isInstanceOf(com.minh.fakebook.user.service.dto.UserProfileDTO.class);
     }
 }

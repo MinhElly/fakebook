@@ -1,4 +1,4 @@
-package com.minh.fakebook.user.service.dto;
+package com.minh.fakebook.user.repository;
 
 import java.util.UUID;
 

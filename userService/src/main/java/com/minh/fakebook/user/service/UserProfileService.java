@@ -5,7 +5,7 @@ import com.minh.fakebook.user.domain.enumeration.FriendRequestStatus;
 import com.minh.fakebook.user.repository.FriendRequestRepository;
 import com.minh.fakebook.user.repository.FriendshipRepository;
 import com.minh.fakebook.user.repository.UserProfileRepository;
-import com.minh.fakebook.user.service.dto.FriendSuggestionProjection;
+import com.minh.fakebook.user.repository.FriendSuggestionProjection;
 import com.minh.fakebook.user.service.dto.UserProfileDTO;
 import com.minh.fakebook.user.service.dto.UserProfileDetailDTO;
 import com.minh.fakebook.user.service.dto.UserSearchDTO;
@@ -147,6 +147,7 @@ public class UserProfileService {
      */
     @Cacheable(value = "userProfile", key = "#jwt.subject")
     public UserProfileDTO getOrCreateProfile(Jwt jwt) {
+        LOG.debug(">>> EXECUTING getOrCreateProfile for {}", jwt.getSubject()); 
         UUID userId = UUID.fromString(jwt.getSubject());
         return userProfileRepository.findById(userId).map(userProfileMapper::toDto)
                 .orElseGet(() -> createProfileFromJwt(jwt, userId));
