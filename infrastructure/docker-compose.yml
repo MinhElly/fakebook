@@ -124,7 +124,7 @@ services:
     image: provectuslabs/kafka-ui:latest
     container_name: fakebook-kafka-ui
     ports:
-      - 127.0.0.1:${KAFKA_UI_PORT:-8085}:8080
+      - 127.0.0.1:${KAFKA_UI_PORT:-8088}:8080
     environment:
       KAFKA_CLUSTERS_0_NAME: local
       KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
