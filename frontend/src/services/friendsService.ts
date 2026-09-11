@@ -265,15 +265,31 @@ export async function unfriend(friendUserId: string): Promise<boolean> {
   }
 }
 
-// Lấy danh sách gợi ý bạn bè công khai
-export async function getFriendSuggestions(myUserId: string): Promise<FriendSuggestionItem[]> {
-  const response = await api.get<FriendSuggestionItem[]>("/services/userservice/api/user-profiles/public", {
-    params: {
-      page: 0,
-      size: 20,
-    },
-  });
-  const allUsers = response.data || [];
-  // Lọc bỏ tài khoản cá nhân của chính mình
-  return allUsers.filter((user) => user.id !== myUserId);
+// Lấy danh sách gợi ý bạn bè
+export async function getFriendSuggestions(
+  myUserId?: string,
+  excludeUserIds: string[] = []
+): Promise<FriendSuggestionItem[]> {
+  try {
+    const response = await api.get<FriendSuggestionItem[]>("/services/userservice/api/user-profiles/suggestions");
+    let suggestions = response.data || [];
+    if (excludeUserIds.length > 0) {
+      const excludeSet = new Set(excludeUserIds);
+      suggestions = suggestions.filter((item) => item.id && !excludeSet.has(item.id));
+    }
+    return suggestions;
+  } catch (error) {
+    console.warn("Lỗi khi gọi API suggestions, fallback về public profiles:", error);
+    const response = await api.get<FriendSuggestionItem[]>("/services/userservice/api/user-profiles/public", {
+      params: { page: 0, size: 50 },
+    });
+    const allUsers = response.data || [];
+    const excludeSet = new Set([myUserId, ...excludeUserIds].filter(Boolean) as string[]);
+    const candidates = allUsers.filter((user) => user.id && !excludeSet.has(user.id));
+    for (let i = candidates.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [candidates[i], candidates[j]] = [candidates[j], candidates[i]];
+    }
+    return candidates;
+  }
 }

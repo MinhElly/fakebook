@@ -280,4 +280,11 @@ public class UserProfileResource {
         Optional<UserProfileDetailDTO> result = userProfileService.getUserProfileDetails(id, jwt);
         return ResponseUtil.wrapOrNotFound(result);
     }
+
+    @GetMapping("/suggestions")
+    public ResponseEntity<List<UserSearchDTO>> getFriendSuggestions(@AuthenticationPrincipal Jwt jwt) {
+        LOG.debug("REST request to get friend suggestions for user: {}", jwt.getSubject());
+        List<UserSearchDTO> suggestions = userProfileService.getFriendSuggestions(jwt);
+        return ResponseEntity.ok(suggestions);
+    }
 }

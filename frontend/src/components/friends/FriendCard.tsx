@@ -144,9 +144,11 @@ export default function FriendCard({
               <span>{mutualFriendsCount} bạn chung</span>
             ) : user.location ? (
               <span>Sống tại {user.location}</span>
-            ) : (
+            ) : cardType === "suggestion" ? (
               <span>Gợi ý dành cho bạn</span>
-            )}
+            ) : cardType === "friend" ? (
+              <span>Bạn bè</span>
+            ) : null}
           </div>
         </div>
 

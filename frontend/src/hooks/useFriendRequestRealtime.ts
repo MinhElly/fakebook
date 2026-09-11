@@ -7,7 +7,7 @@ import {
   type FriendRequestItem,
 } from "@/services/friendsService";
 
-export function useFriendRequestRealtime(pollIntervalMs = 5000) {
+export function useFriendRequestRealtime(enabled: boolean, pollIntervalMs = 5000) {
   const [activeToastRequest, setActiveToastRequest] = useState<FriendRequestItem | null>(null);
   const seenRequestIds = useRef<Set<string>>(new Set());
   const isFirstFetch = useRef<boolean>(true);
@@ -45,10 +45,18 @@ export function useFriendRequestRealtime(pollIntervalMs = 5000) {
   }, []);
 
   useEffect(() => {
+    if (!enabled) {
+      myUserIdRef.current = null;
+      seenRequestIds.current.clear();
+      isFirstFetch.current = true;
+      setActiveToastRequest(null);
+      return;
+    }
+
     checkIncomingRequests();
     const interval = setInterval(checkIncomingRequests, pollIntervalMs);
     return () => clearInterval(interval);
-  }, [checkIncomingRequests, pollIntervalMs]);
+  }, [enabled, checkIncomingRequests, pollIntervalMs]);
 
   const handleAcceptToast = async (req: FriendRequestItem) => {
     try {

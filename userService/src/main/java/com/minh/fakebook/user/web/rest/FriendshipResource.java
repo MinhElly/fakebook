@@ -224,24 +224,23 @@ public class FriendshipResource {
             return ResponseEntity.noContent().build();
     }
 
-    @GetMapping ("/me")
+    @GetMapping("/me")
     public ResponseEntity<List<FriendshipDTO>> getMyFriendsList(
         @AuthenticationPrincipal Jwt jwt,
-        Pageable pageable){
+        @org.springdoc.core.annotations.ParameterObject Pageable pageable){
             UUID userId = UUID.fromString(jwt.getSubject());
             Page<FriendshipDTO> page = friendshipService.getMyFriendsList(userId, pageable);
             HttpHeaders headers = PaginationUtil.generatePaginationHttpHeaders(ServletUriComponentsBuilder.fromCurrentRequest(),page );
             return ResponseEntity.ok().headers(headers).body(page.getContent());
     }
 
-    @GetMapping ("/user/{userId}")
+    @GetMapping("/user/{userId}")
     public ResponseEntity<List<FriendshipDTO>> getUserFriendsList(
         @PathVariable("userId") UUID userId,
-        @AuthenticationPrincipal Jwt jwt,
-        Pageable pageable){
+        @org.springdoc.core.annotations.ParameterObject Pageable pageable){
             Page<FriendshipDTO> page = friendshipService.getUserFriendsList(userId, pageable);
             HttpHeaders headers = PaginationUtil.generatePaginationHttpHeaders(ServletUriComponentsBuilder.fromCurrentRequest(),page );
             return ResponseEntity.ok().headers(headers).body(page.getContent());
-        }
+    }
     
 }

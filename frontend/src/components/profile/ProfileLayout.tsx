@@ -88,8 +88,13 @@ export default function ProfileLayout({
             <div className="flex items-end justify-between -mt-10 sm:-mt-14 md:-mt-16 mb-3">
               {/* Avatar */}
               <div className="relative" onClick={isOwn ? onEditAvatar : undefined} style={{ cursor: isOwn ? "pointer" : "default" }}>
-                <img src={user.avatar} alt={user.name}
-                  className="w-[80px] h-[80px] sm:w-[120px] sm:h-[120px] md:w-[168px] md:h-[168px] rounded-full object-cover border-4 border-white hover:opacity-95 transition-opacity" />
+                <img
+                  src={user.avatar}
+                  alt={user.name}
+                  referrerPolicy="no-referrer"
+                  onError={(e) => { e.currentTarget.src = "/default-avatar.svg"; }}
+                  className="w-[80px] h-[80px] sm:w-[120px] sm:h-[120px] md:w-[168px] md:h-[168px] rounded-full object-cover border-4 border-white hover:opacity-95 transition-opacity"
+                />
                 {isOwn && (
                   <div className="absolute bottom-1 right-1 md:bottom-3 md:right-3 bg-[#E4E6EB] hover:bg-[#D8DADF] w-7 h-7 md:w-9 md:h-9 rounded-full flex items-center justify-center shadow transition-colors">
                     <svg className="w-3.5 h-3.5 md:w-4 md:h-4 text-[#1C1E21]" fill="currentColor" viewBox="0 0 20 20"><path d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z"/></svg>

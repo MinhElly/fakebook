@@ -241,7 +241,7 @@ public class FriendRequestResource {
             FriendRequestDTO result = friendRequestService.rejectFriendRequest(requestId,receiverId);
             return ResponseEntity.status(HttpStatus.OK).body(result);
     }
-    @DeleteMapping("/{requestId}/cancel")
+    @PostMapping("/{requestId}/cancel")
     public ResponseEntity<FriendRequestDTO> cancelFriendRequest(
         @PathVariable("requestId") UUID requestId,
         @AuthenticationPrincipal Jwt jwt){
@@ -249,9 +249,9 @@ public class FriendRequestResource {
             FriendRequestDTO result = friendRequestService.cancelFriendRequest(requestId,senderId);
             return ResponseEntity.status(HttpStatus.OK).body(result);
     }
-    @GetMapping ("/received")
+    @GetMapping("/received")
     public ResponseEntity<List<FriendRequestDTO>> getFriendRequestsList(
-        Pageable pageable,
+        @org.springdoc.core.annotations.ParameterObject Pageable pageable,
         @AuthenticationPrincipal Jwt jwt){
             UUID currentUserId = UUID.fromString(jwt.getSubject());
             Page<FriendRequestDTO> page = friendRequestService.getReceivedPendingRequests(currentUserId, pageable);
@@ -259,12 +259,12 @@ public class FriendRequestResource {
              return ResponseEntity.ok().headers(headers).body(page.getContent()); 
     }
 
-    @GetMapping ("/sent")
+    @GetMapping("/sent")
     public ResponseEntity<List<FriendRequestDTO>> getSentFriendRequestsList(
-        Pageable pageable,
+        @org.springdoc.core.annotations.ParameterObject Pageable pageable,
         @AuthenticationPrincipal Jwt jwt){
             UUID currentUserId = UUID.fromString(jwt.getSubject());
-            Page<FriendRequestDTO> page = friendRequestService.getSentedPendingRequests(currentUserId, pageable);
+            Page<FriendRequestDTO> page = friendRequestService.getSentPendingRequests(currentUserId, pageable);
              HttpHeaders headers = PaginationUtil.generatePaginationHttpHeaders(ServletUriComponentsBuilder.fromCurrentRequest(), page);
              return ResponseEntity.ok().headers(headers).body(page.getContent()); 
     }

@@ -149,7 +149,13 @@ export default function NavBar() {
             onClick={() => toggle("profile")}
             className={`rounded-full overflow-hidden border-2 transition-colors ${openDropdown === "profile" ? "border-[#1877F2]" : "border-transparent hover:border-[#E4E6EB]"}`}
           >
-            <img src={profile.avatar} alt="profile" className="w-9 h-9 md:w-10 md:h-10 object-cover" />
+            <img
+              src={profile.avatar}
+              alt="profile"
+              referrerPolicy="no-referrer"
+              onError={(e) => { e.currentTarget.src = "/default-avatar.svg"; }}
+              className="w-9 h-9 md:w-10 md:h-10 object-cover"
+            />
           </button>
           {openDropdown === "profile" && <ProfileDropdown onClose={() => setOpenDropdown(null)} />}
         </div>

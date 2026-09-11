@@ -5,14 +5,25 @@ import com.minh.fakebook.user.domain.enumeration.FriendRequestStatus;
 import com.minh.fakebook.user.repository.FriendRequestRepository;
 import com.minh.fakebook.user.repository.FriendshipRepository;
 import com.minh.fakebook.user.repository.UserProfileRepository;
+import com.minh.fakebook.user.repository.FriendSuggestionProjection;
 import com.minh.fakebook.user.service.dto.UserProfileDTO;
 import com.minh.fakebook.user.service.dto.UserProfileDetailDTO;
 import com.minh.fakebook.user.service.dto.UserSearchDTO;
 import com.minh.fakebook.user.service.mapper.UserProfileMapper;
 
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collector;
+import java.util.stream.Collectors;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -20,6 +31,7 @@ import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Service;
@@ -135,6 +147,7 @@ public class UserProfileService {
      */
     @Cacheable(value = "userProfile", key = "#jwt.subject")
     public UserProfileDTO getOrCreateProfile(Jwt jwt) {
+        LOG.debug(">>> EXECUTING getOrCreateProfile for {}", jwt.getSubject()); 
         UUID userId = UUID.fromString(jwt.getSubject());
         return userProfileRepository.findById(userId).map(userProfileMapper::toDto)
                 .orElseGet(() -> createProfileFromJwt(jwt, userId));
@@ -187,6 +200,24 @@ public class UserProfileService {
         UUID currentUserId = UUID.fromString(jwt.getSubject());
         Page<UserProfile> profiles = userProfileRepository
                 .findByDisplayNameContainingIgnoreCaseOrUsernameContainingIgnoreCase(query, query, pageable);
+
+        if (profiles.isEmpty()) {
+            return Page.empty(pageable);
+        }
+        List<UUID> targetUserId = profiles.stream()
+                .map(UserProfile::getId)
+                .filter(id -> !id.equals(currentUserId))
+                .collect(Collectors.toList());
+
+        Set<UUID> friendIds = friendshipRepository.findFriendIdsIn(currentUserId, targetUserId);
+
+        Set<UUID> pendingSentIds = friendRequestRepository.findPendingReceiverIdsIn(currentUserId, targetUserId,
+                FriendRequestStatus.PENDING);
+        Set<UUID> pendingReceivedIds = friendRequestRepository.findPendingSenderIdsIn(currentUserId, targetUserId,
+                FriendRequestStatus.PENDING);
+
+        Map<UUID, Long> mutualFriendsMap = friendshipRepository.countMutualFriendsForUsers(currentUserId, targetUserId)
+                .stream().collect(Collectors.toMap(t -> t.get(0, UUID.class), t -> t.get(1, Long.class)));
         return profiles.map(profile -> {
             UserSearchDTO dto = new UserSearchDTO();
             dto.setId(profile.getId());
@@ -203,16 +234,14 @@ public class UserProfileService {
                 dto.setMutualFriendsCount(0);
                 return dto;
             }
-            long mutual = friendshipRepository.countMutualFriends(currentUserId, profile.getId());
-            dto.setMutualFriendsCount(mutual);
 
-            if (friendshipRepository.existsFriendship(currentUserId, profile.getId())) {
+            dto.setMutualFriendsCount(mutualFriendsMap.getOrDefault(profile.getId(), 0L));
+
+            if (friendIds.contains(profile.getId())) {
                 dto.setFriendshipStatus("FRIEND");
-            } else if (friendRequestRepository.existsBySenderIdAndReceiverIdAndStatus(currentUserId, profile.getId(),
-                    FriendRequestStatus.PENDING)) {
+            } else if (pendingSentIds.contains(profile.getId())) {
                 dto.setFriendshipStatus("PENDING_SENT");
-            } else if (friendRequestRepository.existsBySenderIdAndReceiverIdAndStatus(profile.getId(), currentUserId,
-                    FriendRequestStatus.PENDING)) {
+            } else if (pendingReceivedIds.contains(profile.getId())) {
                 dto.setFriendshipStatus("PENDING_RECEIVED");
             } else {
                 dto.setFriendshipStatus("NONE");
@@ -255,15 +284,13 @@ public class UserProfileService {
                     dto.setFriendshipStatus("FRIEND");
                 } else {
                     var sentReq = friendRequestRepository.findBySenderIdAndReceiverIdAndStatus(
-                        currentUserId, profile.getId(), FriendRequestStatus.PENDING
-                    );
+                            currentUserId, profile.getId(), FriendRequestStatus.PENDING);
                     if (sentReq.isPresent()) {
                         dto.setFriendshipStatus("PENDING_SENT");
                         dto.setFriendRequestId(sentReq.get().getId());
                     } else {
                         var recvReq = friendRequestRepository.findBySenderIdAndReceiverIdAndStatus(
-                            profile.getId(), currentUserId, FriendRequestStatus.PENDING
-                        );
+                                profile.getId(), currentUserId, FriendRequestStatus.PENDING);
                         if (recvReq.isPresent()) {
                             dto.setFriendshipStatus("PENDING_RECEIVED");
                             dto.setFriendRequestId(recvReq.get().getId());
@@ -278,5 +305,42 @@ public class UserProfileService {
             }
             return dto;
         });
+    }
+    @Transactional(readOnly = true)
+    public List<UserSearchDTO> getFriendSuggestions(Jwt jwt) {
+        UUID currentUserId = UUID.fromString(jwt.getSubject());
+        List<FriendSuggestionProjection> suggestions = friendshipRepository
+                .findFriendSuggestions(currentUserId, PageRequest.of(0, 100));
+
+        if (suggestions.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        List<UUID> suggestionIds = suggestions.stream().map(FriendSuggestionProjection::getUserId).toList();
+        Map<UUID, UserProfile> profileMap = userProfileRepository.findAllById(suggestionIds).stream()
+                .collect(Collectors.toMap(UserProfile::getId, p -> p));
+        Map<UUID, Long> mutualFriendsMap = suggestions.stream()
+                .collect(Collectors.toMap(
+                        FriendSuggestionProjection::getUserId,
+                        FriendSuggestionProjection::getMutualFriendsCount));
+
+        return suggestionIds.stream()
+                .map(profileMap::get)
+                .filter(Objects::nonNull)
+                .map(profile -> {
+                    UserSearchDTO dto = new UserSearchDTO();
+                    dto.setId(profile.getId());
+                    dto.setUsername(profile.getUsername());
+                    dto.setDisplayName(profile.getDisplayName());
+                    dto.setBio(profile.getBio());
+                    dto.setEducation(profile.getEducation());
+                    dto.setWorkplace(profile.getWork());
+                    dto.setLocation(profile.getLocation());
+                    dto.setAvatarMediaId(profile.getAvatarMediaId());
+                    dto.setFriendshipStatus("NONE");
+                    dto.setMutualFriendsCount(mutualFriendsMap.getOrDefault(profile.getId(), 0L));
+                    return dto;
+                })
+                .toList();
     }
 }

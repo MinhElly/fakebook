@@ -9,15 +9,20 @@ import com.minh.fakebook.user.repository.FriendshipRepository;
 import com.minh.fakebook.user.repository.UserProfileRepository;
 import com.minh.fakebook.user.service.dto.FriendRequestDTO;
 import com.minh.fakebook.user.service.mapper.FriendRequestMapper;
-import com.minh.fakebook.user.web.rest.errors.BadRequestAlertException;
+
 
 import jakarta.persistence.EntityNotFoundException;
 
 import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
+
+import org.hibernate.annotations.Cache;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -67,15 +72,13 @@ public class FriendRequestService {
 
             if (senderId != null && receiverId != null) {
                 if (friendshipRepository.existsFriendship(senderId, receiverId)) {
-                    throw new BadRequestAlertException("Hai người dùng đã là bạn bè của nhau",
-                            "userServiceFriendRequest", "alreadyfriends");
+                    throw new IllegalArgumentException("Hai người dùng đã là bạn bè của nhau");
                 }
                 if (friendRequestRepository.existsBySenderIdAndReceiverIdAndStatus(senderId, receiverId,
                         FriendRequestStatus.PENDING) ||
                         friendRequestRepository.existsBySenderIdAndReceiverIdAndStatus(receiverId, senderId,
                                 FriendRequestStatus.PENDING)) {
-                    throw new BadRequestAlertException("Lời mời kết bạn đã tồn tại và đang chờ phản hồi",
-                            "userServiceFriendRequest", "alreadyrequested");
+                    throw new IllegalArgumentException("Lời mời kết bạn đã tồn tại và đang chờ phản hồi");
                 }
             }
         }
@@ -139,7 +142,12 @@ public class FriendRequestService {
         LOG.debug("Request to delete FriendRequest : {}", id);
         friendRequestRepository.deleteById(id);
     }
-@Transactional 
+    @Transactional 
+    @Caching (evict = {
+        @CacheEvict(value = "pendingSentRequests", allEntries = true),
+        @CacheEvict(value = "pendingReceivedRequests", allEntries = true),
+        @CacheEvict(value = "friendSuggestions", allEntries = true)
+    })
     public FriendRequestDTO sendFriendRequest (UUID senderId, UUID targetUserId){
         if(senderId.equals(targetUserId)){
             throw new IllegalArgumentException("Sender and target user must be different people");
@@ -165,9 +173,15 @@ public class FriendRequestService {
         friendRequest = friendRequestRepository.save(friendRequest);
         return friendRequestMapper.toDto(friendRequest);  
     }
-    @Transactional 
-    public FriendRequestDTO acceptFriendRequest(UUID receiverId, UUID currentId){
-        FriendRequest friendRequest = friendRequestRepository.findById(receiverId).orElseThrow(() -> new EntityNotFoundException("Friend request not found"));
+    @Transactional
+    @Caching(evict = {
+        @CacheEvict (value = "pendingReceivedRequests", allEntries = true),
+        @CacheEvict (value = "pendingSentRequests", allEntries = true),
+        @CacheEvict (value = "userFriends", allEntries = true),
+        @CacheEvict (value = "friendSuggestions", allEntries = true)
+    }) 
+    public FriendRequestDTO acceptFriendRequest(UUID requestId, UUID currentId){
+        FriendRequest friendRequest = friendRequestRepository.findById(requestId).orElseThrow(() -> new EntityNotFoundException("Friend request not found"));
         if(friendRequest.getStatus() != FriendRequestStatus.PENDING) {
             throw new IllegalStateException("Friend request is not in pending status");
         }
@@ -200,7 +214,11 @@ public class FriendRequestService {
         return friendRequestMapper.toDto(saved);
 
     }
-    @Transactional 
+    @Transactional
+    @Caching(evict = {
+        @CacheEvict (value = "pendingReceivedRequests", allEntries = true),
+        @CacheEvict (value = "friendSuggestions", allEntries = true)
+    })
     public FriendRequestDTO rejectFriendRequest(UUID requestId, UUID currentId){
         FriendRequest friendRequest = friendRequestRepository.findById(requestId).orElseThrow(() -> new EntityNotFoundException("Friend request not found"));
         if(friendRequest.getStatus() != FriendRequestStatus.PENDING) {
@@ -222,6 +240,10 @@ public class FriendRequestService {
         return friendRequestMapper.toDto(saved);
     }
     @Transactional
+    @Caching(evict = {
+        @CacheEvict (value = "pendingSentRequests", allEntries = true),
+        @CacheEvict (value = "friendSuggestions", allEntries = true)
+    })
     public FriendRequestDTO cancelFriendRequest(UUID requestId, UUID currentId){
         FriendRequest friendRequest = friendRequestRepository.findById(requestId).orElseThrow(() -> new EntityNotFoundException("Friend request not found"));
         if(friendRequest.getStatus() != FriendRequestStatus.PENDING) {
@@ -242,13 +264,13 @@ public class FriendRequestService {
 
         return friendRequestMapper.toDto(saved);
     }
-
+    @Cacheable (value = "pendingReceivedRequests", key = "#receiverId.toString() + '_' + #pageable.getPageNumber() + '_' + #pageable.getPageSize()")
     public Page<FriendRequestDTO> getReceivedPendingRequests(UUID receiverId, Pageable pageable) {
         return friendRequestRepository.findByReceiverIdAndStatus(receiverId, FriendRequestStatus.PENDING, pageable)
                 .map(friendRequestMapper::toDto);
     }
-
-    public Page<FriendRequestDTO> getSentedPendingRequests(UUID senderId, Pageable pageable) {
+    @Cacheable (value = "pendingSentRequests", key = "#senderId.toString() + '_' + #pageable.getPageNumber() + '_' + #pageable.getPageSize()")
+    public Page<FriendRequestDTO> getSentPendingRequests(UUID senderId, Pageable pageable) {
         return friendRequestRepository.findBySenderIdAndStatus(senderId, FriendRequestStatus.PENDING, pageable)
                 .map(friendRequestMapper::toDto);
     }

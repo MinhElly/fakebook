@@ -8,6 +8,9 @@ import java.util.Optional;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -98,6 +101,10 @@ public class FriendshipService {
         LOG.debug("Request to delete Friendship : {}", id);
         friendshipRepository.deleteById(id);
     }
+    @Caching(evict = {
+        @CacheEvict(value = "userFriends", allEntries = true),
+        @CacheEvict(value = "friendSuggestions", allEntries = true)
+    })
     public void unFriend(UUID currentUserId, UUID friendUserId ){
         if(currentUserId.equals(friendUserId)){
             throw new IllegalArgumentException("Cannot unfriend yourself");
@@ -109,9 +116,11 @@ public class FriendshipService {
         
         }  
     }
+    @Cacheable (value = "userFriends", key = "#userId.toString() + '_' + #pageable.pageNumber + '_' + #pageable.pageSize")
     public Page<FriendshipDTO> getMyFriendsList(UUID userId, Pageable pageable){
         return friendshipRepository.findByUserId(userId, pageable).map(friendshipMapper::toDto);    
     }
+    @Cacheable(value = "userFriends", key = "#userId.toString() + '_' + #pageable.pageNumber + '_' + #pageable.pageSize")
     public Page<FriendshipDTO> getUserFriendsList(UUID userId, Pageable pageable){
         return friendshipRepository.findByUserId(userId, pageable).map(friendshipMapper::toDto);    
     }
