@@ -11,6 +11,8 @@ export interface UserProfile {
   bio: string;
   birthday?: string;
   gender?: string;
+  avatarMediaId?: string;
+  coverMediaId?: string;
 }
 
 export interface UserState {

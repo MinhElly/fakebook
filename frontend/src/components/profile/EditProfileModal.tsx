@@ -28,6 +28,9 @@ export default function EditProfileModal({ onClose }: Props) {
   const [isSaving, setIsSaving] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
 
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [coverFile, setCoverFile] = useState<File | null>(null);
+
   function update(k: keyof typeof form) {
     return (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) =>
       setForm(prev => ({ ...prev, [k]: e.target.value }));
@@ -36,14 +39,45 @@ export default function EditProfileModal({ onClose }: Props) {
   async function handleSave() {
     setIsSaving(true);
     try {
-      await updateProfile({ ...form, avatar: avatarUrl.trim() || profile.avatar, cover: coverUrl.trim() || profile.cover });
+      let uploadedAvatarMediaId = profile.avatarMediaId;
+      let uploadedCoverMediaId = profile.coverMediaId;
+
+      if (avatarFile) {
+        const formData = new FormData();
+        formData.append("file", avatarFile);
+        const res = await api.post("/services/mediaservice/api/medias/upload", formData, {
+          headers: { "Content-Type": "multipart/form-data" },
+        });
+        uploadedAvatarMediaId = res.data.id;
+      }
+
+      if (coverFile) {
+        const formData = new FormData();
+        formData.append("file", coverFile);
+        const res = await api.post("/services/mediaservice/api/medias/upload", formData, {
+          headers: { "Content-Type": "multipart/form-data" },
+        });
+        uploadedCoverMediaId = res.data.id;
+      }
+
+      await updateProfile({
+        ...form,
+        avatarMediaId: uploadedAvatarMediaId,
+        coverMediaId: uploadedCoverMediaId,
+        avatar: uploadedAvatarMediaId
+          ? `/services/mediaservice/api/media/${uploadedAvatarMediaId}`
+          : profile.avatar,
+        cover: uploadedCoverMediaId
+          ? `/services/mediaservice/api/media/${uploadedCoverMediaId}`
+          : profile.cover,
+      });
+
       setToast({ message: "Cập nhật trang cá nhân thành công!", type: "success" });
       setTimeout(() => {
         onClose();
       }, 1200);
     } catch (error) {
       console.error(error);
-      // Khi gặp lỗi, khôi phục lại các giá trị form cũ từ profile
       setForm({
         name: profile.name,
         location: profile.location,
@@ -52,10 +86,10 @@ export default function EditProfileModal({ onClose }: Props) {
         relationship: profile.relationship,
         bio: profile.bio,
       });
-      setAvatarUrl(profile.avatar);
-      setCoverUrl(profile.cover);
       setAvatarPreview(profile.avatar);
       setCoverPreview(profile.cover);
+      setAvatarFile(null);
+      setCoverFile(null);
 
       setToast({ message: "Cập nhật thông tin thất bại. Vui lòng thử lại!", type: "error" });
     } finally {
@@ -169,17 +203,21 @@ export default function EditProfileModal({ onClose }: Props) {
                   />
                   <p className="text-sm text-[#65676B]">Xem trước ảnh đại diện</p>
                 </div>
+
                 <div>
-                  <label className={labelCls}>URL ảnh đại diện mới</label>
+                  <label className={labelCls}>Tải ảnh từ máy tính</label>
                   <input
-                    className={inputCls}
+                    type="file"
+                    accept="image/*"
                     disabled={isSaving}
-                    value={avatarUrl}
                     onChange={(e) => {
-                      setAvatarUrl(e.target.value);
-                      setAvatarPreview(e.target.value);
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        setAvatarFile(file);
+                        setAvatarPreview(URL.createObjectURL(file));
+                      }
                     }}
-                    placeholder="Dán URL ảnh vào đây..."
+                    className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-[#1877F2] hover:file:bg-blue-100 cursor-pointer"
                   />
                 </div>
               </div>
@@ -196,17 +234,21 @@ export default function EditProfileModal({ onClose }: Props) {
                   />
                   <p className="text-sm text-[#65676B] mt-1 text-center">Xem trước ảnh bìa</p>
                 </div>
+
                 <div>
-                  <label className={labelCls}>URL ảnh bìa mới</label>
+                  <label className={labelCls}>Tải ảnh bìa mới từ máy tính</label>
                   <input
-                    className={inputCls}
+                    type="file"
+                    accept="image/*"
                     disabled={isSaving}
-                    value={coverUrl}
                     onChange={(e) => {
-                      setCoverUrl(e.target.value);
-                      setCoverPreview(e.target.value);
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        setCoverFile(file);
+                        setCoverPreview(URL.createObjectURL(file));
+                      }
                     }}
-                    placeholder="Dán URL ảnh bìa vào đây..."
+                    className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-[#1877F2] hover:file:bg-blue-100 cursor-pointer"
                   />
                 </div>
               </div>

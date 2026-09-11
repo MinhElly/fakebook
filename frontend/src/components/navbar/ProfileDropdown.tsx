@@ -26,7 +26,7 @@ export default function ProfileDropdown({ onClose }: Props) {
     <Dropdown className="w-[340px]">
       <div className="p-2">
         <button onClick={handleViewProfile} className="flex items-center gap-3 w-full p-2 rounded-xl hover:bg-[#F0F2F5] transition-colors">
-          <img src={profile.avatar} alt="me" className="w-14 h-14 rounded-full object-cover flex-shrink-0" />
+          <img src={profile.avatar} alt="me" referrerPolicy="no-referrer" onError={(e) => { e.currentTarget.src = "/default-avatar.svg"; }} className="w-14 h-14 rounded-full object-cover flex-shrink-0" />
           <div className="text-left">
             <p className="font-bold text-[#1C1E21]">{profile.name}</p>
             <p className="text-[#1877F2] text-sm">Xem trang cá nhân của bạn</p>

@@ -37,8 +37,14 @@ export default function UserProvider({ children }: { children: React.ReactNode }
           education: data.education ?? prev.education,
           work: data.work ?? prev.work,
           relationship: data.relationship ?? prev.relationship,
-          avatar: data.avatarMediaId ? `/services/mediaservice/api/media/${data.avatarMediaId}` : prev.avatar,
-          cover: data.coverMediaId ? `/services/mediaservice/api/media/${data.coverMediaId}` : prev.cover,
+          avatarMediaId: data.avatarMediaId,
+          coverMediaId: data.coverMediaId,
+          avatar: data.avatarMediaId
+            ? `/services/mediaservice/api/media/${data.avatarMediaId}`
+            : prev.avatar,
+          cover: data.coverMediaId
+            ? `/services/mediaservice/api/media/${data.coverMediaId}`
+            : prev.cover,
         }));
       })
       .catch(() => {
@@ -64,6 +70,8 @@ export default function UserProvider({ children }: { children: React.ReactNode }
         education: data.education,
         work: data.work,
         relationship: data.relationship,
+        avatarMediaId: data.avatarMediaId,
+        coverMediaId: data.coverMediaId,
       });
       // Chỉ cập nhật UI sau khi Backend xác nhận thành công (200 OK)
       setProfile((prev) => ({ ...prev, ...data }));
