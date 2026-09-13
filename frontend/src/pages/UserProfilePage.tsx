@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router";
 import ProfileLayout, { type ProfileUser } from "@/components/profile/ProfileLayout";
+import FollowButton from "@/components/profile/FollowButton";
 import { getUserProfileDetails, type UserProfileDetail } from "@/services/profileService";
 import {
   getCurrentUserProfile,
@@ -330,6 +331,20 @@ export default function UserProfilePage() {
           Thêm bạn bè
         </button>
       )}
+
+      <FollowButton
+        user={{
+          id: profileDetail.id,
+          name: user.name,
+          avatar: user.avatar,
+          cover: user.cover || "",
+          mutualFriends: 0,
+          location: user.location || "",
+          work: user.work || "",
+          education: user.education || "",
+          bio: user.bio || "",
+        }}
+      />
 
       <button className="flex items-center gap-2 bg-[#E4E6EB] hover:bg-[#D8DADF] text-[#1C1E21] text-sm font-semibold px-4 py-2 rounded-lg transition-colors">
         <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">

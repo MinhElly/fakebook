@@ -8,6 +8,8 @@ import {
   type FriendshipStatus,
 } from "@/services/searchService";
 
+import FollowButton from "@/components/profile/FollowButton";
+
 export default function SearchPage() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -286,7 +288,21 @@ export default function SearchPage() {
                       </div>
 
                       {/* Action Button */}
-                      <div className="flex-shrink-0">
+                      <div className="flex-shrink-0 flex items-center gap-2">
+                        <FollowButton
+                          user={{
+                            id: user.id,
+                            name: user.displayName,
+                            avatar: user.avatarUrl || "/default-avatar.svg",
+                            cover: "/default-cover.svg",
+                            mutualFriends: user.mutualFriendsCount || 0,
+                            location: "",
+                            work: user.workplace || "",
+                            education: user.education || "",
+                            bio: user.bio || "",
+                          }}
+                          size="sm"
+                        />
                         {user.friendshipStatus === "FRIEND" ? (
                           <button className="px-4 py-2 bg-[#E7F3FF] text-[#1877F2] font-semibold text-sm rounded-lg hover:bg-[#DBE7F2] transition-colors flex items-center gap-1.5">
                             <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">

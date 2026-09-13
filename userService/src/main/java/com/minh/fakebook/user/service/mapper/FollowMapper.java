@@ -13,14 +13,7 @@ import org.mapstruct.*;
  */
 @Mapper(componentModel = "spring")
 public interface FollowMapper extends EntityMapper<FollowDTO, Follow> {
-    @Mapping(target = "follower", source = "follower", qualifiedByName = "userProfileId")
-    @Mapping(target = "following", source = "following", qualifiedByName = "userProfileId")
     FollowDTO toDto(Follow s);
-
-    @Named("userProfileId")
-    @BeanMapping(ignoreByDefault = true)
-    @Mapping(target = "id", source = "id")
-    UserProfileDTO toDtoUserProfileId(UserProfile userProfile);
 
     default String map(UUID value) {
         return Objects.toString(value, null);
