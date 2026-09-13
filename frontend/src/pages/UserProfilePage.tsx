@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+﻿import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router";
 import ProfileLayout, { type ProfileUser } from "@/components/profile/ProfileLayout";
 import { getUserProfileDetails, type UserProfileDetail } from "@/services/profileService";
@@ -18,7 +18,7 @@ import type { FriendUser } from "@/types";
 export default function UserProfilePage() {
   const { userId } = useParams<{ userId: string }>();
   const navigate = useNavigate();
-  const { posts } = usePostStore();
+  const { posts, loadMorePosts, hasMore, loading: loadingPosts } = usePostStore();
 
   const [profileDetail, setProfileDetail] = useState<UserProfileDetail | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
@@ -27,6 +27,19 @@ export default function UserProfilePage() {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [showFriendMenu, setShowFriendMenu] = useState<boolean>(false);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      if (window.innerHeight + window.scrollY >= document.body.offsetHeight - 200) {
+        if (hasMore && !loadingPosts) {
+          loadMorePosts();
+        }
+      }
+    };
+
+    window.addEventListener("scroll", handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, [hasMore, loadingPosts]);
 
   // 1. Fetch current logged-in user profile
   useEffect(() => {
@@ -209,7 +222,7 @@ export default function UserProfilePage() {
     return (
       <main className="min-h-[calc(100vh-56px)] bg-[#F0F2F5] px-4 py-8">
         <div className="mx-auto max-w-[720px] rounded-xl border border-[#E4E6EB] bg-white p-8 text-center">
-          <p className="text-5xl mb-3">👤</p>
+          <div className="flex justify-center mb-4"><svg className="w-16 h-16 text-[#65676B]" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg></div>
           <h2 className="text-xl font-bold text-[#1C1E21]">{error || "Không tìm thấy hồ sơ người dùng"}</h2>
           <p className="text-sm text-[#65676B] mt-1 mb-6">Trang này có thể đã bị xóa hoặc đường dẫn không đúng.</p>
           <button
@@ -349,6 +362,8 @@ export default function UserProfilePage() {
       mutualCount={mutualFriends.length || profileDetail.mutualFriendsCount}
       mutualFriends={mutualFriends}
       actionButtons={actionButtons}
+      loading={loadingPosts}
+      hasMore={hasMore}
     />
   );
 }

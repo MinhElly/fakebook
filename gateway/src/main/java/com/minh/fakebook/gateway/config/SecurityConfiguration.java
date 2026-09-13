@@ -115,6 +115,7 @@ public class SecurityConfiguration {
                     .pathMatchers("/api/authenticate").permitAll()
                     .pathMatchers("/api/register").permitAll()
                     .pathMatchers("/api/auth-info").permitAll()
+                    .pathMatchers("/error").permitAll()
                     .pathMatchers("/api/admin/**").hasAuthority(AuthoritiesConstants.ADMIN)
                     .pathMatchers("/api/**").authenticated()
                     .pathMatchers("/services/*/management/health/readiness").permitAll()

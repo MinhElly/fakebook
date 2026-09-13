@@ -30,9 +30,12 @@ public class PostQueryService extends QueryService<Post> {
 
     private final PostMapper postMapper;
 
-    public PostQueryService(PostRepository postRepository, PostMapper postMapper) {
+    private final com.minh.fakebook.post.repository.PostMediaRepository postMediaRepository;
+
+    public PostQueryService(PostRepository postRepository, PostMapper postMapper, com.minh.fakebook.post.repository.PostMediaRepository postMediaRepository) {
         this.postRepository = postRepository;
         this.postMapper = postMapper;
+        this.postMediaRepository = postMediaRepository;
     }
 
     /**
@@ -45,7 +48,17 @@ public class PostQueryService extends QueryService<Post> {
     public Page<PostDTO> findByCriteria(PostCriteria criteria, Pageable page) {
         LOG.debug("find by criteria : {}, page: {}", criteria, page);
         final Specification<Post> specification = createSpecification(criteria);
-        return postRepository.findAll(specification, page).map(postMapper::toDto);
+
+        return postRepository.findAll(specification, page).map(post -> {
+            PostDTO dto = postMapper.toDto(post);
+            java.util.List<java.util.UUID> mediaIds = postMediaRepository
+                    .findByPostIdOrderByDisplayOrderAsc(post.getId())
+                    .stream()
+                    .map(com.minh.fakebook.post.domain.PostMedia::getMediaId)
+                    .toList();
+            dto.setMediaIds(mediaIds);
+            return dto;
+        });
     }
 
     /**

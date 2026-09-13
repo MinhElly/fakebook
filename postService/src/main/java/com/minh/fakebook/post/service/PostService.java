@@ -213,7 +213,8 @@ public class PostService {
      */
     public com.minh.fakebook.post.service.dto.PostDTO createPost(String content,
             com.minh.fakebook.post.domain.enumeration.PostVisibility visibility,
-            java.util.List<java.util.UUID> mediaIds) {
+            java.util.List<java.util.UUID> mediaIds,
+            java.util.List<java.util.UUID> taggedUserIds) {
         LOG.debug("Request to create a new Post by current user");
 
         // 1. Extract user UUID from JWT Token 
@@ -234,6 +235,9 @@ public class PostService {
         newPost.setVisibility(visibility);
         newPost.setStatus(com.minh.fakebook.post.domain.enumeration.PostStatus.ACTIVE);
         newPost.setCreatedAt(java.time.Instant.now());
+        if (taggedUserIds != null && !taggedUserIds.isEmpty()) {
+            newPost.setTaggedUserIds(new java.util.HashSet<>(taggedUserIds));
+        }
 
         // 3. Save to Database
         newPost = postRepository.save(newPost);
@@ -251,7 +255,7 @@ public class PostService {
             }
         }
 
-        return postMapper.toDto(newPost);
+        return findOne(newPost.getId()).orElseThrow();
     }
     
     /**
