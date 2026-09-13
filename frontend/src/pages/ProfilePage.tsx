@@ -5,9 +5,10 @@ import { usePostStore } from "@/stores/postStore";
 import { useUserStore } from "@/stores/userStore";
 import { getCurrentUserProfile, getAllFriends, getUserAvatarUrl } from "@/services/friendsService";
 import type { FriendUser } from "@/types";
+import { useAuth } from "@/providers/AuthProvider";
 
 export default function ProfilePage() {
-  const { posts } = usePostStore();
+  const { posts, loadMorePosts, hasMore, loading } = usePostStore();
   const { profile } = useUserStore();
   const [friends, setFriends] = useState<FriendUser[]>([]);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -37,7 +38,22 @@ export default function ProfilePage() {
       .catch((err) => console.error("Lỗi khi tải danh sách bạn bè trang cá nhân:", err));
   }, []);
 
-  const myPosts = posts.filter((p) => p.user === profile.name);
+  // Bắt sự kiện cuộn chuột để làm Infinity Scroll giống Feed
+  useEffect(() => {
+    const handleScroll = () => {
+      if (window.innerHeight + window.scrollY >= document.body.offsetHeight - 200) {
+        if (hasMore && !loading) {
+          loadMorePosts();
+        }
+      }
+    };
+
+    window.addEventListener("scroll", handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, [hasMore, loading]);
+
+  const { user } = useAuth();
+  const myPosts = posts.filter((p) => p.authorId === user?.id);
 
   const actionButtons = (
     <>
@@ -77,6 +93,8 @@ export default function ProfilePage() {
         actionButtons={actionButtons}
         onEditCover={() => setShowEditModal(true)}
         onEditAvatar={() => setShowEditModal(true)}
+        loading={loading}
+        hasMore={hasMore}
       />
       {showEditModal && <EditProfileModal onClose={() => setShowEditModal(false)} />}
     </>

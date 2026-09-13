@@ -101,6 +101,8 @@ management:
       application: ${spring.application.name}
 
 spring:
+  codec:
+    max-in-memory-size: 10MB
   application:
     name: gateway
   cloud:
@@ -157,6 +159,9 @@ spring:
   main:
     allow-bean-definition-overriding: true
   webflux:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 10MB
     problemdetails:
       enabled: true
   security:

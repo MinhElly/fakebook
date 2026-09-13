@@ -98,6 +98,10 @@ management:
       application: ${spring.application.name}
 
 spring:
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 10MB
   application:
     name: mediaService
   cloud:
@@ -109,6 +113,7 @@ spring:
       config:
         watch:
           enabled: false
+
   docker:
     compose:
       enabled: true

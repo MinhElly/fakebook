@@ -9,7 +9,8 @@ import java.util.UUID;
  * Extracted to a separate file to comply with the rule forbidding Inner Classes.
  */
 public record CreatePostRequestDTO(
-    String content,
-    PostVisibility visibility,
-    List<UUID> mediaIds
+        String content,
+        com.minh.fakebook.post.domain.enumeration.PostVisibility visibility,
+        java.util.List<java.util.UUID> mediaIds,
+        java.util.List<java.util.UUID> taggedUserIds
 ) {}

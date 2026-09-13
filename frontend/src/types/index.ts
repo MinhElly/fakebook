@@ -13,12 +13,15 @@ export interface Story {
 }
 
 export interface Post {
-  id: number;
+  id: string;
+  authorId: string; 
   user: string;
   avatar: string;
   time: string;
+  visibility: string;
   content: string;
   image: string | null;
+  taggedUsers?: { id: string, name: string }[];
   likes: number;
   comments: number;
   shares: number;
