@@ -142,16 +142,48 @@ public class CommentService {
     * @throws org.springframework.security.access.AccessDeniedException if the user is neither the
   author nor an admin.
     */
-public void deleteComment(java.util.UUID commentId, java.util.UUID currentUserId, boolean isAdmin) {
-            LOG.debug("Request to delete Comment : {} by user {}", commentId, currentUserId);
+    public void deleteComment(java.util.UUID commentId, java.util.UUID currentUserId, boolean isAdmin) {
+        LOG.debug("Request to delete Comment : {} by user {}", commentId, currentUserId);
 
-            commentRepository.findById(commentId).ifPresent(comment -> {
-                // Check ownership to prevent unauthorized deletes, but allow admins to bypass
-                if (!comment.getAuthorId().equals(currentUserId) && !isAdmin) {
-                    throw new org.springframework.security.access.AccessDeniedException("You can only delete your own comments.");
-                }
-                comment.setStatus(com.minh.fakebook.comment.domain.enumeration.CommentStatus.DELETED);
-                commentRepository.save(comment);
-            });
+        commentRepository.findById(commentId).ifPresent(comment -> {
+            // Check ownership to prevent unauthorized deletes, but allow admins to bypass
+            if (!comment.getAuthorId().equals(currentUserId) && !isAdmin) {
+                throw new org.springframework.security.access.AccessDeniedException(
+                        "You can only delete your own comments.");
+            }
+            comment.setStatus(com.minh.fakebook.comment.domain.enumeration.CommentStatus.DELETED);
+            commentRepository.save(comment);
+        });
+    }
+        
+    /**
+    * Creates a reply to an existing comment.
+    *
+    * @param request the data transfer object containing the parent comment ID and reply content.
+    * @param authorId the unique identifier of the user creating the reply.
+    * @return the created reply CommentDTO.
+    * @throws com.minh.fakebook.comment.web.rest.errors.BadRequestAlertException if the parent comment is not found or is DELETED.
+    */
+    public CommentDTO replyToComment(com.minh.fakebook.comment.service.dto.ReplyCommentRequestDTO request,
+  java.util.UUID authorId) {
+            LOG.debug("Request to reply to Comment : {} by user {}", request.parentCommentId(), authorId);
+
+            Comment parent = commentRepository.findById(request.parentCommentId())
+                .orElseThrow(() -> new com.minh.fakebook.comment.web.rest.errors.
+  BadRequestAlertException("Parent comment not found", "comment", "idnotfound"));
+
+            if (com.minh.fakebook.comment.domain.enumeration.CommentStatus.DELETED.equals(parent.
+  getStatus())) {
+                throw new com.minh.fakebook.comment.web.rest.errors.BadRequestAlertException("Cannot reply to a deleted comment", "comment", "parentdeleted");
+            }
+
+            Comment reply = new Comment();
+            reply.setPostId(parent.getPostId()); 
+            reply.setAuthorId(authorId);
+            reply.setContent(request.content());
+            reply.setStatus(com.minh.fakebook.comment.domain.enumeration.CommentStatus.ACTIVE);
+            reply.setParentComment(parent); 
+
+            return commentMapper.toDto(commentRepository.save(reply));
         }
 }

@@ -188,14 +188,39 @@ public class CommentResource {
             LOG.debug("REST request to delete Comment : {}", commentId);
 
             java.util.UUID currentUserId = java.util.UUID.fromString(jwt.getSubject());
-            boolean isAdmin = com.minh.fakebook.comment.security.SecurityUtils.
-  hasCurrentUserThisAuthority(com.minh.fakebook.comment.security.AuthoritiesConstants.ADMIN);
+            boolean isAdmin = com.minh.fakebook.comment.security.SecurityUtils
+                    .hasCurrentUserThisAuthority(com.minh.fakebook.comment.security.AuthoritiesConstants.ADMIN);
 
             commentService.deleteComment(commentId, currentUserId, isAdmin);
 
             return ResponseEntity.noContent()
-                .headers(tech.jhipster.web.util.HeaderUtil.createEntityDeletionAlert(applicationName, true,
-  ENTITY_NAME, commentId.toString()))
-                .build();
+                    .headers(tech.jhipster.web.util.HeaderUtil.createEntityDeletionAlert(applicationName, true,
+                            ENTITY_NAME, commentId.toString()))
+                    .build();
         }
+        
+    /**
+    * {@code POST  /comments/reply} : Replies to an existing comment.
+    *
+    * @param request the data transfer object containing the parent comment ID and reply content.
+    * @param jwt the JSON Web Token of the currently authenticated user.
+    * @return the {@link ResponseEntity} with status {@code 201 (Created)} and with body the new reply commentDTO.
+    * @throws java.net.URISyntaxException if the Location URI syntax is incorrect.
+    */
+
+    @PostMapping("/reply")
+    public ResponseEntity<CommentDTO> replyToComment(
+            @jakarta.validation.Valid @RequestBody com.minh.fakebook.comment.service.dto.ReplyCommentRequestDTO request,
+            @org.springframework.security.core.annotation.AuthenticationPrincipal org.springframework.security.oauth2.jwt.Jwt jwt)
+            throws java.net.URISyntaxException {
+        LOG.debug("REST request to reply to Comment : {}", request);
+
+        java.util.UUID currentUserId = java.util.UUID.fromString(jwt.getSubject());
+        CommentDTO result = commentService.replyToComment(request, currentUserId);
+
+        return ResponseEntity.created(new java.net.URI("/api/comments/" + result.getId()))
+                .headers(tech.jhipster.web.util.HeaderUtil.createEntityCreationAlert(applicationName, true,
+                        ENTITY_NAME, result.getId().toString()))
+                .body(result);
+    }
 }
