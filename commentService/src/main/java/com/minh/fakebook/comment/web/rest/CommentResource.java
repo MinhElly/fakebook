@@ -166,14 +166,22 @@ public class CommentResource {
      * @return the {@link ResponseEntity} with status {@code 200 (OK)} and the list of Comments in body.
      */
     @GetMapping("")
-    public ResponseEntity<List<CommentDTO>> getAllComments(
-        CommentCriteria criteria,
-        @org.springdoc.core.annotations.ParameterObject Pageable pageable
-    ) {
+    public ResponseEntity<java.util.List<CommentDTO>> getAllComments(
+            com.minh.fakebook.comment.service.criteria.CommentCriteria criteria,
+            @org.springdoc.core.annotations.ParameterObject org.springframework.data.domain.Pageable pageable) {
         LOG.debug("REST request to get Comments by criteria: {}", criteria);
 
-        Page<CommentDTO> page = commentQueryService.findByCriteria(criteria, pageable);
-        HttpHeaders headers = PaginationUtil.generatePaginationHttpHeaders(ServletUriComponentsBuilder.fromCurrentRequest(), page);
+        if (!com.minh.fakebook.comment.security.SecurityUtils
+                .hasCurrentUserThisAuthority(com.minh.fakebook.comment.security.AuthoritiesConstants.ADMIN)) {
+            com.minh.fakebook.comment.service.criteria.CommentCriteria.CommentStatusFilter statusFilter = new com.minh.fakebook.comment.service.criteria.CommentCriteria.CommentStatusFilter();
+            statusFilter.setEquals(com.minh.fakebook.comment.domain.enumeration.CommentStatus.ACTIVE);
+            criteria.setStatus(statusFilter);
+        }
+
+        org.springframework.data.domain.Page<CommentDTO> page = commentQueryService.findByCriteria(criteria, pageable);
+        org.springframework.http.HttpHeaders headers = tech.jhipster.web.util.PaginationUtil
+                .generatePaginationHttpHeaders(
+                        org.springframework.web.servlet.support.ServletUriComponentsBuilder.fromCurrentRequest(), page);
         return ResponseEntity.ok().headers(headers).body(page.getContent());
     }
 
