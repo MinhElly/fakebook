@@ -10,6 +10,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.convert.converter.Converter;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AbstractAuthenticationToken;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -44,8 +45,8 @@ public class SecurityConfiguration {
                     .requestMatchers("/api/authenticate").permitAll()
                     .requestMatchers("/api/auth-info").permitAll()
                     .requestMatchers("/api/admin/**").hasAuthority(AuthoritiesConstants.ADMIN)
-                    .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/posts/**").permitAll() // guest view public posts (GET)
-                    .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/post-reactions/**").permitAll() //guest view public post reactions (GET)
+                    .requestMatchers(HttpMethod.GET, "/api/posts/**").permitAll() // guest view public posts (GET)
+                    .requestMatchers(HttpMethod.GET, "/api/post-reactions/**").permitAll() //guest view public post reactions (GET)
                     .requestMatchers("/api/**").authenticated()
                     .requestMatchers("/v3/api-docs/**").hasAuthority(AuthoritiesConstants.ADMIN)
                     .requestMatchers("/management/health").permitAll()

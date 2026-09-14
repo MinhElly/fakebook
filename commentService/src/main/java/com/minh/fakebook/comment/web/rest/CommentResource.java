@@ -2,14 +2,20 @@ package com.minh.fakebook.comment.web.rest;
 
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -18,17 +24,25 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-
+import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
+import com.minh.fakebook.comment.domain.enumeration.CommentStatus;
 import com.minh.fakebook.comment.repository.CommentRepository;
+import com.minh.fakebook.comment.security.AuthoritiesConstants;
+import com.minh.fakebook.comment.security.SecurityUtils;
 import com.minh.fakebook.comment.service.CommentQueryService;
 import com.minh.fakebook.comment.service.CommentService;
 import com.minh.fakebook.comment.service.criteria.CommentCriteria;
 import com.minh.fakebook.comment.service.dto.CommentDTO;
+import com.minh.fakebook.comment.service.dto.CreateCommentRequestDTO;
+import com.minh.fakebook.comment.service.dto.ReplyCommentRequestDTO;
+import com.minh.fakebook.comment.service.dto.UpdateCommentRequestDTO;
 import com.minh.fakebook.comment.web.rest.errors.BadRequestAlertException;
 
 import jakarta.validation.Valid;
 import tech.jhipster.web.util.HeaderUtil;
+import tech.jhipster.web.util.PaginationUtil;
 import tech.jhipster.web.util.ResponseUtil;
+
 
 /**
  * REST controller for managing {@link com.minh.fakebook.comment.domain.Comment}.
@@ -59,15 +73,15 @@ public class CommentResource {
 
     @PostMapping("/create")
         public ResponseEntity<CommentDTO> createNewComment(
-            @Valid @RequestBody com.minh.fakebook.comment.service.dto.CreateCommentRequestDTO request,
-            @AuthenticationPrincipal org.springframework.security.oauth2.jwt.Jwt jwt
-        ) throws java.net.URISyntaxException {
+            @Valid @RequestBody CreateCommentRequestDTO request,
+            @AuthenticationPrincipal Jwt jwt
+        ) throws URISyntaxException {
             LOG.debug("REST request to create a new Comment : {}", request);
-            java.util.UUID authorId = java.util.UUID.fromString(jwt.getSubject()); 
+            UUID authorId = UUID.fromString(jwt.getSubject()); 
             CommentDTO result = commentService.createComment(request, authorId);
 
-            return ResponseEntity.created(new java.net.URI("/api/comments/" + result.getId()))
-                .headers(tech.jhipster.web.util.HeaderUtil.createEntityCreationAlert(applicationName, true,
+            return ResponseEntity.created(new URI("/api/comments/" + result.getId()))
+                .headers(HeaderUtil.createEntityCreationAlert(applicationName, true,
   ENTITY_NAME, result.getId().toString()))
                 .body(result);
         }
@@ -101,22 +115,22 @@ public class CommentResource {
      */
     @PutMapping("/{commentId}")
     public ResponseEntity<CommentDTO> updateOwnComment(
-            @PathVariable(value = "commentId", required = false) final java.util.UUID commentId,
-            @jakarta.validation.Valid @RequestBody com.minh.fakebook.comment.service.dto.UpdateCommentRequestDTO updateRequest,
-            @org.springframework.security.core.annotation.AuthenticationPrincipal org.springframework.security.oauth2.jwt.Jwt jwt)
-            throws java.net.URISyntaxException {
+            @PathVariable(value = "commentId", required = false) final UUID commentId,
+            @Valid @RequestBody UpdateCommentRequestDTO updateRequest,
+            @AuthenticationPrincipal Jwt jwt)
+            throws URISyntaxException {
         LOG.debug("REST request to update Comment : {}", commentId);
         if (commentId == null) {
             throw new BadRequestAlertException("Invalid id", ENTITY_NAME, "idnull");
         }
 
-        java.util.UUID currentUserId = java.util.UUID.fromString(jwt.getSubject());
-        java.util.Optional<CommentDTO> result = commentService.updateComment(commentId, updateRequest.content(),
+        UUID currentUserId = UUID.fromString(jwt.getSubject());
+        Optional<CommentDTO> result = commentService.updateComment(commentId, updateRequest.content(),
                 currentUserId);
 
-        return tech.jhipster.web.util.ResponseUtil.wrapOrNotFound(
+        return ResponseUtil.wrapOrNotFound(
                 result,
-                tech.jhipster.web.util.HeaderUtil.createEntityUpdateAlert(applicationName, true, ENTITY_NAME,
+                HeaderUtil.createEntityUpdateAlert(applicationName, true, ENTITY_NAME,
                         commentId.toString()));
     }
 
@@ -128,22 +142,22 @@ public class CommentResource {
      * @return the {@link ResponseEntity} with status {@code 200 (OK)} and the list of Comments in body.
      */
     @GetMapping("")
-    public ResponseEntity<java.util.List<CommentDTO>> getAllComments(
-            com.minh.fakebook.comment.service.criteria.CommentCriteria criteria,
-            @org.springdoc.core.annotations.ParameterObject org.springframework.data.domain.Pageable pageable) {
+    public ResponseEntity<List<CommentDTO>> getAllComments(
+            CommentCriteria criteria,
+            @ParameterObject Pageable pageable) {
         LOG.debug("REST request to get Comments by criteria: {}", criteria);
 
-        if (!com.minh.fakebook.comment.security.SecurityUtils
-                .hasCurrentUserThisAuthority(com.minh.fakebook.comment.security.AuthoritiesConstants.ADMIN)) {
-            com.minh.fakebook.comment.service.criteria.CommentCriteria.CommentStatusFilter statusFilter = new com.minh.fakebook.comment.service.criteria.CommentCriteria.CommentStatusFilter();
-            statusFilter.setEquals(com.minh.fakebook.comment.domain.enumeration.CommentStatus.ACTIVE);
+        if (!SecurityUtils
+                .hasCurrentUserThisAuthority(AuthoritiesConstants.ADMIN)) {
+            CommentCriteria.CommentStatusFilter statusFilter = new CommentCriteria.CommentStatusFilter();
+            statusFilter.setEquals(CommentStatus.ACTIVE);
             criteria.setStatus(statusFilter);
         }
 
-        org.springframework.data.domain.Page<CommentDTO> page = commentQueryService.findByCriteria(criteria, pageable);
-        org.springframework.http.HttpHeaders headers = tech.jhipster.web.util.PaginationUtil
+        Page<CommentDTO> page = commentQueryService.findByCriteria(criteria, pageable);
+        HttpHeaders headers = PaginationUtil
                 .generatePaginationHttpHeaders(
-                        org.springframework.web.servlet.support.ServletUriComponentsBuilder.fromCurrentRequest(), page);
+                        ServletUriComponentsBuilder.fromCurrentRequest(), page);
         return ResponseEntity.ok().headers(headers).body(page.getContent());
     }
 
@@ -181,20 +195,19 @@ public class CommentResource {
     */
     @DeleteMapping("/{commentId}")
         public ResponseEntity<Void> deleteOwnComment(
-            @PathVariable(value = "commentId") final java.util.UUID commentId,
-            @org.springframework.security.core.annotation.AuthenticationPrincipal org.springframework.
-  security.oauth2.jwt.Jwt jwt
+            @PathVariable(value = "commentId") final UUID commentId,
+            @AuthenticationPrincipal Jwt jwt
         ) {
             LOG.debug("REST request to delete Comment : {}", commentId);
 
-            java.util.UUID currentUserId = java.util.UUID.fromString(jwt.getSubject());
-            boolean isAdmin = com.minh.fakebook.comment.security.SecurityUtils
-                    .hasCurrentUserThisAuthority(com.minh.fakebook.comment.security.AuthoritiesConstants.ADMIN);
+            UUID currentUserId = UUID.fromString(jwt.getSubject());
+            boolean isAdmin = SecurityUtils
+                    .hasCurrentUserThisAuthority(AuthoritiesConstants.ADMIN);
 
             commentService.deleteComment(commentId, currentUserId, isAdmin);
 
             return ResponseEntity.noContent()
-                    .headers(tech.jhipster.web.util.HeaderUtil.createEntityDeletionAlert(applicationName, true,
+                    .headers(HeaderUtil.createEntityDeletionAlert(applicationName, true,
                             ENTITY_NAME, commentId.toString()))
                     .build();
         }
@@ -210,16 +223,16 @@ public class CommentResource {
 
     @PostMapping("/reply")
     public ResponseEntity<CommentDTO> replyToComment(
-            @jakarta.validation.Valid @RequestBody com.minh.fakebook.comment.service.dto.ReplyCommentRequestDTO request,
-            @org.springframework.security.core.annotation.AuthenticationPrincipal org.springframework.security.oauth2.jwt.Jwt jwt)
-            throws java.net.URISyntaxException {
+            @Valid @RequestBody ReplyCommentRequestDTO request,
+            @AuthenticationPrincipal Jwt jwt)
+            throws URISyntaxException {
         LOG.debug("REST request to reply to Comment : {}", request);
 
-        java.util.UUID currentUserId = java.util.UUID.fromString(jwt.getSubject());
+        UUID currentUserId = UUID.fromString(jwt.getSubject());
         CommentDTO result = commentService.replyToComment(request, currentUserId);
 
-        return ResponseEntity.created(new java.net.URI("/api/comments/" + result.getId()))
-                .headers(tech.jhipster.web.util.HeaderUtil.createEntityCreationAlert(applicationName, true,
+        return ResponseEntity.created(new URI("/api/comments/" + result.getId()))
+                .headers(HeaderUtil.createEntityCreationAlert(applicationName, true,
                         ENTITY_NAME, result.getId().toString()))
                 .body(result);
     }

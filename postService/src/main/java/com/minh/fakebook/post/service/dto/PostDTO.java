@@ -6,8 +6,7 @@ import jakarta.persistence.Lob;
 import jakarta.validation.constraints.*;
 import java.io.Serializable;
 import java.time.Instant;
-import java.util.Objects;
-import java.util.UUID;
+import java.util.*;
 
 /**
  * A DTO for the {@link com.minh.fakebook.post.domain.Post} entity.
@@ -90,23 +89,23 @@ public class PostDTO implements Serializable {
         this.updatedAt = updatedAt;
     }
 
-    private java.util.List<java.util.UUID> mediaIds;
+    private List<UUID> mediaIds;
 
-    public java.util.List<java.util.UUID> getMediaIds() {
+    public List<UUID> getMediaIds() {
         return mediaIds;
     }
 
-    public void setMediaIds(java.util.List<java.util.UUID> mediaIds) {
+    public void setMediaIds(List<UUID> mediaIds) {
         this.mediaIds = mediaIds;
     }
 
-    private java.util.Set<java.util.UUID> taggedUserIds = new java.util.HashSet<>();
+    private Set<UUID> taggedUserIds = new HashSet<>();
 
-    public java.util.Set<java.util.UUID> getTaggedUserIds() {
+    public Set<UUID> getTaggedUserIds() {
         return taggedUserIds;
     }
 
-    public void setTaggedUserIds(java.util.Set<java.util.UUID> taggedUserIds) {
+    public void setTaggedUserIds(Set<UUID> taggedUserIds) {
         this.taggedUserIds = taggedUserIds;
     }
 

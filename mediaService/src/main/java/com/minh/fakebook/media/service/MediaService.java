@@ -1,15 +1,28 @@
 package com.minh.fakebook.media.service;
 
 import com.minh.fakebook.media.domain.Media;
+import com.minh.fakebook.media.domain.enumeration.MediaStatus;
+import com.minh.fakebook.media.domain.enumeration.MediaType;
+import com.minh.fakebook.media.domain.enumeration.StorageProvider;
 import com.minh.fakebook.media.repository.MediaRepository;
+import com.minh.fakebook.media.security.AuthoritiesConstants;
+import com.minh.fakebook.media.service.dto.FileUploadResult;
 import com.minh.fakebook.media.service.dto.MediaDTO;
 import com.minh.fakebook.media.service.mapper.MediaMapper;
+import java.io.IOException;
+import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.authentication.AnonymousAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 /**
  * Service Implementation for managing {@link com.minh.fakebook.media.domain.Media}.
@@ -89,33 +102,30 @@ public class MediaService {
         public Optional<MediaDTO> findOne(UUID id) {
             LOG.debug("Request to get Media : {}", id);
 
-            Optional<com.minh.fakebook.media.domain.Media> mediaOpt = mediaRepository.findById(id);
+            Optional<Media> mediaOpt = mediaRepository.findById(id);
             if (mediaOpt.isEmpty()) {
                 return Optional.empty();
             }
 
-            com.minh.fakebook.media.domain.Media media = mediaOpt.get();
+            Media media = mediaOpt.get();
 
             // 1. Identify if the current request is from a Guest or an Authenticated User
-            org.springframework.security.core.Authentication auth = org.springframework.security.
-  core.context.SecurityContextHolder.getContext().getAuthentication();
-            boolean isGuest = auth == null || auth instanceof org.springframework.security.
-  authentication.AnonymousAuthenticationToken;
+            Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+            boolean isGuest = auth == null || auth instanceof AnonymousAuthenticationToken;
 
             String currentUserId = null;
             if (!isGuest) {
-                currentUserId = ((org.springframework.security.oauth2.server.resource.
-  authentication.JwtAuthenticationToken) auth).getToken().getSubject();
+                currentUserId = ((JwtAuthenticationToken) auth).getToken().getSubject();
             }
 
             boolean isOwner = !isGuest && media.getOwnerId().toString().equals(currentUserId);
 
-            if (media.getStatus() != com.minh.fakebook.media.domain.enumeration.MediaStatus.ACTIVE)
+            if (media.getStatus() != MediaStatus.ACTIVE)
   {
                 // If media is not ACTIVE (e.g., DELETED), ONLY the owner can view it.
                 if (!isOwner) {
                     LOG.debug("Access Denied: User/Guest is not the owner of this media.");
-                    throw new org.springframework.security.access.AccessDeniedException("Error: You do not have permission to view this media.");
+                    throw new AccessDeniedException("Error: You do not have permission to view this media.");
                 }
             }
 
@@ -132,38 +142,34 @@ public class MediaService {
             LOG.debug("Request to delete Media : {}", id);
 
             // 1. Retrieve the Media
-            Optional<com.minh.fakebook.media.domain.Media> mediaOpt = mediaRepository.findById(id);
+            Optional<Media> mediaOpt = mediaRepository.findById(id);
             if (mediaOpt.isEmpty()) {
                 return; // Media not found, safely return
             }
-            com.minh.fakebook.media.domain.Media media = mediaOpt.get();
+            Media media = mediaOpt.get();
 
             // 2. Authentication check
-            org.springframework.security.core.Authentication auth = org.springframework.security.
-  core.context.SecurityContextHolder.getContext().getAuthentication();
-            if (auth == null || auth instanceof org.springframework.security.authentication.
-  AnonymousAuthenticationToken) {
-                throw new org.springframework.security.access.AccessDeniedException("Error: You must be logged in to delete media.");
+            Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+            if (auth == null || auth instanceof AnonymousAuthenticationToken) {
+                throw new AccessDeniedException("Error: You must be logged in to delete media.");
             }
 
             // 3. Extract user ID and check roles 
-            String currentUserId = ((org.springframework.security.oauth2.server.resource.
-  authentication.JwtAuthenticationToken) auth).getToken().getSubject();
+            String currentUserId = ((JwtAuthenticationToken) auth).getToken().getSubject();
             boolean isOwner = media.getOwnerId().toString().equals(currentUserId);
 
             boolean isAdmin = auth.getAuthorities().stream()
-                .anyMatch(grantedAuthority -> grantedAuthority.getAuthority().equals(com.minh.
-  fakebook.media.security.AuthoritiesConstants.ADMIN));
+                .anyMatch(grantedAuthority -> grantedAuthority.getAuthority().equals(AuthoritiesConstants.ADMIN));
 
             // 4. Permission: Must be Owner or Admin
             if (!isOwner && !isAdmin) {
                 LOG.warn("User {} attempted to delete media {} without permission", currentUserId,id);
-                throw new org.springframework.security.access.AccessDeniedException("Error: Only the owner or an admin can delete this media.");
+                throw new AccessDeniedException("Error: Only the owner or an admin can delete this media.");
             }
 
             // 5. Perform Soft Delete (Change status to DELETED)
-            media.setStatus(com.minh.fakebook.media.domain.enumeration.MediaStatus.DELETED);
-            media.setUpdatedAt(java.time.Instant.now());
+            media.setStatus(MediaStatus.DELETED);
+            media.setUpdatedAt(Instant.now());
             mediaRepository.save(media);
 
             LOG.debug("Media {} successfully deleted by user {}", id, currentUserId);
@@ -175,15 +181,15 @@ public class MediaService {
      * @param file the multipart file to upload
      * @return the persisted MediaDTO
      */
-    public com.minh.fakebook.media.service.dto.MediaDTO uploadMedia(
-            org.springframework.web.multipart.MultipartFile file) {
+    public MediaDTO uploadMedia(
+            MultipartFile file) {
         try {
             // 1. Extract user authentication and get current user ID
-            org.springframework.security.core.Authentication auth = org.springframework.security.core.context.SecurityContextHolder
+            Authentication auth = SecurityContextHolder
                     .getContext().getAuthentication();
-            String sub = ((org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken) auth)
+            String sub = ((JwtAuthenticationToken) auth)
                     .getToken().getSubject();
-            java.util.UUID currentUserId = java.util.UUID.fromString(sub);
+            UUID currentUserId = UUID.fromString(sub);
 
             // 2. Validate file 
             if (file.isEmpty()) {
@@ -195,32 +201,32 @@ public class MediaService {
             }
 
             // Determine media type based on content type
-            com.minh.fakebook.media.domain.enumeration.MediaType mediaType = contentType.startsWith("video/")
-                    ? com.minh.fakebook.media.domain.enumeration.MediaType.VIDEO
-                    : com.minh.fakebook.media.domain.enumeration.MediaType.IMAGE;
+            MediaType mediaType = contentType.startsWith("video/")
+                    ? MediaType.VIDEO
+                    : MediaType.IMAGE;
 
             // 3. Upload file to Cloudinary
             String folder = "fakebook/users/" + currentUserId.toString();
-            com.minh.fakebook.media.service.dto.FileUploadResult uploadResult = fileStorageService.uploadFile(file,
+            FileUploadResult uploadResult = fileStorageService.uploadFile(file,
                     folder);
 
             // 4. Save Metadata to DB
-            com.minh.fakebook.media.domain.Media media = new com.minh.fakebook.media.domain.Media();
+            Media media = new Media();
             media.setOwnerId(currentUserId);
             media.setFileName(file.getOriginalFilename());
             media.setMediaType(mediaType);
             media.setMimeType(contentType);
             media.setFileSize(file.getSize());
-            media.setStorageProvider(com.minh.fakebook.media.domain.enumeration.StorageProvider.CLOUDINARY);
+            media.setStorageProvider(StorageProvider.CLOUDINARY);
             media.setStorageKey(uploadResult.storageKey());
             media.setUrl(uploadResult.url());
-            media.setStatus(com.minh.fakebook.media.domain.enumeration.MediaStatus.ACTIVE);
-            media.setCreatedAt(java.time.Instant.now());
+            media.setStatus(MediaStatus.ACTIVE);
+            media.setCreatedAt(Instant.now());
 
             media = mediaRepository.save(media);
             return mediaMapper.toDto(media);
 
-        } catch (java.io.IOException e) {
+        } catch (IOException e) {
             LOG.error("Failed to upload file to Cloudinary", e);
             throw new RuntimeException("Error: Could not upload file.", e);
         }

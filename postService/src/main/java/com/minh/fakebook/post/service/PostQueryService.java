@@ -1,15 +1,25 @@
 package com.minh.fakebook.post.service;
 
-import com.minh.fakebook.post.domain.*; // for static metamodels
+import com.minh.fakebook.post.domain.*;
+import com.minh.fakebook.post.domain.enumeration.PostStatus;
+import com.minh.fakebook.post.domain.enumeration.PostVisibility;
+import com.minh.fakebook.post.repository.PostMediaRepository;
 import com.minh.fakebook.post.repository.PostRepository;
+import com.minh.fakebook.post.security.AuthoritiesConstants;
 import com.minh.fakebook.post.service.criteria.PostCriteria;
 import com.minh.fakebook.post.service.dto.PostDTO;
 import com.minh.fakebook.post.service.mapper.PostMapper;
+import jakarta.persistence.criteria.Predicate;
+import java.util.List;
+import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import tech.jhipster.service.QueryService;
@@ -30,9 +40,9 @@ public class PostQueryService extends QueryService<Post> {
 
     private final PostMapper postMapper;
 
-    private final com.minh.fakebook.post.repository.PostMediaRepository postMediaRepository;
+    private final PostMediaRepository postMediaRepository;
 
-    public PostQueryService(PostRepository postRepository, PostMapper postMapper, com.minh.fakebook.post.repository.PostMediaRepository postMediaRepository) {
+    public PostQueryService(PostRepository postRepository, PostMapper postMapper, PostMediaRepository postMediaRepository) {
         this.postRepository = postRepository;
         this.postMapper = postMapper;
         this.postMediaRepository = postMediaRepository;
@@ -51,10 +61,10 @@ public class PostQueryService extends QueryService<Post> {
 
         return postRepository.findAll(specification, page).map(post -> {
             PostDTO dto = postMapper.toDto(post);
-            java.util.List<java.util.UUID> mediaIds = postMediaRepository
+            List<UUID> mediaIds = postMediaRepository
                     .findByPostIdOrderByDisplayOrderAsc(post.getId())
                     .stream()
-                    .map(com.minh.fakebook.post.domain.PostMedia::getMediaId)
+                    .map(PostMedia::getMediaId)
                     .toList();
             dto.setMediaIds(mediaIds);
             return dto;
@@ -83,37 +93,32 @@ public class PostQueryService extends QueryService<Post> {
 
 
             Specification<Post> securitySpec = (root, query, builder) -> {
-                jakarta.persistence.criteria.Predicate isActive = builder.equal(root.get(Post_.status), com.minh.fakebook.post.
-  domain.enumeration.PostStatus.ACTIVE);
+                Predicate isActive = builder.equal(root.get(Post_.status), PostStatus.ACTIVE);
 
-                org.springframework.security.core.Authentication auth = org.springframework.security.core.context.
-  SecurityContextHolder.getContext().getAuthentication();
+                Authentication auth = SecurityContextHolder.getContext().getAuthentication();
                 boolean isLoggedIn = auth != null && auth.isAuthenticated() && !"anonymousUser".equals(auth.getPrincipal());
 
                 // GUEST
                 if (!isLoggedIn) {
-                    jakarta.persistence.criteria.Predicate isPublic = builder.equal(root.get(Post_.visibility), com.minh.
-  fakebook.post.domain.enumeration.PostVisibility.PUBLIC);
+                    Predicate isPublic = builder.equal(root.get(Post_.visibility), PostVisibility.PUBLIC);
                     return builder.and(isActive, isPublic);
                 }
 
                 // ADMIN
                 boolean isAdmin = auth.getAuthorities().stream()
-                        .anyMatch(a -> a.getAuthority().equals(com.minh.fakebook.post.security.AuthoritiesConstants.ADMIN));
+                        .anyMatch(a -> a.getAuthority().equals(AuthoritiesConstants.ADMIN));
                 if (isAdmin) {
                     return isActive;
                 }
 
                 // NORMAL USER
-                String sub = ((org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken) auth).
+                String sub = ((JwtAuthenticationToken) auth).
   getToken().getSubject();
-                java.util.UUID currentUserId = java.util.UUID.fromString(sub);
+                UUID currentUserId = UUID.fromString(sub);
 
-                jakarta.persistence.criteria.Predicate isPublic = builder.equal(root.get(Post_.visibility), com.minh.fakebook.
-  post.domain.enumeration.PostVisibility.PUBLIC);
-                jakarta.persistence.criteria.Predicate isOwner = builder.equal(root.get(Post_.authorId), currentUserId);
-                jakarta.persistence.criteria.Predicate isFriends = builder.equal(root.get(Post_.visibility), com.minh.fakebook.
-  post.domain.enumeration.PostVisibility.FRIENDS);
+                Predicate isPublic = builder.equal(root.get(Post_.visibility), PostVisibility.PUBLIC);
+                Predicate isOwner = builder.equal(root.get(Post_.authorId), currentUserId);
+                Predicate isFriends = builder.equal(root.get(Post_.visibility), PostVisibility.FRIENDS);
 
                 // TODO (Row-Level Security & FeignClient): The 'isFriends' predicate currently allows ALL logged-in users.
                 // Must invoke userService to fetch actual friend IDs and inject them into an IN clause.

@@ -1,17 +1,26 @@
 package com.minh.fakebook.post.service;
 
-import com.minh.fakebook.post.domain.*; // for static metamodels
+import com.minh.fakebook.post.domain.*;
+import com.minh.fakebook.post.domain.enumeration.PostStatus;
+import com.minh.fakebook.post.domain.enumeration.PostVisibility;
 import com.minh.fakebook.post.domain.PostReaction;
 import com.minh.fakebook.post.repository.PostReactionRepository;
+import com.minh.fakebook.post.security.AuthoritiesConstants;
 import com.minh.fakebook.post.service.criteria.PostReactionCriteria;
 import com.minh.fakebook.post.service.dto.PostReactionDTO;
 import com.minh.fakebook.post.service.mapper.PostReactionMapper;
+import jakarta.persistence.criteria.Join;
 import jakarta.persistence.criteria.JoinType;
+import jakarta.persistence.criteria.Predicate;
+import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import tech.jhipster.service.QueryService;
@@ -76,38 +85,38 @@ public class PostReactionQueryService extends QueryService<PostReaction> {
             return null;
         });
         specification = specification.and((root, query, builder) -> {
-            org.springframework.security.core.Authentication auth = org.springframework.security.core.context.SecurityContextHolder
+            Authentication auth = SecurityContextHolder
                     .getContext().getAuthentication();
             boolean isGuest = (auth == null || !auth.isAuthenticated() || "anonymousUser".equals(auth.getPrincipal()));
             boolean isAdmin = !isGuest && auth.getAuthorities().stream()
-                    .anyMatch(a -> a.getAuthority().equals(com.minh.fakebook.post.security.AuthoritiesConstants.ADMIN));
+                    .anyMatch(a -> a.getAuthority().equals(AuthoritiesConstants.ADMIN));
 
             if (isAdmin) {
                 return builder.conjunction();
             }
 
             // JOIN PostReaction with Post to filter based on Post's visibility and status
-            jakarta.persistence.criteria.Join<com.minh.fakebook.post.domain.PostReaction, com.minh.fakebook.post.domain.Post> postJoin = root
-                    .join(PostReaction_.post, jakarta.persistence.criteria.JoinType.INNER);
+            Join<PostReaction, Post> postJoin = root
+                    .join(PostReaction_.post, JoinType.INNER);
 
-            jakarta.persistence.criteria.Predicate isActive = builder.equal(postJoin.get(Post_.status),
-                    com.minh.fakebook.post.domain.enumeration.PostStatus.ACTIVE);
+            Predicate isActive = builder.equal(postJoin.get(Post_.status),
+                    PostStatus.ACTIVE);
 
             if (isGuest) {
-                jakarta.persistence.criteria.Predicate isPublic = builder.equal(postJoin.get(Post_.visibility),
-                        com.minh.fakebook.post.domain.enumeration.PostVisibility.PUBLIC);
+                Predicate isPublic = builder.equal(postJoin.get(Post_.visibility),
+                        PostVisibility.PUBLIC);
                 return builder.and(isActive, isPublic);
             }
 
-            String sub = ((org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken) auth)
+            String sub = ((JwtAuthenticationToken) auth)
                     .getToken().getSubject();
-            java.util.UUID currentUserId = java.util.UUID.fromString(sub);
+            UUID currentUserId = UUID.fromString(sub);
 
-            jakarta.persistence.criteria.Predicate isPublic = builder.equal(postJoin.get(Post_.visibility),
-                    com.minh.fakebook.post.domain.enumeration.PostVisibility.PUBLIC);
-            jakarta.persistence.criteria.Predicate isFriends = builder.equal(postJoin.get(Post_.visibility),
-                    com.minh.fakebook.post.domain.enumeration.PostVisibility.FRIENDS);
-            jakarta.persistence.criteria.Predicate isAuthor = builder.equal(postJoin.get(Post_.authorId),
+            Predicate isPublic = builder.equal(postJoin.get(Post_.visibility),
+                    PostVisibility.PUBLIC);
+            Predicate isFriends = builder.equal(postJoin.get(Post_.visibility),
+                    PostVisibility.FRIENDS);
+            Predicate isAuthor = builder.equal(postJoin.get(Post_.authorId),
                     currentUserId);
 
             return builder.and(isActive, builder.or(isPublic, isFriends, isAuthor));

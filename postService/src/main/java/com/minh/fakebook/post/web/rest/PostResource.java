@@ -4,6 +4,7 @@ import com.minh.fakebook.post.repository.PostRepository;
 import com.minh.fakebook.post.service.PostQueryService;
 import com.minh.fakebook.post.service.PostService;
 import com.minh.fakebook.post.service.criteria.PostCriteria;
+import com.minh.fakebook.post.service.dto.CreatePostRequestDTO;
 import com.minh.fakebook.post.service.dto.PostDTO;
 import com.minh.fakebook.post.web.rest.errors.BadRequestAlertException;
 import jakarta.validation.Valid;
@@ -16,6 +17,7 @@ import java.util.Optional;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -151,7 +153,7 @@ public class PostResource {
     @GetMapping("")
     public ResponseEntity<List<PostDTO>> getAllPosts(
         PostCriteria criteria,
-        @org.springdoc.core.annotations.ParameterObject Pageable pageable
+        @ParameterObject Pageable pageable
     ) {
         LOG.debug("REST request to get Posts by criteria: {}", criteria);
 
@@ -208,15 +210,15 @@ public class PostResource {
      *         {@code 201
     (Created)} and the created post DTO.
      */
-    @org.springframework.web.bind.annotation.PostMapping("/create")
-    public org.springframework.http.ResponseEntity<com.minh.fakebook.post.service.dto.PostDTO> createNewPost(
-            @org.springframework.web.bind.annotation.RequestBody com.minh.fakebook.post.service.dto.CreatePostRequestDTO request) {
+    @PostMapping("/create")
+    public ResponseEntity<PostDTO> createNewPost(
+            @RequestBody CreatePostRequestDTO request) {
 
         LOG.debug("REST request to create a new Post : {}", request);
-        com.minh.fakebook.post.service.dto.PostDTO result = postService.createPost(request.content(),
+        PostDTO result = postService.createPost(request.content(),
                 request.visibility(), request.mediaIds(), request.taggedUserIds());
 
-        return org.springframework.http.ResponseEntity.status(201).body(result);
+        return ResponseEntity.status(201).body(result);
     }
 }
 

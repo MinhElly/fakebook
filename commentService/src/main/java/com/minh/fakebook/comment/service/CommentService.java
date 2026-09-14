@@ -1,16 +1,20 @@
 package com.minh.fakebook.comment.service;
-
+import com.minh.fakebook.comment.web.rest.errors.BadRequestAlertException;
 import java.util.Optional;
 import java.util.UUID;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.minh.fakebook.comment.domain.Comment;
+import com.minh.fakebook.comment.domain.enumeration.CommentStatus;
 import com.minh.fakebook.comment.repository.CommentRepository;
 import com.minh.fakebook.comment.service.dto.CommentDTO;
+import com.minh.fakebook.comment.service.dto.CreateCommentRequestDTO;
+import com.minh.fakebook.comment.service.dto.ReplyCommentRequestDTO;
 import com.minh.fakebook.comment.service.mapper.CommentMapper;
 
 /**
@@ -38,14 +42,14 @@ public class CommentService {
      * @param authorId the ID of the author (from JWT).
      * @return the persisted comment DTO.
      */
-    public CommentDTO createComment(com.minh.fakebook.comment.service.dto.CreateCommentRequestDTO request,
+    public CommentDTO createComment(CreateCommentRequestDTO request,
             UUID authorId) {
         LOG.debug("Request to create Comment for Post {} by Author {}", request.postId(), authorId);
         Comment comment = new Comment();
         comment.setPostId(request.postId());
         comment.setAuthorId(authorId);
         comment.setContent(request.content());
-        comment.setStatus(com.minh.fakebook.comment.domain.enumeration.CommentStatus.ACTIVE);
+        comment.setStatus(CommentStatus.ACTIVE);
 
         comment = commentRepository.save(comment);
         return commentMapper.toDto(comment);
@@ -60,14 +64,13 @@ public class CommentService {
      * @return an Optional containing the updated CommentDTO if the update is successful.
      * @throws org.springframework.security.access.AccessDeniedException if the user the user attempting to updatethe user attempting to update is not the original author of the comment.
      */
-         public java.util.Optional<CommentDTO> updateComment(java.util.UUID commentId, String content, java.
-  util.UUID authorId) {
+         public Optional<CommentDTO> updateComment(UUID commentId, String content, UUID authorId) {
             LOG.debug("Request to update Comment : {} by user {}", commentId, authorId);
 
             return commentRepository.findById(commentId).map(comment -> {
                 // Check ownership to prevent unauthorized updates
                 if (!comment.getAuthorId().equals(authorId)) {
-                    throw new org.springframework.security.access.AccessDeniedException("You can only edit your own comments.");
+                    throw new AccessDeniedException("You can only edit your own comments.");
                 }
                 comment.setContent(content);
                 return commentMapper.toDto(commentRepository.save(comment));
@@ -142,16 +145,16 @@ public class CommentService {
     * @throws org.springframework.security.access.AccessDeniedException if the user is neither the
   author nor an admin.
     */
-    public void deleteComment(java.util.UUID commentId, java.util.UUID currentUserId, boolean isAdmin) {
+    public void deleteComment(UUID commentId, UUID currentUserId, boolean isAdmin) {
         LOG.debug("Request to delete Comment : {} by user {}", commentId, currentUserId);
 
         commentRepository.findById(commentId).ifPresent(comment -> {
             // Check ownership to prevent unauthorized deletes, but allow admins to bypass
             if (!comment.getAuthorId().equals(currentUserId) && !isAdmin) {
-                throw new org.springframework.security.access.AccessDeniedException(
+                throw new AccessDeniedException(
                         "You can only delete your own comments.");
             }
-            comment.setStatus(com.minh.fakebook.comment.domain.enumeration.CommentStatus.DELETED);
+            comment.setStatus(CommentStatus.DELETED);
             commentRepository.save(comment);
         });
     }
@@ -164,24 +167,23 @@ public class CommentService {
     * @return the created reply CommentDTO.
     * @throws com.minh.fakebook.comment.web.rest.errors.BadRequestAlertException if the parent comment is not found or is DELETED.
     */
-    public CommentDTO replyToComment(com.minh.fakebook.comment.service.dto.ReplyCommentRequestDTO request,
-  java.util.UUID authorId) {
+    public CommentDTO replyToComment(ReplyCommentRequestDTO request,
+  UUID authorId) {
             LOG.debug("Request to reply to Comment : {} by user {}", request.parentCommentId(), authorId);
 
             Comment parent = commentRepository.findById(request.parentCommentId())
-                .orElseThrow(() -> new com.minh.fakebook.comment.web.rest.errors.
-  BadRequestAlertException("Parent comment not found", "comment", "idnotfound"));
+                .orElseThrow(() -> new BadRequestAlertException("Parent comment not found", "comment", "idnotfound"));
 
-            if (com.minh.fakebook.comment.domain.enumeration.CommentStatus.DELETED.equals(parent.
+            if (CommentStatus.DELETED.equals(parent.
   getStatus())) {
-                throw new com.minh.fakebook.comment.web.rest.errors.BadRequestAlertException("Cannot reply to a deleted comment", "comment", "parentdeleted");
+                throw new BadRequestAlertException("Cannot reply to a deleted comment", "comment", "parentdeleted");
             }
 
             Comment reply = new Comment();
             reply.setPostId(parent.getPostId()); 
             reply.setAuthorId(authorId);
             reply.setContent(request.content());
-            reply.setStatus(com.minh.fakebook.comment.domain.enumeration.CommentStatus.ACTIVE);
+            reply.setStatus(CommentStatus.ACTIVE);
             reply.setParentComment(parent); 
 
             return commentMapper.toDto(commentRepository.save(reply));

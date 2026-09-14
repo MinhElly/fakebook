@@ -7,6 +7,8 @@ import jakarta.validation.constraints.*;
 import java.io.Serial;
 import java.io.Serializable;
 import java.time.Instant;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.UUID;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
@@ -54,17 +56,17 @@ public class Post implements Serializable {
     @Column(name = "updated_at")
     private Instant updatedAt;
 
-    @jakarta.persistence.ElementCollection(fetch = jakarta.persistence.FetchType.LAZY)
-    @jakarta.persistence.CollectionTable(name = "post_tagged_users", joinColumns = @jakarta.persistence.JoinColumn(name = "post_id"))
-    @jakarta.persistence.Column(name = "user_id", length = 36)
-    @org.hibernate.annotations.JdbcTypeCode(org.hibernate.type.SqlTypes.VARCHAR)
-    private java.util.Set<java.util.UUID> taggedUserIds = new java.util.HashSet<>();
+    @ElementCollection(fetch = FetchType.LAZY)
+    @CollectionTable(name = "post_tagged_users", joinColumns = @JoinColumn(name = "post_id"))
+    @Column(name = "user_id", length = 36)
+    @JdbcTypeCode(SqlTypes.VARCHAR)
+    private Set<UUID> taggedUserIds = new HashSet<>();
 
-    public java.util.Set<java.util.UUID> getTaggedUserIds() {
+    public Set<UUID> getTaggedUserIds() {
         return taggedUserIds;
     }
 
-    public void setTaggedUserIds(java.util.Set<java.util.UUID> taggedUserIds) {
+    public void setTaggedUserIds(Set<UUID> taggedUserIds) {
         this.taggedUserIds = taggedUserIds;
     }
 

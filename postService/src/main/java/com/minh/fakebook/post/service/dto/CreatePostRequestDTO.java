@@ -10,7 +10,7 @@ import java.util.UUID;
  */
 public record CreatePostRequestDTO(
         String content,
-        com.minh.fakebook.post.domain.enumeration.PostVisibility visibility,
-        java.util.List<java.util.UUID> mediaIds,
-        java.util.List<java.util.UUID> taggedUserIds
+        PostVisibility visibility,
+        List<UUID> mediaIds,
+        List<UUID> taggedUserIds
 ) {}

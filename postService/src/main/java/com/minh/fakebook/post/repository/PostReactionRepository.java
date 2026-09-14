@@ -1,8 +1,10 @@
 package com.minh.fakebook.post.repository;
 
 import com.minh.fakebook.post.domain.PostReaction;
+import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.jpa.repository.*;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 /**
@@ -12,10 +14,10 @@ import org.springframework.stereotype.Repository;
 @Repository
 public interface PostReactionRepository
         extends JpaRepository<PostReaction, UUID>, JpaSpecificationExecutor<PostReaction> {
-    java.util.Optional<com.minh.fakebook.post.domain.PostReaction> findByPostIdAndUserId(java.util.UUID postId,
-                    java.util.UUID userId);
+    Optional<PostReaction> findByPostIdAndUserId(UUID postId,
+                    UUID userId);
             
-@org.springframework.data.jpa.repository.Modifying
-@org.springframework.data.jpa.repository.Query("DELETE FROM PostReaction pr WHERE pr.post.id = :postId")
-void deleteByPostId(@org.springframework.data.repository.query.Param("postId") java.util.UUID postId);
+@Modifying
+@Query("DELETE FROM PostReaction pr WHERE pr.post.id = :postId")
+void deleteByPostId(@Param("postId") UUID postId);
 }

@@ -1,13 +1,23 @@
 package com.minh.fakebook.post.service;
 
+import com.minh.fakebook.post.domain.Post;
 import com.minh.fakebook.post.domain.PostReaction;
+import com.minh.fakebook.post.domain.enumeration.PostStatus;
+import com.minh.fakebook.post.domain.enumeration.PostVisibility;
 import com.minh.fakebook.post.repository.PostReactionRepository;
+import com.minh.fakebook.post.repository.PostRepository;
+import com.minh.fakebook.post.security.AuthoritiesConstants;
 import com.minh.fakebook.post.service.dto.PostReactionDTO;
 import com.minh.fakebook.post.service.mapper.PostReactionMapper;
+import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -24,9 +34,9 @@ public class PostReactionService {
 
     private final PostReactionMapper postReactionMapper;
 
-    private final com.minh.fakebook.post.repository.PostRepository postRepository;
+    private final PostRepository postRepository;
 
-    public PostReactionService(PostReactionRepository postReactionRepository, PostReactionMapper postReactionMapper, com.minh.fakebook.post.repository.PostRepository postRepository) {
+    public PostReactionService(PostReactionRepository postReactionRepository, PostReactionMapper postReactionMapper, PostRepository postRepository) {
         this.postReactionRepository = postReactionRepository;
         this.postReactionMapper = postReactionMapper;
         this.postRepository = postRepository;
@@ -43,43 +53,39 @@ public class PostReactionService {
             LOG.debug("Request to Upsert/Toggle PostReaction : {}",
   postReactionDTO);
 
-            org.springframework.security.core.Authentication auth = org.
-  springframework.security.core.context.SecurityContextHolder.getContext().
+            Authentication auth = SecurityContextHolder.getContext().
   getAuthentication();
             if (auth == null || !auth.isAuthenticated() || "anonymousUser".
   equals(auth.getPrincipal())) {
-                throw new org.springframework.security.access.
-  AccessDeniedException("Error: You must be logged in to react.");
+                throw new AccessDeniedException("Error: You must be logged in to react.");
             }
-            java.util.UUID currentUserId = java.util.UUID.fromString(((org.
-  springframework.security.oauth2.server.resource.authentication.
-                                      JwtAuthenticationToken) auth).getToken().getSubject());
+            UUID currentUserId = UUID.fromString(((JwtAuthenticationToken) auth).getToken().getSubject());
   
             // TODO (REST/FeignClient): If targetPost visibility is FRIENDS:
             // Must invoke userService API to verify if currentUserId is a friend of authorId.
             // If FALSE, immediately throw AccessDeniedException (Prevent Blind Action).
 
             postReactionDTO.setUserId(currentUserId);
-            java.util.UUID postId = postReactionDTO.getPost().getId();
-            com.minh.fakebook.post.domain.Post targetPost = postRepository.findById(postId)
+            UUID postId = postReactionDTO.getPost().getId();
+            Post targetPost = postRepository.findById(postId)
                     .orElseThrow(() -> new IllegalArgumentException("Post not found"));
 
-            if (targetPost.getStatus() == com.minh.fakebook.post.domain.enumeration.PostStatus.DELETED) {
-                throw new org.springframework.security.access.AccessDeniedException("Cannot react to a deleted post.");
+            if (targetPost.getStatus() == PostStatus.DELETED) {
+                throw new AccessDeniedException("Cannot react to a deleted post.");
             }
-            if (targetPost.getVisibility() == com.minh.fakebook.post.domain.enumeration.PostVisibility.PRIVATE) {
+            if (targetPost.getVisibility() == PostVisibility.PRIVATE) {
                 if (!targetPost.getAuthorId().equals(currentUserId)) {
-                    throw new org.springframework.security.access.AccessDeniedException(
+                    throw new AccessDeniedException(
                             "Cannot react to a private post.");
                 }
             }
 
-            java.util.Optional<com.minh.fakebook.post.domain.PostReaction>
+            Optional<PostReaction>
   existingReactionOpt = postReactionRepository.findByPostIdAndUserId(postId,
   currentUserId);
 
             if (existingReactionOpt.isPresent()) {
-                com.minh.fakebook.post.domain.PostReaction postReaction =
+                PostReaction postReaction =
   existingReactionOpt.get();
 
                 if (postReaction.getReactionType() == postReactionDTO.
@@ -89,13 +95,13 @@ public class PostReactionService {
                 }
 
                 postReaction.setReactionType(postReactionDTO.getReactionType());
-                postReaction.setUpdatedAt(java.time.Instant.now());
+                postReaction.setUpdatedAt(Instant.now());
                 postReaction = postReactionRepository.save(postReaction);
                 return postReactionMapper.toDto(postReaction);
             } else {
-                com.minh.fakebook.post.domain.PostReaction postReaction =
+                PostReaction postReaction =
   postReactionMapper.toEntity(postReactionDTO);
-                postReaction.setCreatedAt(java.time.Instant.now());
+                postReaction.setCreatedAt(Instant.now());
                 postReaction = postReactionRepository.save(postReaction);
                 return postReactionMapper.toDto(postReaction);
             }
@@ -142,15 +148,13 @@ public class PostReactionService {
     public void delete(UUID id) {
             // alow only admin or the user who created the reaction to delete it
             PostReaction reaction = postReactionRepository.findById(id).orElseThrow(() -> new IllegalArgumentException("Not found"));
-            org.springframework.security.core.Authentication auth = org.springframework.security.core.context.
-  SecurityContextHolder.getContext().getAuthentication();
-            boolean isAdmin = auth.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals(com.minh.fakebook.post.
-  security.AuthoritiesConstants.ADMIN));
-            String sub = ((org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken) auth).
+            Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+            boolean isAdmin = auth.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals(AuthoritiesConstants.ADMIN));
+            String sub = ((JwtAuthenticationToken) auth).
   getToken().getSubject();
 
             if (!isAdmin && !reaction.getUserId().toString().equals(sub)) {
-                throw new org.springframework.security.access.AccessDeniedException("Error: You can only delete your own reaction.");
+                throw new AccessDeniedException("Error: You can only delete your own reaction.");
             }
             postReactionRepository.deleteById(id);
         }

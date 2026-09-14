@@ -2,6 +2,7 @@ package com.minh.fakebook.post;
 
 import com.minh.fakebook.post.config.AsyncSyncConfiguration;
 import com.minh.fakebook.post.config.DatabaseTestcontainer;
+import com.minh.fakebook.post.config.JacksonHibernateConfiguration;
 import com.minh.fakebook.post.config.TestSecurityConfiguration;
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
@@ -19,7 +20,7 @@ import org.springframework.boot.test.context.SpringBootTest;
         PostServiceApp.class,
         AsyncSyncConfiguration.class,
         TestSecurityConfiguration.class,
-        com.minh.fakebook.post.config.JacksonHibernateConfiguration.class,
+        JacksonHibernateConfiguration.class,
         DatabaseTestcontainer.class,
     }
 )
