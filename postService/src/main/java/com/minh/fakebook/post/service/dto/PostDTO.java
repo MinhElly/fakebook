@@ -100,6 +100,16 @@ public class PostDTO implements Serializable {
         this.mediaIds = mediaIds;
     }
 
+    private java.util.Set<java.util.UUID> taggedUserIds = new java.util.HashSet<>();
+
+    public java.util.Set<java.util.UUID> getTaggedUserIds() {
+        return taggedUserIds;
+    }
+
+    public void setTaggedUserIds(java.util.Set<java.util.UUID> taggedUserIds) {
+        this.taggedUserIds = taggedUserIds;
+    }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) {

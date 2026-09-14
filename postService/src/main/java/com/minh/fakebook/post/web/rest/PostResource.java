@@ -213,9 +213,8 @@ public class PostResource {
             @org.springframework.web.bind.annotation.RequestBody com.minh.fakebook.post.service.dto.CreatePostRequestDTO request) {
 
         LOG.debug("REST request to create a new Post : {}", request);
-
         com.minh.fakebook.post.service.dto.PostDTO result = postService.createPost(request.content(),
-                request.visibility(), request.mediaIds());
+                request.visibility(), request.mediaIds(), request.taggedUserIds());
 
         return org.springframework.http.ResponseEntity.status(201).body(result);
     }

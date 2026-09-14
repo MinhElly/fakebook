@@ -1,4 +1,4 @@
-import { useState } from "react";
+﻿import { useState } from "react";
 import { useUserStore, type UserProfile } from "@/stores/userStore";
 import Toast from "@/components/ui/Toast";
 
@@ -158,19 +158,19 @@ export default function EditProfileModal({ onClose }: Props) {
                 </div>
                 <div>
                   <label className={labelCls}>
-                    <span className="flex items-center gap-2">🏠 Nơi sống</span>
+                    <span className="flex items-center gap-2"><svg className="w-5 h-5 text-[#65676B]" fill="currentColor" viewBox="0 0 24 24"><path d="M12 3L2 12h3v8h6v-6h2v6h6v-8h3L12 3zm5 15h-2v-6H9v6H7v-7.81l5-4.5 5 4.5V18z"/></svg> Nơi sống</span>
                   </label>
                   <input className={inputCls} disabled={isSaving} value={form.location} onChange={update("location")} placeholder="Thành phố, Quốc gia" />
                 </div>
                 <div>
                   <label className={labelCls}>
-                    <span className="flex items-center gap-2">🎓 Học vấn</span>
+                    <span className="flex items-center gap-2"><svg className="w-5 h-5 text-[#65676B]" fill="currentColor" viewBox="0 0 24 24"><path d="M12 3L1 9l4 2.18v6L12 21l7-3.82v-6l2.12-1.15V17h2V7.4L12 3zm6.82 6L12 12.72 5.18 9 12 5.28 18.82 9zM17 15.99l-5 2.73-5-2.73v-3.72l5 2.73 5-2.73v3.72z"/></svg> Học vấn</span>
                   </label>
                   <input className={inputCls} disabled={isSaving} value={form.education} onChange={update("education")} placeholder="Trường học, Đại học..." />
                 </div>
                 <div>
                   <label className={labelCls}>
-                    <span className="flex items-center gap-2">💼 Nơi làm việc</span>
+                    <span className="flex items-center gap-2"><svg className="w-5 h-5 text-[#65676B]" fill="currentColor" viewBox="0 0 24 24"><path d="M20 6h-4V4c0-1.11-.89-2-2-2h-4c-1.11 0-2 .89-2 2v2H4c-1.11 0-1.99.89-1.99 2L2 19c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V8c0-1.11-.89-2-2-2zm-6 0h-4V4h4v2z"/></svg> Nơi làm việc</span>
                   </label>
                   <input className={inputCls} disabled={isSaving} value={form.work} onChange={update("work")} placeholder="Công ty, vị trí..." />
                 </div>

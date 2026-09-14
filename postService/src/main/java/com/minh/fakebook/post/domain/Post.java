@@ -54,6 +54,20 @@ public class Post implements Serializable {
     @Column(name = "updated_at")
     private Instant updatedAt;
 
+    @jakarta.persistence.ElementCollection(fetch = jakarta.persistence.FetchType.LAZY)
+    @jakarta.persistence.CollectionTable(name = "post_tagged_users", joinColumns = @jakarta.persistence.JoinColumn(name = "post_id"))
+    @jakarta.persistence.Column(name = "user_id", length = 36)
+    @org.hibernate.annotations.JdbcTypeCode(org.hibernate.type.SqlTypes.VARCHAR)
+    private java.util.Set<java.util.UUID> taggedUserIds = new java.util.HashSet<>();
+
+    public java.util.Set<java.util.UUID> getTaggedUserIds() {
+        return taggedUserIds;
+    }
+
+    public void setTaggedUserIds(java.util.Set<java.util.UUID> taggedUserIds) {
+        this.taggedUserIds = taggedUserIds;
+    }
+
     // jhipster-needle-entity-add-field - JHipster will add fields here
 
     public UUID getId() {

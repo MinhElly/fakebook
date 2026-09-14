@@ -25,6 +25,8 @@ interface Props {
   actionButtons: React.ReactNode;
   onEditCover?: () => void;
   onEditAvatar?: () => void;
+  loading?: boolean;
+  hasMore?: boolean;
 }
 
 const TABS_OWN   = ["Bài viết", "Giới thiệu", "Bạn bè", "Ảnh", "Video"];
@@ -32,7 +34,7 @@ const TABS_OTHER = ["Dòng thời gian", "Giới thiệu", "Bạn bè", "Ảnh",
 
 export default function ProfileLayout({
   user, isOwn, posts, friends = [], mutualFriends = [], mutualCount = 0,
-  actionButtons, onEditCover, onEditAvatar,
+  actionButtons, onEditCover, onEditAvatar, loading = false, hasMore = false
 }: Props) {
   const navigate = useNavigate();
   const TABS = isOwn ? TABS_OWN : TABS_OTHER;
@@ -44,12 +46,12 @@ export default function ProfileLayout({
   const coverSrc = user.cover || "/default-cover.svg";
 
   const bioItems = [
-    user.bio          && { icon: "💬", label: "Tài khoản", text: user.bio },
-    user.work         && { icon: "💼", label: "Công việc", text: `Làm việc tại ${user.work}` },
-    user.education    && { icon: "🎓", label: "Học vấn", text: `Học tại ${user.education}` },
-    user.location     && { icon: "🏠", label: "Nơi sống", text: `Sống tại ${user.location}` },
-    user.relationship && { icon: "❤️", label: "Mối quan hệ", text: user.relationship },
-  ].filter(Boolean) as { icon: string; label: string; text: string }[];
+    user.bio          && { icon: <svg className="w-5 h-5 text-[#65676B]" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"/></svg>, label: "Tài khoản", text: user.bio },
+    user.work         && { icon: <svg className="w-5 h-5 text-[#65676B]" fill="currentColor" viewBox="0 0 24 24"><path d="M20 6h-4V4c0-1.11-.89-2-2-2h-4c-1.11 0-2 .89-2 2v2H4c-1.11 0-1.99.89-1.99 2L2 19c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V8c0-1.11-.89-2-2-2zm-6 0h-4V4h4v2z"/></svg>, label: "Công việc", text: `Làm việc tại ${user.work}` },
+    user.education    && { icon: <svg className="w-5 h-5 text-[#65676B]" fill="currentColor" viewBox="0 0 24 24"><path d="M12 3L1 9l4 2.18v6L12 21l7-3.82v-6l2.12-1.15V17h2V7.4L12 3zm6.82 6L12 12.72 5.18 9 12 5.28 18.82 9zM17 15.99l-5 2.73-5-2.73v-3.72l5 2.73 5-2.73v3.72z"/></svg>, label: "Học vấn", text: `Học tại ${user.education}` },
+    user.location     && { icon: <svg className="w-5 h-5 text-[#65676B]" fill="currentColor" viewBox="0 0 24 24"><path d="M12 3L2 12h3v8h6v-6h2v6h6v-8h3L12 3zm5 15h-2v-6H9v6H7v-7.81l5-4.5 5 4.5V18z"/></svg>, label: "Nơi sống", text: `Sống tại ${user.location}` },
+    user.relationship && { icon: <svg className="w-5 h-5 text-[#65676B]" fill="currentColor" viewBox="0 0 24 24"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>, label: "Mối quan hệ", text: user.relationship },
+  ].filter(Boolean) as { icon: React.ReactNode; label: string; text: string }[];
 
   // Collect photos from avatar, cover, and posts
   const photos = [
@@ -110,7 +112,7 @@ export default function ProfileLayout({
             {user.bio && <p className="text-[#65676B] text-sm mt-0.5">{user.bio}</p>}
             <p className="text-[#65676B] text-sm mt-0.5 font-medium">
               {isOwn
-                ? `${posts.length} bài viết · ${friends.length} người bạn`
+                ? `${friends.length} người bạn`
                 : `${friends.length} người bạn · ${mutualCount} bạn chung`}
             </p>
 
@@ -255,7 +257,7 @@ export default function ProfileLayout({
               {isOwn && <PostCreator />}
               {posts.length === 0
                 ? <div className="bg-white rounded-xl shadow-sm border border-[#E4E6EB] p-8 text-center text-[#65676B]">
-                    <p className="text-4xl mb-2">📝</p>
+                  <div className="flex justify-center mb-4"><svg className="w-16 h-16 text-[#65676B]" fill="currentColor" viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-2h2v2zm0-4H7v-2h2v2zm0-4H7V7h2v2zm6 8h-4v-2h4v2zm0-4h-4v-2h4v2zm0-4h-4V7h4v2z"/></svg></div>
                     <p className="font-semibold text-base text-[#1C1E21]">Chưa có bài viết nào</p>
                     {isOwn ? (
                       <p className="text-sm mt-1">Hãy chia sẻ khoảnh khắc đầu tiên của bạn với bạn bè!</p>
@@ -265,6 +267,18 @@ export default function ProfileLayout({
                   </div>
                 : posts.map((post) => <Post key={post.id} post={post} />)
               }
+
+              {/* Hiển thị vòng xoay đang tải hoặc thông báo hết bài */}
+              {loading && (
+                <div className="text-center py-6 text-[#65676B] font-semibold text-sm">
+                  Đang tải thêm bài viết...
+                </div>
+              )}
+              {!hasMore && posts.length > 0 && (
+                <div className="text-center py-6 text-[#65676B] text-sm">
+                  Bạn đã xem hết bài viết!
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -319,7 +333,9 @@ export default function ProfileLayout({
                   <div className="space-y-4">
                     {user.work ? (
                       <div className="flex items-start gap-3">
-                        <div className="w-10 h-10 rounded-full bg-[#F0F2F5] flex items-center justify-center text-lg flex-shrink-0">💼</div>
+                        <div className="w-10 h-10 rounded-full bg-[#F0F2F5] flex items-center justify-center text-lg flex-shrink-0">
+                          <svg className="w-5 h-5 text-[#65676B]" fill="currentColor" viewBox="0 0 24 24"><path d="M20 6h-4V4c0-1.11-.89-2-2-2h-4c-1.11 0-2 .89-2 2v2H4c-1.11 0-1.99.89-1.99 2L2 19c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V8c0-1.11-.89-2-2-2zm-6 0h-4V4h4v2z"/></svg>
+                        </div>
                         <div>
                           <p className="text-sm font-semibold text-[#1C1E21]">Làm việc tại {user.work}</p>
                           <p className="text-xs text-[#65676B]">Hiện tại</p>
@@ -331,7 +347,9 @@ export default function ProfileLayout({
 
                     {user.education ? (
                       <div className="flex items-start gap-3">
-                        <div className="w-10 h-10 rounded-full bg-[#F0F2F5] flex items-center justify-center text-lg flex-shrink-0">🎓</div>
+                        <div className="w-10 h-10 rounded-full bg-[#F0F2F5] flex items-center justify-center text-lg flex-shrink-0">
+                          <svg className="w-5 h-5 text-[#65676B]" fill="currentColor" viewBox="0 0 24 24"><path d="M12 3L1 9l4 2.18v6L12 21l7-3.82v-6l2.12-1.15V17h2V7.4L12 3zm6.82 6L12 12.72 5.18 9 12 5.28 18.82 9zM17 15.99l-5 2.73-5-2.73v-3.72l5 2.73 5-2.73v3.72z"/></svg>
+                        </div>
                         <div>
                           <p className="text-sm font-semibold text-[#1C1E21]">Từng học tại {user.education}</p>
                           <p className="text-xs text-[#65676B]">Trường học</p>
@@ -351,7 +369,7 @@ export default function ProfileLayout({
                   </h3>
                   {user.location ? (
                     <div className="flex items-start gap-3">
-                      <div className="w-10 h-10 rounded-full bg-[#F0F2F5] flex items-center justify-center text-lg flex-shrink-0">🏠</div>
+                      <div className="w-10 h-10 rounded-full bg-[#F0F2F5] flex items-center justify-center text-lg flex-shrink-0"><svg className="w-5 h-5 text-[#65676B]" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"/></svg></div>
                       <div>
                         <p className="text-sm font-semibold text-[#1C1E21]">Sống tại {user.location}</p>
                         <p className="text-xs text-[#65676B]">Tỉnh/Thành phố hiện tại</p>
@@ -371,7 +389,9 @@ export default function ProfileLayout({
                   <div className="space-y-4">
                     {user.relationship ? (
                       <div className="flex items-start gap-3">
-                        <div className="w-10 h-10 rounded-full bg-[#F0F2F5] flex items-center justify-center text-lg flex-shrink-0">❤️</div>
+                        <div className="w-10 h-10 rounded-full bg-[#F0F2F5] flex items-center justify-center text-lg flex-shrink-0">
+                          <svg className="w-5 h-5 text-[#65676B]" fill="currentColor" viewBox="0 0 24 24"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>
+                        </div>
                         <div>
                           <p className="text-sm font-semibold text-[#1C1E21]">{user.relationship}</p>
                           <p className="text-xs text-[#65676B]">Tình trạng quan hệ</p>
@@ -381,9 +401,21 @@ export default function ProfileLayout({
                       <p className="text-sm text-[#65676B] italic">Chưa cập nhật tình trạng mối quan hệ.</p>
                     )}
 
+                    {user.location && (
+                      <div className="flex items-start gap-3">
+                        <div className="w-10 h-10 rounded-full bg-[#F0F2F5] flex items-center justify-center text-lg flex-shrink-0">
+                          <svg className="w-5 h-5 text-[#65676B]" fill="currentColor" viewBox="0 0 24 24"><path d="M12 3L2 12h3v8h6v-6h2v6h6v-8h3L12 3zm5 15h-2v-6H9v6H7v-7.81l5-4.5 5 4.5V18z"/></svg>
+                        </div>
+                        <div>
+                          <p className="text-sm font-semibold text-[#1C1E21]">Sống tại {user.location}</p>
+                          <p className="text-xs text-[#65676B]">Nơi ở</p>
+                        </div>
+                      </div>
+                    )}
+
                     {user.bio && (
                       <div className="flex items-start gap-3">
-                        <div className="w-10 h-10 rounded-full bg-[#F0F2F5] flex items-center justify-center text-lg flex-shrink-0">💬</div>
+                        <div className="w-10 h-10 rounded-full bg-[#F0F2F5] flex items-center justify-center text-lg flex-shrink-0"><svg className="w-5 h-5 text-[#65676B]" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"/></svg></div>
                         <div>
                           <p className="text-sm font-semibold text-[#1C1E21]">{user.bio}</p>
                           <p className="text-xs text-[#65676B]">Tiểu sử cá nhân</p>
@@ -450,7 +482,7 @@ export default function ProfileLayout({
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
               {filteredFriends.length === 0 ? (
                 <div className="col-span-full py-12 text-center">
-                  <p className="text-4xl mb-2">👥</p>
+                  <div className="flex justify-center mb-4"><svg className="w-16 h-16 text-[#65676B]" fill="currentColor" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg></div>
                   <p className="text-[#65676B] font-medium">
                     {searchQuery ? "Không tìm thấy bạn bè phù hợp." : "Chưa có bạn bè nào để hiển thị."}
                   </p>
@@ -499,7 +531,7 @@ export default function ProfileLayout({
             </div>
             {photos.length === 0 ? (
               <div className="py-12 text-center text-[#65676B]">
-                <p className="text-4xl mb-2">🖼️</p>
+                <div className="flex justify-center mb-4"><svg className="w-16 h-16 text-[#65676B]" fill="currentColor" viewBox="0 0 24 24"><path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/></svg></div>
                 <p className="font-medium">Chưa có ảnh nào để hiển thị</p>
               </div>
             ) : (
@@ -521,7 +553,7 @@ export default function ProfileLayout({
         {/* 5. Video tab */}
         {activeTab === "video" && (
           <div className="bg-white rounded-xl border border-[#E4E6EB] p-8 shadow-sm text-center text-[#65676B]">
-            <p className="text-4xl mb-2">🎬</p>
+            <div className="flex justify-center mb-4"><svg className="w-16 h-16 text-[#65676B]" fill="currentColor" viewBox="0 0 24 24"><path d="M18 4l2 4h-3l-2-4h-2l2 4h-3l-2-4H8l2 4H7L5 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V4h-4z"/></svg></div>
             <h3 className="font-bold text-[#1C1E21] text-lg">Chưa có video nào</h3>
             <p className="text-xs mt-1">Các video được tải lên sẽ hiển thị ở đây.</p>
           </div>
