@@ -30,6 +30,26 @@ public class CommentService {
     }
 
     /**
+     * Create a new comment.
+     *
+     * @param request  the request containing post ID and content.
+     * @param authorId the ID of the author (from JWT).
+     * @return the persisted comment DTO.
+     */
+    public CommentDTO createComment(com.minh.fakebook.comment.service.dto.CreateCommentRequestDTO request,
+            UUID authorId) {
+        LOG.debug("Request to create Comment for Post {} by Author {}", request.postId(), authorId);
+        Comment comment = new Comment();
+        comment.setPostId(request.postId());
+        comment.setAuthorId(authorId);
+        comment.setContent(request.content());
+        comment.setStatus(com.minh.fakebook.comment.domain.enumeration.CommentStatus.ACTIVE);
+
+        comment = commentRepository.save(comment);
+        return commentMapper.toDto(comment);
+    }
+
+    /**
      * Save a comment.
      *
      * @param commentDTO the entity to save.

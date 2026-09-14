@@ -26,6 +26,8 @@ import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 import tech.jhipster.web.util.HeaderUtil;
 import tech.jhipster.web.util.PaginationUtil;
 import tech.jhipster.web.util.ResponseUtil;
+import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 
 /**
  * REST controller for managing {@link com.minh.fakebook.comment.domain.Comment}.
@@ -47,12 +49,27 @@ public class CommentResource {
 
     private final CommentQueryService commentQueryService;
 
-    public CommentResource(CommentService commentService, CommentRepository commentRepository, CommentQueryService commentQueryService) {
+    public CommentResource(CommentService commentService, CommentRepository commentRepository,
+            CommentQueryService commentQueryService) {
         this.commentService = commentService;
         this.commentRepository = commentRepository;
         this.commentQueryService = commentQueryService;
     }
 
+    @PostMapping("/create")
+        public ResponseEntity<CommentDTO> createNewComment(
+            @Valid @RequestBody com.minh.fakebook.comment.service.dto.CreateCommentRequestDTO request,
+            @AuthenticationPrincipal org.springframework.security.oauth2.jwt.Jwt jwt
+        ) throws java.net.URISyntaxException {
+            LOG.debug("REST request to create a new Comment : {}", request);
+            java.util.UUID authorId = java.util.UUID.fromString(jwt.getSubject()); 
+            CommentDTO result = commentService.createComment(request, authorId);
+
+            return ResponseEntity.created(new java.net.URI("/api/comments/" + result.getId()))
+                .headers(tech.jhipster.web.util.HeaderUtil.createEntityCreationAlert(applicationName, true,
+  ENTITY_NAME, result.getId().toString()))
+                .body(result);
+        }
     /**
      * {@code POST  /comments} : Create a new comment.
      *
