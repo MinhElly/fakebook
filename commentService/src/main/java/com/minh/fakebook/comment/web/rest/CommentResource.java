@@ -1,33 +1,34 @@
 package com.minh.fakebook.comment.web.rest;
 
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.util.Optional;
+import java.util.UUID;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
 import com.minh.fakebook.comment.repository.CommentRepository;
 import com.minh.fakebook.comment.service.CommentQueryService;
 import com.minh.fakebook.comment.service.CommentService;
 import com.minh.fakebook.comment.service.criteria.CommentCriteria;
 import com.minh.fakebook.comment.service.dto.CommentDTO;
 import com.minh.fakebook.comment.web.rest.errors.BadRequestAlertException;
+
 import jakarta.validation.Valid;
-import jakarta.validation.constraints.NotNull;
-import java.net.URI;
-import java.net.URISyntaxException;
-import java.util.List;
-import java.util.Objects;
-import java.util.Optional;
-import java.util.UUID;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
-import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 import tech.jhipster.web.util.HeaderUtil;
-import tech.jhipster.web.util.PaginationUtil;
 import tech.jhipster.web.util.ResponseUtil;
-import org.springframework.security.oauth2.jwt.Jwt;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
 
 /**
  * REST controller for managing {@link com.minh.fakebook.comment.domain.Comment}.
@@ -172,17 +173,29 @@ public class CommentResource {
     }
 
     /**
-     * {@code DELETE  /comments/:id} : delete the "id" comment.
-     *
-     * @param id the id of the commentDTO to delete.
-     * @return the {@link ResponseEntity} with status {@code 204 (NO_CONTENT)}.
-     */
-    @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteComment(@PathVariable("id") UUID id) {
-        LOG.debug("REST request to delete Comment : {}", id);
-        commentService.delete(id);
-        return ResponseEntity.noContent()
-            .headers(HeaderUtil.createEntityDeletionAlert(applicationName, true, ENTITY_NAME, id.toString()))
-            .build();
-    }
+    * {@code DELETE  /comments/:commentId} : Soft deletes an existing comment.
+    *
+    * @param commentId the unique identifier of the comment to delete.
+    * @param jwt the JSON Web Token of the currently authenticated user, used to extract ID and roles.
+    * @return the {@link ResponseEntity} with status {@code 204 (NO_CONTENT)}.
+    */
+    @DeleteMapping("/{commentId}")
+        public ResponseEntity<Void> deleteOwnComment(
+            @PathVariable(value = "commentId") final java.util.UUID commentId,
+            @org.springframework.security.core.annotation.AuthenticationPrincipal org.springframework.
+  security.oauth2.jwt.Jwt jwt
+        ) {
+            LOG.debug("REST request to delete Comment : {}", commentId);
+
+            java.util.UUID currentUserId = java.util.UUID.fromString(jwt.getSubject());
+            boolean isAdmin = com.minh.fakebook.comment.security.SecurityUtils.
+  hasCurrentUserThisAuthority(com.minh.fakebook.comment.security.AuthoritiesConstants.ADMIN);
+
+            commentService.deleteComment(commentId, currentUserId, isAdmin);
+
+            return ResponseEntity.noContent()
+                .headers(tech.jhipster.web.util.HeaderUtil.createEntityDeletionAlert(applicationName, true,
+  ENTITY_NAME, commentId.toString()))
+                .build();
+        }
 }

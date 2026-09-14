@@ -133,12 +133,25 @@ public class CommentService {
     }
 
     /**
-     * Delete the comment by id.
-     *
-     * @param id the id of the entity.
-     */
-    public void delete(UUID id) {
-        LOG.debug("Request to delete Comment : {}", id);
-        commentRepository.deleteById(id);
-    }
+    * Soft deletes the comment by ID (changes status to DELETED).
+    * Only the author or an administrator can perform this action.
+    *
+    * @param commentId the unique identifier of the target comment to delete.
+    * @param currentUserId the unique identifier of the user requesting the deletion.
+    * @param isAdmin a boolean flag indicating if the requesting user has the ADMIN authority.
+    * @throws org.springframework.security.access.AccessDeniedException if the user is neither the
+  author nor an admin.
+    */
+public void deleteComment(java.util.UUID commentId, java.util.UUID currentUserId, boolean isAdmin) {
+            LOG.debug("Request to delete Comment : {} by user {}", commentId, currentUserId);
+
+            commentRepository.findById(commentId).ifPresent(comment -> {
+                // Check ownership to prevent unauthorized deletes, but allow admins to bypass
+                if (!comment.getAuthorId().equals(currentUserId) && !isAdmin) {
+                    throw new org.springframework.security.access.AccessDeniedException("You can only delete your own comments.");
+                }
+                comment.setStatus(com.minh.fakebook.comment.domain.enumeration.CommentStatus.DELETED);
+                commentRepository.save(comment);
+            });
+        }
 }
