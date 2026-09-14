@@ -90,72 +90,33 @@ public class CommentResource {
     }
 
     /**
-     * {@code PUT  /comments/:id} : Updates an existing comment.
+     * {@code PUT  /comments/:commentId} : Updates an existing comment.
      *
-     * @param id the id of the commentDTO to save.
-     * @param commentDTO the commentDTO to update.
-     * @return the {@link ResponseEntity} with status {@code 200 (OK)} and with body the updated commentDTO,
-     * or with status {@code 400 (Bad Request)} if the commentDTO is not valid,
-     * or with status {@code 500 (Internal Server Error)} if the commentDTO couldn't be updated.
-     * @throws URISyntaxException if the Location URI syntax is incorrect.
+     * @param commentId     the unique identifier of the comment to update.
+     * @param updateRequest the data transfer object containing the new content for the comment.
+     * @param jwt           the JSON Web Token of the currently authenticated user, used to extract the user ID.
+     * @return the {@link ResponseEntity} with status {@code 200 (OK)} and with body the updated commentDTO, or with status {@code 400 (Bad Request)} if the request body or ID is not valid.
+     * @throws java.net.URISyntaxException if the Location URI syntax is incorrect.
      */
-    @PutMapping("/{id}")
-    public ResponseEntity<CommentDTO> updateComment(
-        @PathVariable(value = "id", required = false) final UUID id,
-        @Valid @RequestBody CommentDTO commentDTO
-    ) throws URISyntaxException {
-        LOG.debug("REST request to update Comment : {}, {}", id, commentDTO);
-        if (commentDTO.getId() == null) {
+    @PutMapping("/{commentId}")
+    public ResponseEntity<CommentDTO> updateOwnComment(
+            @PathVariable(value = "commentId", required = false) final java.util.UUID commentId,
+            @jakarta.validation.Valid @RequestBody com.minh.fakebook.comment.service.dto.UpdateCommentRequestDTO updateRequest,
+            @org.springframework.security.core.annotation.AuthenticationPrincipal org.springframework.security.oauth2.jwt.Jwt jwt)
+            throws java.net.URISyntaxException {
+        LOG.debug("REST request to update Comment : {}", commentId);
+        if (commentId == null) {
             throw new BadRequestAlertException("Invalid id", ENTITY_NAME, "idnull");
         }
-        if (!Objects.equals(id, commentDTO.getId())) {
-            throw new BadRequestAlertException("Invalid ID", ENTITY_NAME, "idinvalid");
-        }
 
-        if (!commentRepository.existsById(id)) {
-            throw new BadRequestAlertException("Entity not found", ENTITY_NAME, "idnotfound");
-        }
+        java.util.UUID currentUserId = java.util.UUID.fromString(jwt.getSubject());
+        java.util.Optional<CommentDTO> result = commentService.updateComment(commentId, updateRequest.content(),
+                currentUserId);
 
-        commentDTO = commentService.update(commentDTO);
-        return ResponseEntity.ok()
-            .headers(HeaderUtil.createEntityUpdateAlert(applicationName, true, ENTITY_NAME, commentDTO.getId().toString()))
-            .body(commentDTO);
-    }
-
-    /**
-     * {@code PATCH  /comments/:id} : Partial updates given fields of an existing comment, field will ignore if it is null
-     *
-     * @param id the id of the commentDTO to save.
-     * @param commentDTO the commentDTO to update.
-     * @return the {@link ResponseEntity} with status {@code 200 (OK)} and with body the updated commentDTO,
-     * or with status {@code 400 (Bad Request)} if the commentDTO is not valid,
-     * or with status {@code 404 (Not Found)} if the commentDTO is not found,
-     * or with status {@code 500 (Internal Server Error)} if the commentDTO couldn't be updated.
-     * @throws URISyntaxException if the Location URI syntax is incorrect.
-     */
-    @PatchMapping(value = "/{id}", consumes = { "application/json", "application/merge-patch+json" })
-    public ResponseEntity<CommentDTO> partialUpdateComment(
-        @PathVariable(value = "id", required = false) final UUID id,
-        @NotNull @RequestBody CommentDTO commentDTO
-    ) throws URISyntaxException {
-        LOG.debug("REST request to partial update Comment partially : {}, {}", id, commentDTO);
-        if (commentDTO.getId() == null) {
-            throw new BadRequestAlertException("Invalid id", ENTITY_NAME, "idnull");
-        }
-        if (!Objects.equals(id, commentDTO.getId())) {
-            throw new BadRequestAlertException("Invalid ID", ENTITY_NAME, "idinvalid");
-        }
-
-        if (!commentRepository.existsById(id)) {
-            throw new BadRequestAlertException("Entity not found", ENTITY_NAME, "idnotfound");
-        }
-
-        Optional<CommentDTO> result = commentService.partialUpdate(commentDTO);
-
-        return ResponseUtil.wrapOrNotFound(
-            result,
-            HeaderUtil.createEntityUpdateAlert(applicationName, true, ENTITY_NAME, commentDTO.getId().toString())
-        );
+        return tech.jhipster.web.util.ResponseUtil.wrapOrNotFound(
+                result,
+                tech.jhipster.web.util.HeaderUtil.createEntityUpdateAlert(applicationName, true, ENTITY_NAME,
+                        commentId.toString()));
     }
 
     /**

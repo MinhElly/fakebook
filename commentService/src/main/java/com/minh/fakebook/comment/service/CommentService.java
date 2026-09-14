@@ -1,15 +1,17 @@
 package com.minh.fakebook.comment.service;
 
-import com.minh.fakebook.comment.domain.Comment;
-import com.minh.fakebook.comment.repository.CommentRepository;
-import com.minh.fakebook.comment.service.dto.CommentDTO;
-import com.minh.fakebook.comment.service.mapper.CommentMapper;
 import java.util.Optional;
 import java.util.UUID;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import com.minh.fakebook.comment.domain.Comment;
+import com.minh.fakebook.comment.repository.CommentRepository;
+import com.minh.fakebook.comment.service.dto.CommentDTO;
+import com.minh.fakebook.comment.service.mapper.CommentMapper;
 
 /**
  * Service Implementation for managing {@link com.minh.fakebook.comment.domain.Comment}.
@@ -48,6 +50,29 @@ public class CommentService {
         comment = commentRepository.save(comment);
         return commentMapper.toDto(comment);
     }
+
+    /**
+     * Updates the content of an existing comment.
+     *
+     * @param commentId the unique identifier (UUID) of the target comment to be updated.
+     * @param content   the new text content that will replace the old content of the comment.
+     * @param authorId  the unique identifier (UUID) of the user who is attempting to perform this update.
+     * @return an Optional containing the updated CommentDTO if the update is successful.
+     * @throws org.springframework.security.access.AccessDeniedException if the user the user attempting to updatethe user attempting to update is not the original author of the comment.
+     */
+         public java.util.Optional<CommentDTO> updateComment(java.util.UUID commentId, String content, java.
+  util.UUID authorId) {
+            LOG.debug("Request to update Comment : {} by user {}", commentId, authorId);
+
+            return commentRepository.findById(commentId).map(comment -> {
+                // Check ownership to prevent unauthorized updates
+                if (!comment.getAuthorId().equals(authorId)) {
+                    throw new org.springframework.security.access.AccessDeniedException("You can only edit your own comments.");
+                }
+                comment.setContent(content);
+                return commentMapper.toDto(commentRepository.save(comment));
+            });
+        }
 
     /**
      * Save a comment.
