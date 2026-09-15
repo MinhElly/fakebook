@@ -10,6 +10,7 @@ import com.minh.fakebook.media.service.dto.FileUploadResult;
 import com.minh.fakebook.media.service.dto.MediaDTO;
 import com.minh.fakebook.media.service.mapper.MediaMapper;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
@@ -92,88 +93,121 @@ public class MediaService {
     }
 
     /**
-         * Get one media by id with strict Role-Based Access Control (Rule 21).
-         *
-         * @param id the id of the entity.
-         * @return the entity.
-         * @throws org.springframework.security.access.AccessDeniedException if unauthorized.
-         */
-        @Transactional(readOnly = true)
-        public Optional<MediaDTO> findOne(UUID id) {
-            LOG.debug("Request to get Media : {}", id);
+     * Get one media by id with strict Role-Based Access Control.
+     *
+     * @param id the id of the entity.
+     * @return the entity.
+     * @throws AccessDeniedException if unauthorized.
+     */
+    @Transactional(readOnly = true)
+    public Optional<MediaDTO> findOne(UUID id) {
+        LOG.debug("Request to get Media : {}", id);
 
-            Optional<Media> mediaOpt = mediaRepository.findById(id);
-            if (mediaOpt.isEmpty()) {
-                return Optional.empty();
-            }
-
-            Media media = mediaOpt.get();
-
-            // 1. Identify if the current request is from a Guest or an Authenticated User
-            Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-            boolean isGuest = auth == null || auth instanceof AnonymousAuthenticationToken;
-
-            String currentUserId = null;
-            if (!isGuest) {
-                currentUserId = ((JwtAuthenticationToken) auth).getToken().getSubject();
-            }
-
-            boolean isOwner = !isGuest && media.getOwnerId().toString().equals(currentUserId);
-
-            if (media.getStatus() != MediaStatus.ACTIVE)
-  {
-                // If media is not ACTIVE (e.g., DELETED), ONLY the owner can view it.
-                if (!isOwner) {
-                    LOG.debug("Access Denied: User/Guest is not the owner of this media.");
-                    throw new AccessDeniedException("Error: You do not have permission to view this media.");
-                }
-            }
-
-            return Optional.of(mediaMapper.toDto(media));
+        Optional<Media> mediaOpt = mediaRepository.findById(id);
+        if (mediaOpt.isEmpty()) {
+            return Optional.empty();
         }
+
+        Media media = mediaOpt.get();
+
+        // 1. Identify if the current request is from a Guest or an Authenticated User
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        boolean isGuest = auth == null || auth instanceof AnonymousAuthenticationToken;
+        String currentUserId = null;
+        if (!isGuest && auth instanceof JwtAuthenticationToken jwtToken) {
+            currentUserId = jwtToken.getToken().getSubject();
+        }
+        boolean isOwner = !isGuest && media.getOwnerId().toString().equals(currentUserId);
+
+        if (media.getStatus() != MediaStatus.ACTIVE) {
+            // If media is not ACTIVE (e.g., DELETED), ONLY the owner can view it.
+            if (!isOwner) {
+                LOG.debug("Access Denied: User/Guest is not the owner of this media.");
+                throw new AccessDeniedException("Error: You do not have permission to view this media.");
+            }
+        }
+        return Optional.of(mediaMapper.toDto(media));
+    }
 
     /**
-         * Delete the media by id (Soft Delete).
-         * Enforces Rule 21: Only the Owner or an Admin can delete.
-         *
-         * @param id the id of the entity.
-         */
-        public void delete(UUID id) {
-            LOG.debug("Request to delete Media : {}", id);
+     * Delete the media by id (Soft Delete).
+     * Only the Owner or an Admin can delete.
+     *
+     * @param id the id of the entity.
+     */
+    public void delete(UUID id) {
+        LOG.debug("Request to delete Media : {}", id);
 
-            // 1. Retrieve the Media
-            Optional<Media> mediaOpt = mediaRepository.findById(id);
-            if (mediaOpt.isEmpty()) {
-                return; // Media not found, safely return
-            }
-            Media media = mediaOpt.get();
-
-            // 2. Authentication check
-            Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-            if (auth == null || auth instanceof AnonymousAuthenticationToken) {
-                throw new AccessDeniedException("Error: You must be logged in to delete media.");
-            }
-
-            // 3. Extract user ID and check roles 
-            String currentUserId = ((JwtAuthenticationToken) auth).getToken().getSubject();
-            boolean isOwner = media.getOwnerId().toString().equals(currentUserId);
-
-            boolean isAdmin = auth.getAuthorities().stream()
-                .anyMatch(grantedAuthority -> grantedAuthority.getAuthority().equals(AuthoritiesConstants.ADMIN));
-
-            // 4. Permission: Must be Owner or Admin
-            if (!isOwner && !isAdmin) {
-                LOG.warn("User {} attempted to delete media {} without permission", currentUserId,id);
-                throw new AccessDeniedException("Error: Only the owner or an admin can delete this media.");
-            }
-
-            // 5. Perform Soft Delete (Change status to DELETED)
-            media.setStatus(MediaStatus.DELETED);
-            media.setUpdatedAt(Instant.now());
-            mediaRepository.save(media);
-
-            LOG.debug("Media {} successfully deleted by user {}", id, currentUserId);
+        // 1. Retrieve the Media
+        Optional<Media> mediaOpt = mediaRepository.findById(id);
+        if (mediaOpt.isEmpty()) {
+            return; // Media not found, safely return
         }
+        Media media = mediaOpt.get();
+
+        // 2. Authentication check
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || auth instanceof AnonymousAuthenticationToken) {
+            throw new AccessDeniedException("Error: You must be logged in to delete media.");
+        }
+
+        // 3. Extract user ID and check roles
+        String currentUserId = null;
+        if (auth instanceof JwtAuthenticationToken jwtToken) {
+            currentUserId = jwtToken.getToken().getSubject();
+        } else {
+            currentUserId = auth.getName();
+        }
+        boolean isOwner = media.getOwnerId().toString().equals(currentUserId);
+
+        boolean isAdmin = auth.getAuthorities().stream()
+            .anyMatch(grantedAuthority -> grantedAuthority.getAuthority().equals(AuthoritiesConstants.ADMIN));
+
+        // 4. Permission: Must be Owner or Admin
+        if (!isOwner && !isAdmin) {
+            LOG.warn("User {} attempted to delete media {} without permission", currentUserId, id);
+            throw new AccessDeniedException("Error: Only the owner or an admin can delete this media.");
+        }
+
+        // 5. Perform Soft Delete (Change status to DELETED)
+        media.setStatus(MediaStatus.DELETED);
+        media.setUpdatedAt(Instant.now());
+        mediaRepository.save(media);
+
+        LOG.debug("Media {} successfully deleted by user {}", id, currentUserId);
+    }
+
+    /**
+     * Delete media by system process (e.g. Kafka event cleanup).
+     * Bypasses HTTP SecurityContext check and deletes physical file from storage provider.
+     *
+     * @param id the id of the media entity.
+     */
+    public void deleteBySystem(UUID id) {
+        LOG.debug("System request to cleanup Media : {}", id);
+        Optional<Media> mediaOpt = mediaRepository.findById(id);
+        if (mediaOpt.isEmpty()) {
+            LOG.debug("Media ID {} not found for system cleanup.", id);
+            return;
+        }
+        Media media = mediaOpt.get();
+
+        // 1. Physical file cleanup from Cloudinary / Storage Provider
+        try {
+            if (media.getStorageKey() != null) {
+                fileStorageService.deleteFile(media.getStorageKey());
+                LOG.info("Successfully deleted physical media file from storage: {}", media.getStorageKey());
+            }
+        } catch (Exception e) {
+            LOG.error("Failed to delete physical media file with key: {}", media.getStorageKey(), e);
+        }
+
+        // 2. Mark media status as DELETED
+        media.setStatus(MediaStatus.DELETED);
+        media.setUpdatedAt(Instant.now());
+        mediaRepository.save(media);
+        LOG.info("System successfully marked Media {} as DELETED.", id);
+    }
 
     /**
      * Uploads a media file to Cloudinary and saves metadata to DB.
@@ -181,17 +215,29 @@ public class MediaService {
      * @param file the multipart file to upload
      * @return the persisted MediaDTO
      */
-    public MediaDTO uploadMedia(
-            MultipartFile file) {
+    public MediaDTO uploadMedia(MultipartFile file) {
         try {
             // 1. Extract user authentication and get current user ID
-            Authentication auth = SecurityContextHolder
-                    .getContext().getAuthentication();
-            String sub = ((JwtAuthenticationToken) auth)
-                    .getToken().getSubject();
-            UUID currentUserId = UUID.fromString(sub);
+            Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+            if (auth == null || auth instanceof AnonymousAuthenticationToken) {
+                throw new AccessDeniedException("Error: You must be logged in to upload media.");
+            }
 
-            // 2. Validate file 
+            String sub = null;
+            if (auth instanceof JwtAuthenticationToken jwtToken) {
+                sub = jwtToken.getToken().getSubject();
+            } else {
+                sub = auth.getName();
+            }
+
+            UUID currentUserId;
+            try {
+                currentUserId = UUID.fromString(sub);
+            } catch (Exception e) {
+                currentUserId = UUID.nameUUIDFromBytes(sub.getBytes(StandardCharsets.UTF_8));
+            }
+
+            // 2. Validate file
             if (file.isEmpty()) {
                 throw new IllegalArgumentException("Error: File is empty.");
             }
@@ -205,10 +251,9 @@ public class MediaService {
                     ? MediaType.VIDEO
                     : MediaType.IMAGE;
 
-            // 3. Upload file to Cloudinary
+            // 3. Upload file to storage provider
             String folder = "fakebook/users/" + currentUserId.toString();
-            FileUploadResult uploadResult = fileStorageService.uploadFile(file,
-                    folder);
+            FileUploadResult uploadResult = fileStorageService.uploadFile(file, folder);
 
             // 4. Save Metadata to DB
             Media media = new Media();
@@ -222,12 +267,15 @@ public class MediaService {
             media.setUrl(uploadResult.url());
             media.setStatus(MediaStatus.ACTIVE);
             media.setCreatedAt(Instant.now());
+            media.setPurpose("GENERAL");
 
             media = mediaRepository.save(media);
             return mediaMapper.toDto(media);
 
-        } catch (IOException e) {
-            LOG.error("Failed to upload file to Cloudinary", e);
+        } catch (AccessDeniedException | IllegalArgumentException e) {
+            throw e;
+        } catch (Exception e) {
+            LOG.error("Failed to upload file", e);
             throw new RuntimeException("Error: Could not upload file.", e);
         }
     }

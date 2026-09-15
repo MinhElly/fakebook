@@ -54,6 +54,16 @@ public class MediaDTO implements Serializable {
 
     private Instant updatedAt;
 
+    private String purpose;
+
+    public String getPurpose() {
+        return purpose;
+    }
+
+    public void setPurpose(String purpose) {
+        this.purpose = purpose;
+    }
+
     public UUID getId() {
         return id;
     }

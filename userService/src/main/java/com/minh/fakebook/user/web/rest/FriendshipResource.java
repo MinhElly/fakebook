@@ -242,5 +242,14 @@ public class FriendshipResource {
             HttpHeaders headers = PaginationUtil.generatePaginationHttpHeaders(ServletUriComponentsBuilder.fromCurrentRequest(),page );
             return ResponseEntity.ok().headers(headers).body(page.getContent());
     }
+     @GetMapping("/friendships/check")
+    public ResponseEntity<Boolean> checkFriendship(
+        @RequestParam("userId1") UUID userId1,
+        @RequestParam("userId2") UUID userId2
+    ) {
+        LOG.debug("REST request to check friendship between {} and {}", userId1, userId2);
+        boolean areFriends = friendshipService.areFriends(userId1, userId2);
+        return ResponseEntity.ok(areFriends);
+    }
     
 }

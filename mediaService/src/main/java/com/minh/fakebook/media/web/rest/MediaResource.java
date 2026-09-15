@@ -21,6 +21,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -201,23 +202,44 @@ public class MediaResource {
                 .headers(HeaderUtil.createEntityDeletionAlert(applicationName, true, ENTITY_NAME, id.toString()))
                 .build();
     }
-    
+
     /**
      * {@code POST  /medias/upload} : Upload a new media file (Image/Video).
      *
      * @param file the multipart file to upload.
      * @return the {@link org.springframework.http.ResponseEntity} with status {@code 201 (Created)} and with body the new mediaDTO.
      */
-    @PostMapping(value = "/medias/upload", consumes = { "multipart/form-data" })
-    public ResponseEntity<MediaDTO> uploadMedia(
-            @RequestParam("file") MultipartFile file)
-            throws URISyntaxException {
+    @PostMapping(value = "/upload", consumes = { "multipart/form-data" })
+    public ResponseEntity<MediaDTO> uploadMedia(@RequestParam("file") MultipartFile file) throws URISyntaxException {
         LOG.debug("REST request to upload Media file: {}", file.getOriginalFilename());
-
         MediaDTO result = mediaService.uploadMedia(file);
+        return ResponseEntity.created(new URI("/api/media/" + result.getId())).body(result);
+    }
 
-        return ResponseEntity
-                .created(new URI("/api/medias/" + result.getId()))
-                .body(result);
+    @GetMapping("/{id}/file")
+    public ResponseEntity<?> getMediaFile(@PathVariable("id") UUID id) {
+        LOG.debug("REST request to get Media file : {}", id);
+        Optional<MediaDTO> mediaDTO = mediaService.findOne(id);
+        if (mediaDTO.isPresent() && mediaDTO.get().getUrl() != null) {
+            String url = mediaDTO.get().getUrl();
+            if (url.startsWith("data:")) {
+                try {
+                    String[] parts = url.split(",");
+                    String header = parts[0];
+                    String base64Data = parts[1];
+                    String mimeType = header.substring(header.indexOf(":") + 1, header.indexOf(";"));
+                    byte[] imageBytes = java.util.Base64.getDecoder().decode(base64Data);
+                    return ResponseEntity.ok()
+                            .contentType(org.springframework.http.MediaType.parseMediaType(mimeType))
+                            .body(imageBytes);
+                } catch (Exception e) {
+                    LOG.error("Failed to parse base64 data URL", e);
+                    return ResponseEntity.internalServerError().build();
+                }
+            } else {
+                return ResponseEntity.status(HttpStatus.FOUND).location(URI.create(url)).build();
+            }
+        }
+        return ResponseEntity.notFound().build();
     }
 }

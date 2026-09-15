@@ -31,20 +31,35 @@ public class CloudinaryStorageServiceImpl implements FileStorageService {
     public FileUploadResult uploadFile(MultipartFile file, String folder) throws IOException {
         LOG.debug("Request to upload file to Cloudinary: {}", file.getOriginalFilename());
 
-        //configure folder and auto detection of resource type
-        Map<String, Object> params = new HashMap<>();
-        params.put("folder", folder);
-        params.put("resource_type", "auto");
+        try {
+            //configure folder and auto detection of resource type
+            Map<String, Object> params = new java.util.HashMap<>();
+            params.put("folder", folder);
+            params.put("resource_type", "auto");
 
-        // Upload the file to Cloudinary
-        Map<?, ?> uploadResult = cloudinary.uploader().upload(file.getBytes(), params);
+            // Upload the file to Cloudinary
+            Map<?, ?> uploadResult = cloudinary.uploader().upload(file.getBytes(), params);
 
-        //extract results
-        String secureUrl = uploadResult.get("secure_url").toString();
-        String publicId = uploadResult.get("public_id").toString();
+            //extract results
+            String secureUrl = uploadResult.get("secure_url").toString();
+            String publicId = uploadResult.get("public_id").toString();
 
-        LOG.debug("Upload sucessful! URL: {}, Key: {}", secureUrl, publicId);
+            LOG.debug("Upload sucessful! URL: {}, Key: {}", secureUrl, publicId);
+            return new FileUploadResult(secureUrl, publicId);
+        } catch (Exception e) {
+            LOG.error("Cloudinary upload failed: {}", e.getMessage(), e);
+            throw new RuntimeException("Cloudinary upload failed: " + e.getMessage(), e);
+        }
+    }
 
-        return new FileUploadResult(secureUrl, publicId);
+    @Override
+    public void deleteFile(String storageKey) throws IOException {
+        LOG.debug("Request to delete file from Cloudinary with key: {}", storageKey);
+        if (storageKey == null || storageKey.isBlank()) {
+            LOG.warn("Cannot delete file: storageKey is empty");
+            return;
+        }
+        Map<?, ?> result = cloudinary.uploader().destroy(storageKey, ObjectUtils.emptyMap());
+        LOG.debug("Cloudinary destroy result for key {}: {}", storageKey, result);
     }
 }

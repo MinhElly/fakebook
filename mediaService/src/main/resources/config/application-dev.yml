@@ -29,6 +29,12 @@ management:
       probability: 1.0 # report 100% of traces
 
 spring:
+  config:
+    import:
+      - optional:file:../infrastructure/config/central-server-config/application-dev.yml
+      - optional:file:../infrastructure/config/central-server-config/${spring.application.name}-dev.yml
+      - optional:file:./infrastructure/config/central-server-config/application-dev.yml
+      - optional:file:./infrastructure/config/central-server-config/${spring.application.name}-dev.yml
   devtools:
     restart:
       enabled: true
@@ -106,3 +112,4 @@ jhipster:
 # ===================================================================
 
 # application:
+

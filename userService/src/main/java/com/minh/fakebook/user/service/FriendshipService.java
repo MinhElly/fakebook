@@ -124,4 +124,8 @@ public class FriendshipService {
     public Page<FriendshipDTO> getUserFriendsList(UUID userId, Pageable pageable){
         return friendshipRepository.findByUserId(userId, pageable).map(friendshipMapper::toDto);    
     }
+    @Transactional(readOnly = true)
+    public boolean areFriends(UUID userId1, UUID userId2) {
+        return friendshipRepository.existsByUserIdAndFriendId(userId1, userId2);
+    }
 }

@@ -8,6 +8,7 @@ import com.minh.fakebook.user.repository.FriendRequestRepository;
 import com.minh.fakebook.user.repository.FriendshipRepository;
 import com.minh.fakebook.user.repository.UserProfileRepository;
 import com.minh.fakebook.user.service.dto.FriendRequestDTO;
+import com.minh.fakebook.user.service.dto.events.FriendshipUpdatedEvent;
 import com.minh.fakebook.user.service.mapper.FriendRequestMapper;
 
 
@@ -23,6 +24,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.cache.annotation.Caching;
+import org.springframework.cloud.stream.function.StreamBridge;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -46,15 +48,19 @@ public class FriendRequestService {
 
     private final UserProfileRepository userProfileRepository;
 
+    private final StreamBridge streamBridge;
+
     public FriendRequestService(
             FriendRequestRepository friendRequestRepository,
             FriendshipRepository friendshipRepository,
             FriendRequestMapper friendRequestMapper,
-            UserProfileRepository userProfileRepository) {
+            UserProfileRepository userProfileRepository,
+            StreamBridge streamBridge) {
         this.friendRequestRepository = friendRequestRepository;
         this.friendshipRepository = friendshipRepository;
         this.friendRequestMapper = friendRequestMapper;
         this.userProfileRepository = userProfileRepository;
+        this.streamBridge = streamBridge;
     }
 
     /**
@@ -208,6 +214,14 @@ public class FriendRequestService {
 
         friendshipRepository.save(senderToReceiver);
         friendshipRepository.save(receiverToSender);
+        FriendshipUpdatedEvent event = new FriendshipUpdatedEvent(
+            sender.getId(),
+            receiver.getId(),
+            "CREATED",
+            Instant.now()
+);
+        streamBridge.send("friendshipEventsOut-out-0", event);
+        LOG.info("Published FriendshipUpdatedEvent between {} and {}", sender.getId(), receiver.getId());
 
         FriendRequest saved = friendRequestRepository.save(friendRequest);
 

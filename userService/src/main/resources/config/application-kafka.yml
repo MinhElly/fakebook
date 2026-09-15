@@ -9,6 +9,12 @@ spring:
           auto-create-topics: true
           brokers: localhost:9092
       bindings:
+        friendshipEventsOut-out-0:
+          destination: friendship-events-topic
+          content-type: application/json
+        mediaCleanupOut-out-0:
+          destination: media-cleanup-topic
+          content-type: application/json
         binding-out-0:
           content-type: text/plain
           group: user-service
