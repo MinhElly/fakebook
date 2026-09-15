@@ -18,4 +18,12 @@ public interface FileStorageService {
      */
 
     FileUploadResult uploadFile(MultipartFile file, String folder) throws IOException;
+
+    /**
+     * Deletes a file from the storage provider by storage key.
+     *
+     * @param storageKey the key/public_id of the file to delete.
+     * @throws IOException if deletion fails.
+     */
+    void deleteFile(String storageKey) throws IOException;
 }

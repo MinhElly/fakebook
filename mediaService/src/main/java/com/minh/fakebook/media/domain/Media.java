@@ -81,7 +81,18 @@ public class Media implements Serializable {
     @Column(name = "updated_at")
     private Instant updatedAt;
 
+    @Column(name = "purpose", length = 50)
+    private String purpose = "GENERAL";
+
     // jhipster-needle-entity-add-field - JHipster will add fields here
+
+    public String getPurpose() {
+        return this.purpose;
+    }
+
+    public void setPurpose(String purpose) {
+        this.purpose = purpose;
+    }
 
     public UUID getId() {
         return this.id;
