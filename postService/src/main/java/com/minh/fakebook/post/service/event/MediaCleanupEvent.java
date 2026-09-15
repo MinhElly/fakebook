@@ -1,8 +1,8 @@
-package com.minh.fakebook.media.service.dto.events;
+package com.minh.fakebook.post.service.event;
 
 import java.util.UUID;
 
 public record MediaCleanupEvent(
     UUID mediaId,
-    String reason) {
-}
+    String reason
+) {}
