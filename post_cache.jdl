@@ -1,0 +1,6 @@
+entity PostCache(post_cache) {
+        id UUID,
+        authorId UUID required,
+        visibility String required,
+        status String required
+    }
