@@ -242,7 +242,7 @@ public class FriendshipResource {
             HttpHeaders headers = PaginationUtil.generatePaginationHttpHeaders(ServletUriComponentsBuilder.fromCurrentRequest(),page );
             return ResponseEntity.ok().headers(headers).body(page.getContent());
     }
-     @GetMapping("/friendships/check")
+     @GetMapping("/check")
     public ResponseEntity<Boolean> checkFriendship(
         @RequestParam("userId1") UUID userId1,
         @RequestParam("userId2") UUID userId2
@@ -251,5 +251,5 @@ public class FriendshipResource {
         boolean areFriends = friendshipService.areFriends(userId1, userId2);
         return ResponseEntity.ok(areFriends);
     }
-    
+
 }

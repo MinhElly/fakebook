@@ -12,6 +12,6 @@ public interface UserClient {
      * Call userService to check if two users are friends.
      */
     @GetMapping("/api/friendships/check")
-    boolean areFriends(@RequestParam("user1Id") UUID user1Id, @RequestParam("user2Id") UUID
-        user2Id);
+    boolean areFriends(@RequestParam("userId1") UUID userId1, @RequestParam("userId2") UUID
+        userId2);
 }

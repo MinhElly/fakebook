@@ -29,6 +29,10 @@ import com.minh.fakebook.post.service.event.PostCreatedEvent;
 import com.minh.fakebook.post.service.event.PostUpdatedEvent;
 import com.minh.fakebook.post.service.event.PostDeletedEvent;
 import java.time.Instant;
+import com.minh.fakebook.post.client.UserClient;
+import com.minh.fakebook.post.service.event.MediaCleanupEvent;
+import org.springframework.cloud.stream.function.StreamBridge;
+
 
 /**
  * Service Implementation for managing {@link Post}.
@@ -45,22 +49,23 @@ public class PostService {
 
     private final Outbox outbox;
 
-    private final com.minh.fakebook.post.repository.PostMediaRepository postMediaRepository;
+    private final PostMediaRepository postMediaRepository;
 
-    private final com.minh.fakebook.post.repository.PostReactionRepository postReactionRepository;
+    private final PostReactionRepository postReactionRepository;
 
-    private final com.minh.fakebook.post.client.UserClient userClient;
+    private final UserClient userClient;
 
-    public PostService(PostRepository postRepository, PostMapper postMapper, com.minh.fakebook.
-        post.repository.PostMediaRepository postMediaRepository, com.minh.fakebook.post.repository.
-                           PostReactionRepository postReactionRepository, Outbox outbox, com.minh.fakebook.post.client.
-                           UserClient userClient) {
+    private final StreamBridge streamBridge;
+
+    public PostService(PostRepository postRepository, PostMapper postMapper, PostMediaRepository postMediaRepository,
+                       PostReactionRepository postReactionRepository, Outbox outbox, UserClient userClient, StreamBridge streamBridge) {
         this.postRepository = postRepository;
         this.postMapper = postMapper;
         this.postMediaRepository = postMediaRepository;
         this.postReactionRepository = postReactionRepository;
         this.outbox = outbox;
         this.userClient = userClient;
+        this.streamBridge = streamBridge;
     }
 
     /**
@@ -233,10 +238,13 @@ public class PostService {
         }
 
         // 3. Delete associated media and reactions
+        java.util.List<UUID> mediaIds = postMediaRepository.findByPostIdOrderByDisplayOrderAsc(id)
+            .stream()
+            .map(com.minh.fakebook.post.domain.PostMedia::getMediaId)
+            .toList();
+
         postMediaRepository.deleteByPostId(id);
         postReactionRepository.deleteByPostId(id);
-
-        // 4. TODO: Namastack Outbox Event - Notify mediaService to clean up physical files via Kafka
         outbox.schedule(
             new PostDeletedEvent(id),
             "post-" + id);
