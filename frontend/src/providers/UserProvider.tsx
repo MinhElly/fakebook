@@ -40,10 +40,10 @@ export default function UserProvider({ children }: { children: React.ReactNode }
           avatarMediaId: data.avatarMediaId,
           coverMediaId: data.coverMediaId,
           avatar: data.avatarMediaId
-            ? `/services/mediaservice/api/media/${data.avatarMediaId}`
+            ? `/services/mediaservice/api/media/${data.avatarMediaId}/file`
             : prev.avatar,
           cover: data.coverMediaId
-            ? `/services/mediaservice/api/media/${data.coverMediaId}`
+            ? `/services/mediaservice/api/media/${data.coverMediaId}/file`
             : prev.cover,
         }));
       })

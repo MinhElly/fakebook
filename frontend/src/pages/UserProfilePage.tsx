@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router";
 import ProfileLayout, { type ProfileUser } from "@/components/profile/ProfileLayout";
 import FollowButton from "@/components/profile/FollowButton";
@@ -247,7 +247,7 @@ export default function UserProfilePage() {
       avatarMediaId: profileDetail.avatarMediaId,
     }),
     cover: profileDetail.coverMediaId
-      ? `/services/mediaservice/api/media/${profileDetail.coverMediaId}`
+      ? `/services/mediaservice/api/media/${profileDetail.coverMediaId}/file`
       : "/default-cover.svg",
     bio: profileDetail.bio,
     location: profileDetail.location,
