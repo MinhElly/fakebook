@@ -14,3 +14,8 @@ spring:
     password: ${FAKEBOOK_DB_PASSWORD:}
   liquibase:
     contexts: dev, faker
+
+cloudinary:
+  cloud-name: ${CLOUDINARY_CLOUD_NAME:twjav6q1}
+  api-key: ${CLOUDINARY_API_KEY:931967512613569}
+  api-secret: ${CLOUDINARY_API_SECRET:kvUZixEIPrpELyFDU5nXqG8TX-A}
