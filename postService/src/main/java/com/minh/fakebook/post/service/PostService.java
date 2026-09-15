@@ -3,6 +3,7 @@ import com.minh.fakebook.post.repository.PostMediaRepository;
 import com.minh.fakebook.post.repository.PostReactionRepository;
 import com.minh.fakebook.post.repository.PostRepository;
 import com.minh.fakebook.post.service.dto.PostDTO;
+import com.minh.fakebook.post.service.dto.event.PostCreateEvent;
 import com.minh.fakebook.post.service.mapper.PostMapper;
 import java.time.Instant;
 import java.util.*;
@@ -13,6 +14,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.security.access.AccessDeniedException;
 import com.minh.fakebook.post.domain.PostMedia;
 import com.minh.fakebook.post.domain.Post;
@@ -37,11 +39,14 @@ public class PostService {
 
     private final PostReactionRepository postReactionRepository;
 
-    public PostService(PostRepository postRepository, PostMapper postMapper, PostMediaRepository postMediaRepository, PostReactionRepository postReactionRepository) {
+    private final KafkaTemplate<String, Object> kafkaTemplate;
+
+    public PostService(PostRepository postRepository, PostMapper postMapper, PostMediaRepository postMediaRepository, PostReactionRepository postReactionRepository, KafkaTemplate<String, Object> kafkaTemplate) {
         this.postRepository = postRepository;
         this.postMapper = postMapper;
         this.postMediaRepository = postMediaRepository;
         this.postReactionRepository = postReactionRepository;
+        this.kafkaTemplate = kafkaTemplate;
     }
 
     /**
@@ -52,11 +57,56 @@ public class PostService {
      */
     public PostDTO save(PostDTO postDTO) {
         LOG.debug("Request to save Post : {}", postDTO);
+
+        if (postDTO.getAuthorId() == null) {
+            Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+            if (auth != null && auth.isAuthenticated() && !"anonymousUser".equals(auth.getPrincipal())) {
+                if (auth instanceof JwtAuthenticationToken jwtAuth) {
+                    String sub = jwtAuth.getToken().getSubject();
+                    postDTO.setAuthorId(UUID.fromString(sub));
+                }
+            }
+        }
+
+        if (postDTO.getAuthorId() == null) {
+            throw new AccessDeniedException("Error: You must be logged in to create a post.");
+        }
+
+        if (postDTO.getStatus() == null) {
+            postDTO.setStatus(PostStatus.ACTIVE);
+        }
+
+        if (postDTO.getCreatedAt() == null) {
+            postDTO.setCreatedAt(Instant.now());
+        }
+
         Post post = postMapper.toEntity(postDTO);
-        post = postRepository.save(post);
-        return postMapper.toDto(post);
-        // TODO (Kafka/Outbox): Emit "POST_CREATED" event to Kafka.
-        // Purpose: feedService consumes this event to fan-out the post into the authors' friends' News Feeds.
+        Post savedPost = postRepository.save(post);
+        PostCreateEvent event = new PostCreateEvent(
+            savedPost.getId(),
+            savedPost.getAuthorId(),
+            savedPost.getVisibility(),
+            savedPost.getCreatedAt()
+        );
+        kafkaTemplate.send("post-events", savedPost.getAuthorId().toString(), event);
+
+        List<UUID> mediaIds = postDTO.getMediaIds();
+        if (mediaIds != null && !mediaIds.isEmpty()) {
+            List<PostMedia> postMedias = new ArrayList<>();
+            for (int i = 0; i < mediaIds.size(); i++) {
+                PostMedia pm = new PostMedia();
+                pm.setMediaId(mediaIds.get(i));
+                pm.setPost(savedPost);
+                pm.setDisplayOrder(i);
+                pm.setCreatedAt(Instant.now());
+                postMedias.add(pm);
+            }
+            postMediaRepository.saveAll(postMedias);
+        }
+
+        PostDTO resultDTO = postMapper.toDto(savedPost);
+        resultDTO.setMediaIds(mediaIds);
+        return resultDTO;
     }
 
     /**
