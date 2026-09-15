@@ -16,6 +16,9 @@ import com.minh.fakebook.comment.service.dto.CommentDTO;
 import com.minh.fakebook.comment.service.dto.CreateCommentRequestDTO;
 import com.minh.fakebook.comment.service.dto.ReplyCommentRequestDTO;
 import com.minh.fakebook.comment.service.mapper.CommentMapper;
+import com.minh.fakebook.comment.client.UserFeignClient;
+import com.minh.fakebook.comment.domain.PostCache;
+import com.minh.fakebook.comment.repository.PostCacheRepository;
 
 /**
  * Service Implementation for managing {@link com.minh.fakebook.comment.domain.Comment}.
@@ -30,21 +33,52 @@ public class CommentService {
 
     private final CommentMapper commentMapper;
 
-    public CommentService(CommentRepository commentRepository, CommentMapper commentMapper) {
+    private final PostCacheRepository postCacheRepository;
+
+    private final UserFeignClient userFeignClient;
+
+    public CommentService(
+        CommentRepository commentRepository,
+        CommentMapper commentMapper,
+        PostCacheRepository postCacheRepository,
+        UserFeignClient userFeignClient
+    ) {
         this.commentRepository = commentRepository;
         this.commentMapper = commentMapper;
+        this.postCacheRepository = postCacheRepository;
+        this.userFeignClient = userFeignClient;
     }
 
     /**
-     * Create a new comment.
+     * Create a new comment with Row-Level Security check.
      *
      * @param request  the request containing post ID and content.
      * @param authorId the ID of the author (from JWT).
      * @return the persisted comment DTO.
+     * @throws IllegalArgumentException if the post does not exist in cache.
+     * @throws AccessDeniedException if the user is not allowed to comment based on visibility.
      */
-    public CommentDTO createComment(CreateCommentRequestDTO request,
-            UUID authorId) {
+    public CommentDTO createComment(CreateCommentRequestDTO request, UUID authorId) {
         LOG.debug("Request to create Comment for Post {} by Author {}", request.postId(), authorId);
+
+        // 1. Check if post exist
+        PostCache postCache = postCacheRepository.findById(request.postId())
+            .orElseThrow(() -> new IllegalArgumentException("Post not found in cache"));
+
+        // 2. Row-Level Security
+        boolean isOwner = authorId.equals(postCache.getAuthorId());
+        if (!isOwner) {
+            if ("PRIVATE".equalsIgnoreCase(postCache.getVisibility())) {
+                throw new AccessDeniedException("You do not have permission to comment on this private post.");
+            } else if ("FRIENDS".equalsIgnoreCase(postCache.getVisibility())) {
+                //check friend status via userService
+                boolean areFriends = userFeignClient.checkFriendship(authorId, postCache.getAuthorId());
+                if (!areFriends) {
+                    throw new AccessDeniedException("You must be friends with the author to comment on this post.");
+                }
+            }
+        }
+
         Comment comment = new Comment();
         comment.setPostId(request.postId());
         comment.setAuthorId(authorId);
@@ -158,7 +192,7 @@ public class CommentService {
             commentRepository.save(comment);
         });
     }
-        
+
     /**
     * Creates a reply to an existing comment.
     *
@@ -180,11 +214,11 @@ public class CommentService {
             }
 
             Comment reply = new Comment();
-            reply.setPostId(parent.getPostId()); 
+            reply.setPostId(parent.getPostId());
             reply.setAuthorId(authorId);
             reply.setContent(request.content());
             reply.setStatus(CommentStatus.ACTIVE);
-            reply.setParentComment(parent); 
+            reply.setParentComment(parent);
 
             return commentMapper.toDto(commentRepository.save(reply));
         }
