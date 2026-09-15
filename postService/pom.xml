@@ -332,6 +332,17 @@
             <groupId>tools.jackson.module</groupId>
             <artifactId>jackson-module-jaxb-annotations</artifactId>
         </dependency>
+        <!-- Namastack Outbox -->
+        <dependency>
+            <groupId>io.namastack</groupId>
+            <artifactId>namastack-outbox-starter-jpa</artifactId>
+            <version>1.1.0</version>
+        </dependency>
+        <dependency>
+            <groupId>io.namastack</groupId>
+            <artifactId>namastack-outbox-kafka</artifactId>
+            <version>1.1.0</version>
+        </dependency>
     </dependencies>
 
     <build>

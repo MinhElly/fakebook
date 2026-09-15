@@ -1,24 +1,34 @@
 package com.minh.fakebook.post.service;
+
+import com.minh.fakebook.post.domain.Post;
 import com.minh.fakebook.post.repository.PostMediaRepository;
 import com.minh.fakebook.post.repository.PostReactionRepository;
 import com.minh.fakebook.post.repository.PostRepository;
 import com.minh.fakebook.post.service.dto.PostDTO;
 import com.minh.fakebook.post.service.mapper.PostMapper;
-import java.time.Instant;
-import java.util.*;
+import java.util.Optional;
+import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.access.AccessDeniedException;
-import com.minh.fakebook.post.domain.PostMedia;
-import com.minh.fakebook.post.domain.Post;
+import java.util.List;
+import java.util.ArrayList;
+import java.util.HashSet;
 import com.minh.fakebook.post.domain.enumeration.PostStatus;
 import com.minh.fakebook.post.domain.enumeration.PostVisibility;
+import com.minh.fakebook.post.domain.PostMedia;
+import com.minh.fakebook.post.service.dto.PostDTO;
 import com.minh.fakebook.post.security.AuthoritiesConstants;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
+import io.namastack.outbox.Outbox;
+import com.minh.fakebook.post.service.event.PostCreatedEvent;
+import com.minh.fakebook.post.service.event.PostUpdatedEvent;
+import com.minh.fakebook.post.service.event.PostDeletedEvent;
+import java.time.Instant;
 
 /**
  * Service Implementation for managing {@link Post}.
@@ -33,15 +43,24 @@ public class PostService {
 
     private final PostMapper postMapper;
 
-    private final PostMediaRepository postMediaRepository;
+    private final Outbox outbox;
 
-    private final PostReactionRepository postReactionRepository;
+    private final com.minh.fakebook.post.repository.PostMediaRepository postMediaRepository;
 
-    public PostService(PostRepository postRepository, PostMapper postMapper, PostMediaRepository postMediaRepository, PostReactionRepository postReactionRepository) {
+    private final com.minh.fakebook.post.repository.PostReactionRepository postReactionRepository;
+
+    public PostService(
+        PostRepository postRepository,
+        PostMediaRepository postMediaRepository,
+        PostReactionRepository postReactionRepository,
+        PostMapper postMapper,
+        Outbox outbox
+    ) {
         this.postRepository = postRepository;
         this.postMapper = postMapper;
         this.postMediaRepository = postMediaRepository;
         this.postReactionRepository = postReactionRepository;
+        this.outbox = outbox;
     }
 
     /**
@@ -54,16 +73,21 @@ public class PostService {
         LOG.debug("Request to save Post : {}", postDTO);
         Post post = postMapper.toEntity(postDTO);
         post = postRepository.save(post);
-        return postMapper.toDto(post);
         // TODO (Kafka/Outbox): Emit "POST_CREATED" event to Kafka.
         // Purpose: feedService consumes this event to fan-out the post into the authors' friends' News Feeds.
+        outbox.schedule(
+            new PostCreatedEvent(post.getId(), post.getAuthorId(), post.getContent(), post.getVisibility(),
+                post.getStatus(),
+                Instant.now()),
+            "post-" + post.getId());
+        return postMapper.toDto(post);
     }
 
     /**
      * Update a post (content, visibility, and media). Enforces authorship.
      *
      * @param postDTO the entity to update.
-     *                                                                   
+     *
      * @return the persisted entity.
      * @throws AccessDeniedException if not the author.
      */
@@ -88,11 +112,11 @@ public class PostService {
             throw new AccessDeniedException(
                     "Error: Only the author can update this post.");
         }
-        
+
         //3. Update ONLY allowed fields
         existingPost.setContent(postDTO.getContent());
         existingPost.setVisibility(postDTO.getVisibility());
-        existingPost.setUpdatedAt(Instant.now());
+        existingPost.setUpdatedAt(java.time.Instant.now());
 
         postRepository.save(existingPost);
 
@@ -106,7 +130,7 @@ public class PostService {
                 pm.setMediaId(newMediaIds.get(i));
                 pm.setPost(existingPost);
                 pm.setDisplayOrder(i);
-                pm.setCreatedAt(Instant.now());
+                pm.setCreatedAt(java.time.Instant.now());
                 postMedias.add(pm);
             }
             postMediaRepository.saveAll(postMedias);
@@ -118,7 +142,10 @@ public class PostService {
 
         // TODO (Kafka/Outbox): Emit "POST_UPDATED" event to Kafka.
         // Purpose: Notify feedService to update the post content in the News Feeds.
-
+        outbox.schedule(
+            new PostUpdatedEvent(existingPost.getId(), existingPost.getAuthorId(), existingPost.getContent(), existingPost.getVisibility(), existingPost.getStatus(), java.time.Instant.now()),
+            "post-" + existingPost.getId()
+        );
         return resultDTO;
     }
 
@@ -156,17 +183,23 @@ public class PostService {
                         existingPost.setVisibility(postDTO.getVisibility());
                     }
 
-                    existingPost.setUpdatedAt(Instant.now());
+                    existingPost.setUpdatedAt(java.time.Instant.now());
+                    // TODO (Kafka/Outbox): Emit "POST_UPDATED" event to Kafka.
+                    // Purpose: Notify feedService to update the post content in the News Feeds.
+                    outbox.schedule(
+                        new PostUpdatedEvent(existingPost.getId(), existingPost.getAuthorId(),
+                            existingPost.getContent(),
+                            existingPost.getVisibility(), existingPost.getStatus(), java.time.Instant.now()),
+                        "post-" + existingPost.getId());
 
                     return existingPost;
                 })
                 .map(postRepository::save)
                 .map(postMapper::toDto);
 
-            // TODO (Kafka/Outbox): Emit "POST_UPDATED" event to Kafka.
-            // Purpose: Notify feedService to update the post content in the News Feeds.
+
     }
-    
+
     /**
      * Delete the post by id. Enforces authorship or ADMIN role, and cleans up local links.
      *
@@ -178,7 +211,7 @@ public class PostService {
         //1. Fetch existing post form DB
         Post existingPost = postRepository.findById(id).
                 orElseThrow(() -> new IllegalArgumentException("Error: Post not found " + id));
-        
+
         //2. Verify authorship or ADMIN role
         Authentication auth = SecurityContextHolder
                 .getContext().getAuthentication();
@@ -204,7 +237,9 @@ public class PostService {
         postReactionRepository.deleteByPostId(id);
 
         // 4. TODO: Namastack Outbox Event - Notify mediaService to clean up physical files via Kafka
-
+        outbox.schedule(
+            new PostDeletedEvent(id),
+            "post-" + id);
         // 5. Delete the actual post
         postRepository.deleteById(id);
     }
@@ -226,7 +261,7 @@ public class PostService {
             List<UUID> taggedUserIds) {
         LOG.debug("Request to create a new Post by current user");
 
-        // 1. Extract user UUID from JWT Token 
+        // 1. Extract user UUID from JWT Token
         UUID authorId;
         Authentication auth = SecurityContextHolder
                 .getContext().getAuthentication();
@@ -243,7 +278,7 @@ public class PostService {
         newPost.setContent(content);
         newPost.setVisibility(visibility);
         newPost.setStatus(PostStatus.ACTIVE);
-        newPost.setCreatedAt(Instant.now());
+        newPost.setCreatedAt(java.time.Instant.now());
         if (taggedUserIds != null && !taggedUserIds.isEmpty()) {
             newPost.setTaggedUserIds(new HashSet<>(taggedUserIds));
         }
@@ -259,14 +294,20 @@ public class PostService {
                 postMedia.setPost(newPost);
                 postMedia.setMediaId(mediaId);
                 postMedia.setDisplayOrder(order++);
-                postMedia.setCreatedAt(Instant.now());
+                postMedia.setCreatedAt(java.time.Instant.now());
                 postMediaRepository.save(postMedia);
             }
         }
-
+        PostDTO result = postMapper.toDto(newPost);
+        outbox.schedule(
+            new com.minh.fakebook.post.service.event.PostCreatedEvent(result.getId(), result.
+                getAuthorId(), result.getContent(), result.getVisibility(), result.getStatus(), java.time.Instant.
+                now()),
+            "post-" + result.getId()
+        );
         return findOne(newPost.getId()).orElseThrow();
     }
-    
+
     /**
      * Get one post by id, including its media attachments. Enforces privacy visibility rules.
      *
@@ -279,15 +320,17 @@ public class PostService {
         LOG.debug("Request to get Post : {}", id);
         return postRepository.findById(id).map(post -> {
 
-                Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+                Authentication auth = org.springframework.security.core.context.
+  SecurityContextHolder.getContext().getAuthentication();
                 boolean isGuest = (auth == null || !auth.isAuthenticated() || "anonymousUser".equals(auth.getPrincipal()));
-                boolean isAdmin = !isGuest && auth.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals(AuthoritiesConstants.ADMIN));
+                boolean isAdmin = !isGuest && auth.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals(com.minh.
+  fakebook.post.security.AuthoritiesConstants.ADMIN));
 
 
                 if (post.getStatus() == PostStatus.DELETED && !isAdmin) {
                     throw new AccessDeniedException("Error: Post not found or has been deleted.");
                 }
- 
+
 
                 // 1. Check Private Visibility
                 if (post.getVisibility() == PostVisibility.PRIVATE) {
