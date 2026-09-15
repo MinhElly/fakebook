@@ -1,18 +1,27 @@
 package com.minh.fakebook.post.service;
-
-import com.minh.fakebook.post.domain.Post;
+import com.minh.fakebook.post.repository.PostMediaRepository;
+import com.minh.fakebook.post.repository.PostReactionRepository;
 import com.minh.fakebook.post.repository.PostRepository;
 import com.minh.fakebook.post.service.dto.PostDTO;
 import com.minh.fakebook.post.service.mapper.PostMapper;
-import java.util.Optional;
-import java.util.UUID;
+import java.time.Instant;
+import java.util.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.access.AccessDeniedException;
+import com.minh.fakebook.post.domain.PostMedia;
+import com.minh.fakebook.post.domain.Post;
+import com.minh.fakebook.post.domain.enumeration.PostStatus;
+import com.minh.fakebook.post.domain.enumeration.PostVisibility;
+import com.minh.fakebook.post.security.AuthoritiesConstants;
 
 /**
- * Service Implementation for managing {@link com.minh.fakebook.post.domain.Post}.
+ * Service Implementation for managing {@link Post}.
  */
 @Service
 @Transactional
@@ -24,11 +33,11 @@ public class PostService {
 
     private final PostMapper postMapper;
 
-    private final com.minh.fakebook.post.repository.PostMediaRepository postMediaRepository;
+    private final PostMediaRepository postMediaRepository;
 
-    private final com.minh.fakebook.post.repository.PostReactionRepository postReactionRepository;
+    private final PostReactionRepository postReactionRepository;
 
-    public PostService(PostRepository postRepository, PostMapper postMapper, com.minh.fakebook.post.repository.PostMediaRepository postMediaRepository, com.minh.fakebook.post.repository.PostReactionRepository postReactionRepository) {
+    public PostService(PostRepository postRepository, PostMapper postMapper, PostMediaRepository postMediaRepository, PostReactionRepository postReactionRepository) {
         this.postRepository = postRepository;
         this.postMapper = postMapper;
         this.postMediaRepository = postMediaRepository;
@@ -56,48 +65,48 @@ public class PostService {
      * @param postDTO the entity to update.
      *                                                                   
      * @return the persisted entity.
-     * @throws org.springframework.security.access.AccessDeniedException if not the author.
+     * @throws AccessDeniedException if not the author.
      */
     public PostDTO update(PostDTO postDTO) {
         LOG.debug("Request to update Post : {}", postDTO);
 
         //1. Fetch existing post from DB
-        com.minh.fakebook.post.domain.Post existingPost = postRepository.findById(postDTO.getId())
+        Post existingPost = postRepository.findById(postDTO.getId())
                 .orElseThrow(() -> new IllegalArgumentException("Error: Post not found " + postDTO.getId()));
 
         //2. Verify authorship
-        org.springframework.security.core.Authentication auth = org.springframework.security.core.context.SecurityContextHolder
+        Authentication auth = SecurityContextHolder
                 .getContext().getAuthentication();
         if (auth == null || !auth.isAuthenticated() || "anonymousUser".equals(auth.getPrincipal())) {
-            throw new org.springframework.security.access.AccessDeniedException(
+            throw new AccessDeniedException(
                     "Error: You must be logged in to update a post.");
         }
-        String sub = ((org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken) auth)
+        String sub = ((JwtAuthenticationToken) auth)
                 .getToken().getSubject();
 
         if (!existingPost.getAuthorId().toString().equals(sub)) {
-            throw new org.springframework.security.access.AccessDeniedException(
+            throw new AccessDeniedException(
                     "Error: Only the author can update this post.");
         }
         
         //3. Update ONLY allowed fields
         existingPost.setContent(postDTO.getContent());
         existingPost.setVisibility(postDTO.getVisibility());
-        existingPost.setUpdatedAt(java.time.Instant.now());
+        existingPost.setUpdatedAt(Instant.now());
 
         postRepository.save(existingPost);
 
         //4. Replace media links
         postMediaRepository.deleteByPostId(existingPost.getId());
-        java.util.List<java.util.UUID> newMediaIds = postDTO.getMediaIds();
+        List<UUID> newMediaIds = postDTO.getMediaIds();
         if (newMediaIds != null && !newMediaIds.isEmpty()) {
-            java.util.List<com.minh.fakebook.post.domain.PostMedia> postMedias = new java.util.ArrayList<>();
+            List<PostMedia> postMedias = new ArrayList<>();
             for (int i = 0; i < newMediaIds.size(); i++) {
-                com.minh.fakebook.post.domain.PostMedia pm = new com.minh.fakebook.post.domain.PostMedia();
+                PostMedia pm = new PostMedia();
                 pm.setMediaId(newMediaIds.get(i));
                 pm.setPost(existingPost);
                 pm.setDisplayOrder(i);
-                pm.setCreatedAt(java.time.Instant.now());
+                pm.setCreatedAt(Instant.now());
                 postMedias.add(pm);
             }
             postMediaRepository.saveAll(postMedias);
@@ -125,17 +134,17 @@ public class PostService {
         return postRepository
                 .findById(postDTO.getId())
                 .map(existingPost -> {
-                    org.springframework.security.core.Authentication auth = org.springframework.security.core.context.SecurityContextHolder
+                    Authentication auth = SecurityContextHolder
                             .getContext().getAuthentication();
                     if (auth == null || !auth.isAuthenticated() || "anonymousUser".equals(auth.getPrincipal())) {
-                        throw new org.springframework.security.access.AccessDeniedException(
+                        throw new AccessDeniedException(
                                 "Error: You must be logged in to update a post.");
                     }
-                    String sub = ((org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken) auth)
+                    String sub = ((JwtAuthenticationToken) auth)
                             .getToken().getSubject();
 
                     if (!existingPost.getAuthorId().toString().equals(sub)) {
-                        throw new org.springframework.security.access.AccessDeniedException(
+                        throw new AccessDeniedException(
                                 "Error: Only the author can update this post.");
                     }
 
@@ -147,7 +156,7 @@ public class PostService {
                         existingPost.setVisibility(postDTO.getVisibility());
                     }
 
-                    existingPost.setUpdatedAt(java.time.Instant.now());
+                    existingPost.setUpdatedAt(Instant.now());
 
                     return existingPost;
                 })
@@ -162,31 +171,31 @@ public class PostService {
      * Delete the post by id. Enforces authorship or ADMIN role, and cleans up local links.
      *
      * @param id the id of the entity.
-     * @throws org.springframework.security.access.AccessDeniedException if not the author or admin.
+     * @throws AccessDeniedException if not the author or admin.
      */
-    public void delete(java.util.UUID id) {
+    public void delete(UUID id) {
         LOG.debug("Request to delete Post : {}", id);
         //1. Fetch existing post form DB
-        com.minh.fakebook.post.domain.Post existingPost = postRepository.findById(id).
+        Post existingPost = postRepository.findById(id).
                 orElseThrow(() -> new IllegalArgumentException("Error: Post not found " + id));
         
         //2. Verify authorship or ADMIN role
-        org.springframework.security.core.Authentication auth = org.springframework.security.core.context.SecurityContextHolder
+        Authentication auth = SecurityContextHolder
                 .getContext().getAuthentication();
         if (auth == null || !auth.isAuthenticated() || "anonymousUser".equals(auth.getPrincipal())) {
-            throw new org.springframework.security.access.AccessDeniedException(
+            throw new AccessDeniedException(
                     "Error: You must be logged in to delete a post.");
         }
 
-        String sub = ((org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken) auth)
+        String sub = ((JwtAuthenticationToken) auth)
                 .getToken().getSubject();
 
         //check if user has ADMIN role
         boolean isAdmin = auth.getAuthorities().stream()
-                .anyMatch(a -> a.getAuthority().equals(com.minh.fakebook.post.security.AuthoritiesConstants.ADMIN));
+                .anyMatch(a -> a.getAuthority().equals(AuthoritiesConstants.ADMIN));
         //block if the user is not the author or admin
         if (!existingPost.getAuthorId().toString().equals(sub) && !isAdmin) {
-            throw new org.springframework.security.access.AccessDeniedException(
+            throw new AccessDeniedException(
                     "Errorr: Only the author or an Admin can delete this post.");
         }
 
@@ -211,32 +220,32 @@ public class PostService {
      * @return A PostDTO containing the newly created post data.
      * @throws RuntimeException if the user is not authenticated.
      */
-    public com.minh.fakebook.post.service.dto.PostDTO createPost(String content,
-            com.minh.fakebook.post.domain.enumeration.PostVisibility visibility,
-            java.util.List<java.util.UUID> mediaIds,
-            java.util.List<java.util.UUID> taggedUserIds) {
+    public PostDTO createPost(String content,
+            PostVisibility visibility,
+            List<UUID> mediaIds,
+            List<UUID> taggedUserIds) {
         LOG.debug("Request to create a new Post by current user");
 
         // 1. Extract user UUID from JWT Token 
-        java.util.UUID authorId;
-        org.springframework.security.core.Authentication auth = org.springframework.security.core.context.SecurityContextHolder
+        UUID authorId;
+        Authentication auth = SecurityContextHolder
                 .getContext().getAuthentication();
-        if (auth instanceof org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken jwtAuth) {
+        if (auth instanceof JwtAuthenticationToken jwtAuth) {
             String sub = jwtAuth.getToken().getSubject();
-            authorId = java.util.UUID.fromString(sub);
+            authorId = UUID.fromString(sub);
         } else {
             throw new RuntimeException("Error: Cannot extract JWT token to get User ID.");
         }
 
         // 2. Initialize new Post entity
-        com.minh.fakebook.post.domain.Post newPost = new com.minh.fakebook.post.domain.Post();
+        Post newPost = new Post();
         newPost.setAuthorId(authorId);
         newPost.setContent(content);
         newPost.setVisibility(visibility);
-        newPost.setStatus(com.minh.fakebook.post.domain.enumeration.PostStatus.ACTIVE);
-        newPost.setCreatedAt(java.time.Instant.now());
+        newPost.setStatus(PostStatus.ACTIVE);
+        newPost.setCreatedAt(Instant.now());
         if (taggedUserIds != null && !taggedUserIds.isEmpty()) {
-            newPost.setTaggedUserIds(new java.util.HashSet<>(taggedUserIds));
+            newPost.setTaggedUserIds(new HashSet<>(taggedUserIds));
         }
 
         // 3. Save to Database
@@ -245,12 +254,12 @@ public class PostService {
         // 4. Save attached media files (if any)
         if (mediaIds != null && !mediaIds.isEmpty()) {
             int order = 0;
-            for (java.util.UUID mediaId : mediaIds) {
-                com.minh.fakebook.post.domain.PostMedia postMedia = new com.minh.fakebook.post.domain.PostMedia();
+            for (UUID mediaId : mediaIds) {
+                PostMedia postMedia = new PostMedia();
                 postMedia.setPost(newPost);
                 postMedia.setMediaId(mediaId);
                 postMedia.setDisplayOrder(order++);
-                postMedia.setCreatedAt(java.time.Instant.now());
+                postMedia.setCreatedAt(Instant.now());
                 postMediaRepository.save(postMedia);
             }
         }
@@ -263,54 +272,52 @@ public class PostService {
      *
      * @param id the id of the entity.
      * @return the entity wrapped in Optional.
-     * @throws org.springframework.security.access.AccessDeniedException if the current user lacks permission.
+     * @throws AccessDeniedException if the current user lacks permission.
      */
     @Transactional(readOnly = true)
-    public Optional<PostDTO> findOne(java.util.UUID id) {
+    public Optional<PostDTO> findOne(UUID id) {
         LOG.debug("Request to get Post : {}", id);
         return postRepository.findById(id).map(post -> {
 
-                org.springframework.security.core.Authentication auth = org.springframework.security.core.context.
-  SecurityContextHolder.getContext().getAuthentication();
+                Authentication auth = SecurityContextHolder.getContext().getAuthentication();
                 boolean isGuest = (auth == null || !auth.isAuthenticated() || "anonymousUser".equals(auth.getPrincipal()));
-                boolean isAdmin = !isGuest && auth.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals(com.minh.
-  fakebook.post.security.AuthoritiesConstants.ADMIN));
+                boolean isAdmin = !isGuest && auth.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals(AuthoritiesConstants.ADMIN));
 
 
-                if (post.getStatus() == com.minh.fakebook.post.domain.enumeration.PostStatus.DELETED && !isAdmin) {
-                    throw new org.springframework.security.access.AccessDeniedException("Error: Post not found or has been deleted.");
+                if (post.getStatus() == PostStatus.DELETED && !isAdmin) {
+                    throw new AccessDeniedException("Error: Post not found or has been deleted.");
                 }
  
 
                 // 1. Check Private Visibility
-                if (post.getVisibility() == com.minh.fakebook.post.domain.enumeration.PostVisibility.PRIVATE) {
+                if (post.getVisibility() == PostVisibility.PRIVATE) {
                     if (isGuest) {
-                        throw new org.springframework.security.access.AccessDeniedException("Error: You do not have permission to view this private post.");
+                        throw new AccessDeniedException("Error: You do not have permission to view this private post.");
                     }
                     if (!isAdmin) {
-                        String sub = ((org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken)
+                        String sub = ((JwtAuthenticationToken)
   auth).getToken().getSubject();
                         if (!post.getAuthorId().toString().equals(sub)) {
-                            throw new org.springframework.security.access.AccessDeniedException("Error: Only the author can view this private post.");
+                            throw new AccessDeniedException("Error: Only the author can view this private post.");
                         }
                     }
                 }
 
                 // 2. Check Friends Visibility
-                if (post.getVisibility() == com.minh.fakebook.post.domain.enumeration.PostVisibility.FRIENDS && !isAdmin) {
+                if (post.getVisibility() == PostVisibility.FRIENDS && !isAdmin) {
                     if (isGuest) {
-                        throw new org.springframework.security.access.AccessDeniedException("Error: You must be logged in to view this friends-only post.");
+                        throw new AccessDeniedException("Error: You must be logged in to view this friends-only post.");
                     }
                 // TODO: Integrate with FriendshipService via FeignClient/Kafka
                 }
 
                 // 3. Convert to DTO
-                com.minh.fakebook.post.service.dto.PostDTO dto = postMapper.toDto(post);
+                PostDTO dto = postMapper.toDto(post);
 
                 // 4. Fetch and attach media IDs
-                java.util.List<java.util.UUID> mediaIds = postMediaRepository.findByPostIdOrderByDisplayOrderAsc(post.getId())
+                List<UUID> mediaIds = postMediaRepository.findByPostIdOrderByDisplayOrderAsc(post.getId())
                         .stream()
-                        .map(com.minh.fakebook.post.domain.PostMedia::getMediaId)
+                        .map(PostMedia::getMediaId)
                         .toList();
                 dto.setMediaIds(mediaIds);
 

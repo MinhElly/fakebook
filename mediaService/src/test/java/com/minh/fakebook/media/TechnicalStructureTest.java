@@ -4,6 +4,8 @@ import static com.tngtech.archunit.base.DescribedPredicate.alwaysTrue;
 import static com.tngtech.archunit.core.domain.JavaClass.Predicates.belongToAnyOf;
 import static com.tngtech.archunit.library.Architectures.layeredArchitecture;
 
+import com.minh.fakebook.media.config.ApplicationProperties;
+import com.minh.fakebook.media.config.Constants;
 import com.tngtech.archunit.core.importer.ImportOption.DoNotIncludeTests;
 import com.tngtech.archunit.junit.AnalyzeClasses;
 import com.tngtech.archunit.junit.ArchTest;
@@ -32,7 +34,7 @@ class TechnicalStructureTest {
 
         .ignoreDependency(belongToAnyOf(MediaServiceApp.class), alwaysTrue())
         .ignoreDependency(alwaysTrue(), belongToAnyOf(
-            com.minh.fakebook.media.config.Constants.class,
-            com.minh.fakebook.media.config.ApplicationProperties.class
+            Constants.class,
+            ApplicationProperties.class
         ));
 }

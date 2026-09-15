@@ -16,12 +16,14 @@ import java.util.Optional;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 import tech.jhipster.web.util.HeaderUtil;
 import tech.jhipster.web.util.PaginationUtil;
@@ -151,7 +153,7 @@ public class MediaResource {
     @GetMapping("")
     public ResponseEntity<List<MediaDTO>> getAllMedias(
         MediaCriteria criteria,
-        @org.springdoc.core.annotations.ParameterObject Pageable pageable
+        @ParameterObject Pageable pageable
     ) {
         LOG.debug("REST request to get Medias by criteria: {}", criteria);
 
@@ -206,16 +208,16 @@ public class MediaResource {
      * @param file the multipart file to upload.
      * @return the {@link org.springframework.http.ResponseEntity} with status {@code 201 (Created)} and with body the new mediaDTO.
      */
-    @org.springframework.web.bind.annotation.PostMapping(value = "/medias/upload", consumes = { "multipart/form-data" })
-    public org.springframework.http.ResponseEntity<com.minh.fakebook.media.service.dto.MediaDTO> uploadMedia(
-            @org.springframework.web.bind.annotation.RequestParam("file") org.springframework.web.multipart.MultipartFile file)
-            throws java.net.URISyntaxException {
+    @PostMapping(value = "/medias/upload", consumes = { "multipart/form-data" })
+    public ResponseEntity<MediaDTO> uploadMedia(
+            @RequestParam("file") MultipartFile file)
+            throws URISyntaxException {
         LOG.debug("REST request to upload Media file: {}", file.getOriginalFilename());
 
-        com.minh.fakebook.media.service.dto.MediaDTO result = mediaService.uploadMedia(file);
+        MediaDTO result = mediaService.uploadMedia(file);
 
-        return org.springframework.http.ResponseEntity
-                .created(new java.net.URI("/api/medias/" + result.getId()))
+        return ResponseEntity
+                .created(new URI("/api/medias/" + result.getId()))
                 .body(result);
     }
 }

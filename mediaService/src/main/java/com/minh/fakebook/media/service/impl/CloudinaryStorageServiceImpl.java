@@ -10,6 +10,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.util.HashMap;
 import java.util.Map;
 
 /**
@@ -31,7 +32,7 @@ public class CloudinaryStorageServiceImpl implements FileStorageService {
         LOG.debug("Request to upload file to Cloudinary: {}", file.getOriginalFilename());
 
         //configure folder and auto detection of resource type
-        Map<String, Object> params = new java.util.HashMap<>();
+        Map<String, Object> params = new HashMap<>();
         params.put("folder", folder);
         params.put("resource_type", "auto");
 
