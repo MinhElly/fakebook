@@ -121,6 +121,7 @@ public class SecurityConfiguration {
                     .pathMatchers("/services/*/management/health/readiness").permitAll()
                     .pathMatchers("/services/*/v3/api-docs").hasAuthority(AuthoritiesConstants.ADMIN)
                     .pathMatchers("/services/*/api/*/public/**").permitAll()
+                    .pathMatchers(HttpMethod.GET, "/services/*/api/media/**").permitAll()
                     .pathMatchers("/services/**").authenticated()
                     .pathMatchers("/v3/api-docs/**").hasAuthority(AuthoritiesConstants.ADMIN)
                     .pathMatchers("/management/**").hasAuthority(AuthoritiesConstants.ADMIN)
