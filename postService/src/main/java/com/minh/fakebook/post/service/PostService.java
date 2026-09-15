@@ -49,18 +49,18 @@ public class PostService {
 
     private final com.minh.fakebook.post.repository.PostReactionRepository postReactionRepository;
 
-    public PostService(
-        PostRepository postRepository,
-        PostMediaRepository postMediaRepository,
-        PostReactionRepository postReactionRepository,
-        PostMapper postMapper,
-        Outbox outbox
-    ) {
+    private final com.minh.fakebook.post.client.UserClient userClient;
+
+    public PostService(PostRepository postRepository, PostMapper postMapper, com.minh.fakebook.
+        post.repository.PostMediaRepository postMediaRepository, com.minh.fakebook.post.repository.
+                           PostReactionRepository postReactionRepository, Outbox outbox, com.minh.fakebook.post.client.
+                           UserClient userClient) {
         this.postRepository = postRepository;
         this.postMapper = postMapper;
         this.postMediaRepository = postMediaRepository;
         this.postReactionRepository = postReactionRepository;
         this.outbox = outbox;
+        this.userClient = userClient;
     }
 
     /**
@@ -347,12 +347,20 @@ public class PostService {
                 }
 
                 // 2. Check Friends Visibility
-                if (post.getVisibility() == PostVisibility.FRIENDS && !isAdmin) {
-                    if (isGuest) {
-                        throw new AccessDeniedException("Error: You must be logged in to view this friends-only post.");
-                    }
-                // TODO: Integrate with FriendshipService via FeignClient/Kafka
+            if (post.getVisibility() == PostVisibility.FRIENDS && !isAdmin) {
+                if (isGuest) {
+                    throw new AccessDeniedException("Error: You must be logged in to view this friends-only post.");
                 }
+                String sub = ((JwtAuthenticationToken) auth).getToken().getSubject();
+                UUID currentUserId = UUID.fromString(sub);
+
+                if (!post.getAuthorId().equals(currentUserId)) {
+                    boolean areFriends = userClient.areFriends(currentUserId, post.getAuthorId());
+                    if (!areFriends) {
+                        throw new AccessDeniedException("Error: You must be a friend of the author to view this post.");
+                    }
+                }
+            }
 
                 // 3. Convert to DTO
                 PostDTO dto = postMapper.toDto(post);
