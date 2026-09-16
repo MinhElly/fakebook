@@ -1,16 +1,15 @@
 package com.minh.fakebook.feed.service.client;
 
+import com.minh.fakebook.feed.client.TokenRelayRequestInterceptor;
+import java.util.List;
+import java.util.UUID;
 import org.springframework.cloud.openfeign.FeignClient;
-import org.springframework.cloud.openfeign.SpringQueryMap;
-import org.springframework.data.domain.Pageable;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 
-import java.util.List;
-import java.util.UUID;
-
-@FeignClient(name = "userService", path = "/api/friendships")
+@FeignClient(name = "userService", path = "/api/friendships", configuration = TokenRelayRequestInterceptor.class)
 public interface UserServiceClient {
-    @GetMapping("/user/{user-id}")
-    List<UUID> getUserFriendsList(@PathVariable("userId") UUID userId, @SpringQueryMap Pageable pageable);
+
+    @GetMapping("/user/{userId}/friend-ids")
+    List<UUID> getUserFriendsList(@PathVariable("userId") UUID userId);
 }
