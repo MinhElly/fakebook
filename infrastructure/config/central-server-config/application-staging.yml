@@ -1,0 +1,28 @@
+logging:
+  level:
+    ROOT: INFO
+    tech.jhipster: INFO
+management:
+  tracing:
+    sampling:
+      probability: 0.1
+  zipkin:
+    tracing:
+      endpoint: http://${ZIPKIN_HOST:zipkin}:${ZIPKIN_PORT:9411}/api/v2/spans
+
+spring:
+  cloud:
+    stream:
+      kafka:
+        binder:
+          brokers: ${KAFKA_HOST:kafka}:${KAFKA_PORT:29092}
+  security:
+    oauth2:
+      client:
+        provider:
+          oidc:
+            issuer-uri: ${FAKEBOOK_OIDC_ISSUER_URI:http://keycloak:9080/realms/jhipster}
+        registration:
+          oidc:
+            client-id: ${FAKEBOOK_OIDC_CLIENT_ID:internal}
+            client-secret: ${FAKEBOOK_OIDC_CLIENT_SECRET:internal}
