@@ -85,24 +85,6 @@ public class CommentResource {
   ENTITY_NAME, result.getId().toString()))
                 .body(result);
         }
-    /**
-     * {@code POST  /comments} : Create a new comment.
-     *
-     * @param commentDTO the commentDTO to create.
-     * @return the {@link ResponseEntity} with status {@code 201 (Created)} and with body the new commentDTO, or with status {@code 400 (Bad Request)} if the comment has already an ID.
-     * @throws URISyntaxException if the Location URI syntax is incorrect.
-     */
-    @PostMapping("")
-    public ResponseEntity<CommentDTO> createComment(@Valid @RequestBody CommentDTO commentDTO) throws URISyntaxException {
-        LOG.debug("REST request to save Comment : {}", commentDTO);
-        if (commentDTO.getId() != null) {
-            throw new BadRequestAlertException("A new comment cannot already have an ID", ENTITY_NAME, "idexists");
-        }
-        commentDTO = commentService.save(commentDTO);
-        return ResponseEntity.created(new URI("/api/comments/" + commentDTO.getId()))
-            .headers(HeaderUtil.createEntityCreationAlert(applicationName, true, ENTITY_NAME, commentDTO.getId().toString()))
-            .body(commentDTO);
-    }
 
     /**
      * {@code PUT  /comments/:commentId} : Updates an existing comment.

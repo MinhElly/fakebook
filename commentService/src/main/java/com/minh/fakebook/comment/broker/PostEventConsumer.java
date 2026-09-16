@@ -40,6 +40,7 @@ public class PostEventConsumer implements Consumer<String> {
             }
         } catch (Exception e) {
             System.err.println("Kafka process error: " + e.getMessage());
+            throw new RuntimeException("Kafka process failed, triggering retry or DLT", e);
         }
     }
 }
