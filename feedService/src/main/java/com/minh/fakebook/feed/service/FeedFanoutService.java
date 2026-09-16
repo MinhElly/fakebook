@@ -1,9 +1,11 @@
 package com.minh.fakebook.feed.service;
 
 import com.minh.fakebook.feed.client.UserServiceClient;
+import com.minh.fakebook.feed.domain.FeedItem;
 import com.minh.fakebook.feed.repository.FeedItemRepository;
 import com.minh.fakebook.feed.service.dto.FeedItemDTO;
 import com.minh.fakebook.feed.service.event.PostCreatedEvent;
+import com.minh.fakebook.feed.service.event.PostUpdatedEvent;
 
 import java.time.Instant;
 import java.util.ArrayList;
@@ -105,7 +107,31 @@ public class FeedFanoutService {
     @Transactional
     public void processPostDeleted(UUID postId) {
         LOG.debug("Removing feed items for deleted postId: {}", postId);
+        List<FeedItem> items = feedItemRepository.findByPostId(postId);
+        for (FeedItem item : items) {
+            String redisKey = "feed:user:" + item.getUserId().toString();
+            try {
+                redisTemplate.opsForZSet().remove(redisKey, postId.toString());
+            } catch (Exception e) {
+                LOG.warn("Failed to remove postId {} from Redis ZSet for user {}: {}", postId, item.getUserId(), e.getMessage());
+            }
+        }
         feedItemRepository.deleteByPostId(postId);
-        LOG.info("Successfully deleted DB feed items for post {}", postId);
+        LOG.info("Successfully deleted DB and Redis feed items for post {}", postId);
     }
+
+        /**
+     * Processing post update events.
+     */
+    @Async
+    @Transactional
+    public void processPostUpdated(PostUpdatedEvent event) {
+        LOG.debug("Processing post update for postId: {}, visibility: {}", event.id(), event.visibility());
+        
+        // Nếu bài viết đổi thành PRIVATE hoặc INACTIVE -> Xóa khỏi feed bạn bè
+        if ("PRIVATE".equalsIgnoreCase(event.visibility()) || "INACTIVE".equalsIgnoreCase(event.status())) {
+            processPostDeleted(event.id());
+        }
+    }
+
 }

@@ -17,6 +17,7 @@ import org.springframework.stereotype.Repository;
 @Repository
 public interface FeedItemRepository extends JpaRepository<FeedItem, UUID>, JpaSpecificationExecutor<FeedItem> {
     void deleteByPostId(UUID postId);
+    List<FeedItem> findByPostId(UUID postId);
 
     Page<FeedItem> findByUserIdOrderByCreatedAtDesc(UUID userId, Pageable pageable);
     List<FeedItem> findByUserIdAndPostIdIn(UUID userId, List<UUID> postId);

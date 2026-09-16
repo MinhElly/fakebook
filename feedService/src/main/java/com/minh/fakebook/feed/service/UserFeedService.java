@@ -10,11 +10,14 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.minh.fakebook.feed.repository.FeedItemRepository;
 import com.minh.fakebook.feed.service.dto.FeedItemDTO;
 import com.minh.fakebook.feed.service.mapper.FeedItemMapper;
-
+@Service 
+@Transactional(readOnly = true)
 public class UserFeedService {
     private static final Logger LOG = LoggerFactory.getLogger(UserFeedService.class);
     

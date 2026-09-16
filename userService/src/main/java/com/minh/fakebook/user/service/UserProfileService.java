@@ -36,10 +36,12 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
+import org.springframework.web.server.ResponseStatusException;
 
 /**
  * Service Implementation for managing
@@ -121,6 +123,19 @@ public class UserProfileService {
                 .map(existingUserProfile -> {
                     UUID oldAvatarId = existingUserProfile.getAvatarMediaId();
                     UUID oldCoverId = existingUserProfile.getCoverMediaId();
+
+                    if(userProfileDTO.getAvatarMediaId() != null && !userProfileDTO.getAvatarMediaId().equals(oldAvatarId)){
+                        MediaServiceClient.MediaDTO media = mediaClient.getMediaById(userProfileDTO.getAvatarMediaId());
+                        if(media == null || !existingUserProfile.getId().equals(media.ownerId()) || !"ACTIVE".equalsIgnoreCase(media.status())){
+                            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invaild avatar media: media does not exist, is inactive, or does not belong to user");
+                        }
+                    }
+                    if(userProfileDTO.getCoverMediaId() != null && !userProfileDTO.getCoverMediaId().equals(oldCoverId)){
+                        MediaServiceClient.MediaDTO media = mediaClient.getMediaById(userProfileDTO.getCoverMediaId());
+                        if(media == null || !existingUserProfile.getId().equals(media.ownerId()) || !"ACTIVE".equalsIgnoreCase(media.status())){
+                            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invaild cover media: media does not exist, is inactive, or does not belong to user");
+                        }
+                    }
                     userProfileMapper.partialUpdate(existingUserProfile, userProfileDTO);
 
                     UUID newAvatarId = existingUserProfile.getAvatarMediaId();

@@ -12,6 +12,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.minh.fakebook.feed.service.FeedFanoutService;
 import com.minh.fakebook.feed.service.event.PostCreatedEvent;
+import com.minh.fakebook.feed.service.event.PostUpdatedEvent;
 
 @Component("processPostEvent")
 public class PostEventListener implements Consumer<String>{
@@ -39,7 +40,10 @@ public class PostEventListener implements Consumer<String>{
                 return ;
             }
             UUID postId = UUID.fromString(root.get("id").asText());
-            if(!root.has("authorId") || root.get("authorId").isNull()){
+            String eventType = root.has("eventType") && !root.get("eventType").isNull() ? root.get("eventType").asText() : "";
+
+            
+            if("POST_DELETED".equalsIgnoreCase(eventType) || !root.has("authorId") || root.get("authorId").isNull()){
                 LOG.info("Processing post deletion event for postId: {}", postId);
                 feedFanoutService.processPostDeleted(postId);
                 return ;
@@ -48,10 +52,16 @@ public class PostEventListener implements Consumer<String>{
             String content = root.has("content") && !root.get("content").isNull() ? root.get("content").asText() : "";
             String visibility = root.has("visibility") && !root.get("visibility").isNull() ? root.get("visibility").asText() : "PUBLIC";
             String status = root.has("status") && !root.get("status").isNull() ? root.get("status").asText() : "ACTIVE";
+            
+            if("POST_UPDATED".equalsIgnoreCase(eventType) || root.has("updatedAt")){
+                Instant updatedAt = root.has("updatedAt") && !root.get("updatedAt").isNull() ? Instant.parse(root.get("updatedAt").asText()) : Instant.now();
+                PostUpdatedEvent updatedEvent = new PostUpdatedEvent(postId, authorId, content, visibility, status, updatedAt);
+                feedFanoutService.processPostUpdated(updatedEvent);
+                return ;
+            }
             Instant createdAt = root.has("createdAt") && !root.get("createdAt").isNull() ? Instant.parse(root.get("createdAt").asText()) : Instant.now();
-            PostCreatedEvent event = new PostCreatedEvent(postId, authorId, content, visibility, status, createdAt);
-            LOG.info("Processing PostCreatedEvent for postId: {} by authorId: {}", postId, authorId);
-            feedFanoutService.processPostCreated(event);
+            PostCreatedEvent createdEvent = new  PostCreatedEvent(postId, authorId, content,visibility, status, createdAt);
+            feedFanoutService.processPostCreated(createdEvent);
         } catch (Exception e){
             LOG.error("Error parsing/processing post event payload '{}' : {}", payload, e.getMessage(), e);
         }

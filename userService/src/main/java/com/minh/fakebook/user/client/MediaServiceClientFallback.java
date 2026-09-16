@@ -4,7 +4,9 @@ import java.util.UUID;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
+import org.springframework.web.server.ResponseStatusException;
 
 @Component
 public class MediaServiceClientFallback implements MediaServiceClient {
@@ -13,8 +15,8 @@ public class MediaServiceClientFallback implements MediaServiceClient {
 
     @Override
     public MediaDTO getMediaById(UUID mediaId) {
-        LOG.warn("Fallback triggered: mediaService is unavailable. Returning default media fallback for mediaId: {}", mediaId);
-        return new MediaDTO(mediaId, null, "/content/images/default-avatar.png", "FALLBACK");
+        LOG.error("Fallback triggered: mediaService is unavailable. Throwing SERVICE_UNAVAILABLE for mediaId: {}", mediaId);
+        throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "Media service is currently unavailable");
     }
 
 }
