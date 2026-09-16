@@ -36,6 +36,9 @@ public interface FriendshipRepository extends JpaRepository<Friendship, UUID>, J
 
     Page<Friendship> findByUserId(UUID userId, Pageable pageable);
 
+    @Query("SELECT f.friend.id FROM Friendship f WHERE f.user.id = :userId")
+    List<UUID> findFriendIdsByUserId(@Param("userId") UUID userId);
+
     @Query("SELECT f.friend.id FROM Friendship f WHERE f.user.id = :currentUserId AND f.friend.id IN :targetIds")
     Set<UUID> findFriendIdsIn(@Param ("currentUserId")UUID currentUserId, @Param ("targetIds") Collection<UUID> targetIds);
 

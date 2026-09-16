@@ -252,4 +252,10 @@ public class FriendshipResource {
         return ResponseEntity.ok(areFriends);
     }
 
+    @GetMapping("/user/{userId}/friend-ids")
+    public ResponseEntity<List<UUID>> getFriendIdsByUserId(@PathVariable("userId") UUID userId) {
+        LOG.debug("REST request to get friend IDs for user : {}", userId);
+        return ResponseEntity.ok().body(friendshipService.getFriendIdsByUserId(userId));
+    }
+
 }
