@@ -23,7 +23,7 @@ public class PostEventListener implements Consumer<String>{
 
     public PostEventListener(ObjectMapper objectMapper, FeedFanoutService feedFanoutService){
         this.objectMapper = objectMapper;
-        this. feedFanoutService = feedFanoutService;
+        this.feedFanoutService = feedFanoutService;
     }
 
     @Override 
@@ -60,7 +60,8 @@ public class PostEventListener implements Consumer<String>{
                 return ;
             }
             Instant createdAt = root.has("createdAt") && !root.get("createdAt").isNull() ? Instant.parse(root.get("createdAt").asText()) : Instant.now();
-            PostCreatedEvent createdEvent = new  PostCreatedEvent(postId, authorId, content,visibility, status, createdAt);
+            PostCreatedEvent createdEvent = new PostCreatedEvent(postId, authorId, content, visibility, status, createdAt);
+            LOG.info("Processing PostCreatedEvent for postId: {} by authorId: {}", postId, authorId);
             feedFanoutService.processPostCreated(createdEvent);
         } catch (Exception e){
             LOG.error("Error parsing/processing post event payload '{}' : {}", payload, e.getMessage(), e);
