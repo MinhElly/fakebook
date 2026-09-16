@@ -1,45 +1,35 @@
 package com.minh.fakebook.post.service;
 
+import com.minh.fakebook.post.client.UserClient;
 import com.minh.fakebook.post.domain.Post;
+import com.minh.fakebook.post.domain.PostMedia;
+import com.minh.fakebook.post.domain.enumeration.PostStatus;
+import com.minh.fakebook.post.domain.enumeration.PostVisibility;
 import com.minh.fakebook.post.repository.PostMediaRepository;
 import com.minh.fakebook.post.repository.PostReactionRepository;
 import com.minh.fakebook.post.repository.PostRepository;
+import com.minh.fakebook.post.security.AuthoritiesConstants;
 import com.minh.fakebook.post.service.dto.PostDTO;
-import com.minh.fakebook.post.service.dto.event.PostCreateEvent;
+import com.minh.fakebook.post.service.event.PostCreatedEvent;
+import com.minh.fakebook.post.service.event.PostDeletedEvent;
+import com.minh.fakebook.post.service.event.PostUpdatedEvent;
 import com.minh.fakebook.post.service.mapper.PostMapper;
+import io.namastack.outbox.Outbox;
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.kafka.core.KafkaTemplate;
-import org.springframework.security.access.AccessDeniedException;
-import com.minh.fakebook.post.domain.PostMedia;
-import com.minh.fakebook.post.domain.Post;
-import java.util.List;
-import java.util.ArrayList;
-import java.util.HashSet;
-import com.minh.fakebook.post.domain.enumeration.PostStatus;
-import com.minh.fakebook.post.domain.enumeration.PostVisibility;
-import com.minh.fakebook.post.domain.PostMedia;
-import com.minh.fakebook.post.service.dto.PostDTO;
-import com.minh.fakebook.post.security.AuthoritiesConstants;
+import org.springframework.cloud.stream.function.StreamBridge;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
-import io.namastack.outbox.Outbox;
-import com.minh.fakebook.post.service.event.PostCreatedEvent;
-import com.minh.fakebook.post.service.event.PostUpdatedEvent;
-import com.minh.fakebook.post.service.event.PostDeletedEvent;
-import java.time.Instant;
-import com.minh.fakebook.post.client.UserClient;
-import com.minh.fakebook.post.service.event.MediaCleanupEvent;
-import org.springframework.cloud.stream.function.StreamBridge;
-
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Service Implementation for managing {@link Post}.
@@ -60,20 +50,23 @@ public class PostService {
 
     private final PostReactionRepository postReactionRepository;
 
-    private final KafkaTemplate<String, Object> kafkaTemplate;
-
-    public PostService(PostRepository postRepository, PostMapper postMapper, PostMediaRepository postMediaRepository, PostReactionRepository postReactionRepository, KafkaTemplate<String, Object> kafkaTemplate) {
     private final UserClient userClient;
 
     private final StreamBridge streamBridge;
 
-    public PostService(PostRepository postRepository, PostMapper postMapper, PostMediaRepository postMediaRepository,
-                       PostReactionRepository postReactionRepository, Outbox outbox, UserClient userClient, StreamBridge streamBridge) {
+    public PostService(
+        PostRepository postRepository,
+        PostMapper postMapper,
+        PostMediaRepository postMediaRepository,
+        PostReactionRepository postReactionRepository,
+        Outbox outbox,
+        UserClient userClient,
+        StreamBridge streamBridge
+    ) {
         this.postRepository = postRepository;
         this.postMapper = postMapper;
         this.postMediaRepository = postMediaRepository;
         this.postReactionRepository = postReactionRepository;
-        this.kafkaTemplate = kafkaTemplate;
         this.outbox = outbox;
         this.userClient = userClient;
         this.streamBridge = streamBridge;
@@ -112,13 +105,6 @@ public class PostService {
 
         Post post = postMapper.toEntity(postDTO);
         Post savedPost = postRepository.save(post);
-        PostCreateEvent event = new PostCreateEvent(
-            savedPost.getId(),
-            savedPost.getAuthorId(),
-            savedPost.getVisibility(),
-            savedPost.getCreatedAt()
-        );
-        kafkaTemplate.send("post-events", savedPost.getAuthorId().toString(), event);
 
         List<UUID> mediaIds = postDTO.getMediaIds();
         if (mediaIds != null && !mediaIds.isEmpty()) {
@@ -134,18 +120,22 @@ public class PostService {
             postMediaRepository.saveAll(postMedias);
         }
 
+        // Emit "POST_CREATED" event to Kafka via Outbox pattern for feedService fanout.
+        outbox.schedule(
+            new PostCreatedEvent(
+                savedPost.getId(),
+                savedPost.getAuthorId(),
+                savedPost.getContent(),
+                savedPost.getVisibility(),
+                savedPost.getStatus(),
+                savedPost.getCreatedAt()
+            ),
+            "post-" + savedPost.getId()
+        );
+
         PostDTO resultDTO = postMapper.toDto(savedPost);
         resultDTO.setMediaIds(mediaIds);
         return resultDTO;
-        post = postRepository.save(post);
-        // TODO (Kafka/Outbox): Emit "POST_CREATED" event to Kafka.
-        // Purpose: feedService consumes this event to fan-out the post into the authors' friends' News Feeds.
-        outbox.schedule(
-            new PostCreatedEvent(post.getId(), post.getAuthorId(), post.getContent(), post.getVisibility(),
-                post.getStatus(),
-                Instant.now()),
-            "post-" + post.getId());
-        return postMapper.toDto(post);
     }
 
     /**
@@ -205,8 +195,7 @@ public class PostService {
         PostDTO resultDTO = postMapper.toDto(existingPost);
         resultDTO.setMediaIds(newMediaIds);
 
-        // TODO (Kafka/Outbox): Emit "POST_UPDATED" event to Kafka.
-        // Purpose: Notify feedService to update the post content in the News Feeds.
+        // Emit "POST_UPDATED" event to Kafka via Outbox pattern.
         outbox.schedule(
             new PostUpdatedEvent(existingPost.getId(), existingPost.getAuthorId(), existingPost.getContent(), existingPost.getVisibility(), existingPost.getStatus(), java.time.Instant.now()),
             "post-" + existingPost.getId()
@@ -249,8 +238,7 @@ public class PostService {
                     }
 
                     existingPost.setUpdatedAt(java.time.Instant.now());
-                    // TODO (Kafka/Outbox): Emit "POST_UPDATED" event to Kafka.
-                    // Purpose: Notify feedService to update the post content in the News Feeds.
+                    // Emit "POST_UPDATED" event to Kafka via Outbox pattern.
                     outbox.schedule(
                         new PostUpdatedEvent(existingPost.getId(), existingPost.getAuthorId(),
                             existingPost.getContent(),

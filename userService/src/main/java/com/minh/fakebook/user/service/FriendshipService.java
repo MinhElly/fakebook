@@ -4,6 +4,8 @@ import com.minh.fakebook.user.domain.Friendship;
 import com.minh.fakebook.user.repository.FriendshipRepository;
 import com.minh.fakebook.user.service.dto.FriendshipDTO;
 import com.minh.fakebook.user.service.mapper.FriendshipMapper;
+
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.slf4j.Logger;
@@ -127,5 +129,10 @@ public class FriendshipService {
     @Transactional(readOnly = true)
     public boolean areFriends(UUID userId1, UUID userId2) {
         return friendshipRepository.existsByUserIdAndFriendId(userId1, userId2);
+    }
+
+    @Transactional(readOnly = true)
+    public List<UUID> getFriendIdsByUserId(UUID userId) {
+        return friendshipRepository.findFriendIdsByUserId(userId);
     }
 }

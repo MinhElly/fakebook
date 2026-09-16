@@ -1,7 +1,7 @@
 spring:
   cloud:
     function:
-      definition: kafkaConsumer;kafkaProducer
+      definition: processPostEvent;kafkaConsumer;kafkaProducer
     stream:
       kafka:
         binder:
@@ -9,6 +9,10 @@ spring:
           auto-create-topics: true
           brokers: localhost:9092
       bindings:
+        processPostEvent-in-0:
+          destination: post-events
+          content-type: text/plain
+          group: feed-service-post-sync
         binding-out-0:
           content-type: text/plain
           group: feed-service

@@ -10,4 +10,6 @@ import org.springframework.stereotype.Repository;
  */
 @SuppressWarnings("unused")
 @Repository
-public interface FeedItemRepository extends JpaRepository<FeedItem, UUID>, JpaSpecificationExecutor<FeedItem> {}
+public interface FeedItemRepository extends JpaRepository<FeedItem, UUID>, JpaSpecificationExecutor<FeedItem> {
+    void deleteByPostId(UUID postId);
+}
