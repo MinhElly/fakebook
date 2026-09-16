@@ -5,6 +5,7 @@ import com.minh.fakebook.post.repository.PostMediaRepository;
 import com.minh.fakebook.post.repository.PostReactionRepository;
 import com.minh.fakebook.post.repository.PostRepository;
 import com.minh.fakebook.post.service.dto.PostDTO;
+import com.minh.fakebook.post.service.dto.event.PostCreateEvent;
 import com.minh.fakebook.post.service.mapper.PostMapper;
 import java.util.Optional;
 import java.util.UUID;
@@ -12,6 +13,12 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.kafka.core.KafkaTemplate;
+import org.springframework.security.access.AccessDeniedException;
+import com.minh.fakebook.post.domain.PostMedia;
+import com.minh.fakebook.post.domain.Post;
 import java.util.List;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -53,6 +60,9 @@ public class PostService {
 
     private final PostReactionRepository postReactionRepository;
 
+    private final KafkaTemplate<String, Object> kafkaTemplate;
+
+    public PostService(PostRepository postRepository, PostMapper postMapper, PostMediaRepository postMediaRepository, PostReactionRepository postReactionRepository, KafkaTemplate<String, Object> kafkaTemplate) {
     private final UserClient userClient;
 
     private final StreamBridge streamBridge;
@@ -63,6 +73,7 @@ public class PostService {
         this.postMapper = postMapper;
         this.postMediaRepository = postMediaRepository;
         this.postReactionRepository = postReactionRepository;
+        this.kafkaTemplate = kafkaTemplate;
         this.outbox = outbox;
         this.userClient = userClient;
         this.streamBridge = streamBridge;
@@ -76,7 +87,56 @@ public class PostService {
      */
     public PostDTO save(PostDTO postDTO) {
         LOG.debug("Request to save Post : {}", postDTO);
+
+        if (postDTO.getAuthorId() == null) {
+            Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+            if (auth != null && auth.isAuthenticated() && !"anonymousUser".equals(auth.getPrincipal())) {
+                if (auth instanceof JwtAuthenticationToken jwtAuth) {
+                    String sub = jwtAuth.getToken().getSubject();
+                    postDTO.setAuthorId(UUID.fromString(sub));
+                }
+            }
+        }
+
+        if (postDTO.getAuthorId() == null) {
+            throw new AccessDeniedException("Error: You must be logged in to create a post.");
+        }
+
+        if (postDTO.getStatus() == null) {
+            postDTO.setStatus(PostStatus.ACTIVE);
+        }
+
+        if (postDTO.getCreatedAt() == null) {
+            postDTO.setCreatedAt(Instant.now());
+        }
+
         Post post = postMapper.toEntity(postDTO);
+        Post savedPost = postRepository.save(post);
+        PostCreateEvent event = new PostCreateEvent(
+            savedPost.getId(),
+            savedPost.getAuthorId(),
+            savedPost.getVisibility(),
+            savedPost.getCreatedAt()
+        );
+        kafkaTemplate.send("post-events", savedPost.getAuthorId().toString(), event);
+
+        List<UUID> mediaIds = postDTO.getMediaIds();
+        if (mediaIds != null && !mediaIds.isEmpty()) {
+            List<PostMedia> postMedias = new ArrayList<>();
+            for (int i = 0; i < mediaIds.size(); i++) {
+                PostMedia pm = new PostMedia();
+                pm.setMediaId(mediaIds.get(i));
+                pm.setPost(savedPost);
+                pm.setDisplayOrder(i);
+                pm.setCreatedAt(Instant.now());
+                postMedias.add(pm);
+            }
+            postMediaRepository.saveAll(postMedias);
+        }
+
+        PostDTO resultDTO = postMapper.toDto(savedPost);
+        resultDTO.setMediaIds(mediaIds);
+        return resultDTO;
         post = postRepository.save(post);
         // TODO (Kafka/Outbox): Emit "POST_CREATED" event to Kafka.
         // Purpose: feedService consumes this event to fan-out the post into the authors' friends' News Feeds.

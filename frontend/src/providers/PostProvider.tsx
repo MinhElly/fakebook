@@ -189,13 +189,13 @@ export default function PostProvider({ children }: { children: React.ReactNode }
       if (imageFile instanceof File) {
         const formData = new FormData();
         formData.append("file", imageFile);
-        const mediaRes = await api.post("/services/mediaservice/api/media/medias/upload", formData);
+        const mediaRes = await api.post("/services/mediaservice/api/media/upload", formData);
         if (mediaRes.data && mediaRes.data.id) {
           mediaIds.push(mediaRes.data.id);
         }
       }
 
-      await api.post("/services/postservice/api/posts/create", {
+      await api.post("/services/postservice/api/posts", {
         content: content,
         visibility: visibility,
         mediaIds: mediaIds,
@@ -221,7 +221,7 @@ export default function PostProvider({ children }: { children: React.ReactNode }
       if (imageFile instanceof File) {
         const formData = new FormData();
         formData.append("file", imageFile);
-        const mediaRes = await api.post("/services/mediaservice/api/media/medias/upload", formData);
+        const mediaRes = await api.post("/services/mediaservice/api/media/upload", formData);
         if (mediaRes.data && mediaRes.data.id) {
           mediaIds.push(mediaRes.data.id);
         }

@@ -19,7 +19,7 @@ export function getUserAvatarUrl(user?: UserSummary | null): string {
     return user.avatarUrl;
   }
   if (user.avatarMediaId) {
-    return `/services/mediaservice/api/media/${user.avatarMediaId}`;
+    return `/services/mediaservice/api/media/${user.avatarMediaId}/file`;
   }
   return "/default-avatar.svg";
 }
