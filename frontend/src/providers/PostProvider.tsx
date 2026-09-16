@@ -5,6 +5,7 @@ import api from "@/services/apis";
 import { useAuth } from "@/providers/AuthProvider";
 import keycloak from "@/services/keycloak";
 import { getMyFriends } from "@/services/friendsService";
+import { getPersonalizedFeed } from "@/services/feedService";
 
 export default function PostProvider({ children }: { children: React.ReactNode }) {
   const [posts, setPosts] = useState<Post[]>([]);

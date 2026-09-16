@@ -7,6 +7,7 @@ import { useCommentStore } from "@/stores/commentStore";
 import { useOutsideClick } from "@/hooks/useOutsideClick";
 import CreatePostModal from "./CreatePostModal";
 import CommentSection from "./CommentSection";
+import MediaGrid from "./MediaGrid";
 import type { Post as PostType } from "@/types";
 import { useAuth } from "@/providers/AuthProvider";
 import keycloak from "@/services/keycloak";
@@ -386,11 +387,7 @@ export default function Post({ post }: Props) {
           </div>
         </div>
 
-        {post.image && (
-          <div className="relative bg-[#F0F2F5] flex justify-center border-y border-[#E4E6EB]">
-            <img src={post.image} alt="post" className="w-full max-h-[500px] object-contain" />
-          </div>
-        )}
+        <MediaGrid mediaIds={post.mediaIds} images={post.image ? [post.image] : []} />
 
         <div className="px-4 pt-1">
           <div className="flex items-center justify-between text-[#65676B] text-sm pb-2 border-b border-[#E4E6EB]">
