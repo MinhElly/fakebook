@@ -28,6 +28,7 @@ public class UserFeedResource {
     public UserFeedResource(UserFeedService userFeedService) {
         this.userFeedService = userFeedService;
     }
+
     @GetMapping ("/me")
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<List<FeedItemDTO>> getCurrentUserFeed(Pageable pageable){
