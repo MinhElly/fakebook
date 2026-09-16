@@ -23,6 +23,15 @@ import org.springframework.security.oauth2.server.resource.authentication.JwtAut
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import tech.jhipster.service.QueryService;
+import com.minh.fakebook.post.client.UserClient;
+import com.minh.fakebook.post.security.AuthoritiesConstants;
+import jakarta.persistence.criteria.Predicate;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.UUID;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 
 /**
  * Service for executing complex queries for {@link Post} entities in the database.
@@ -42,10 +51,15 @@ public class PostQueryService extends QueryService<Post> {
 
     private final PostMediaRepository postMediaRepository;
 
-    public PostQueryService(PostRepository postRepository, PostMapper postMapper, PostMediaRepository postMediaRepository) {
+    private final UserClient userClient;
+
+    public PostQueryService(PostRepository postRepository, PostMapper postMapper,
+            PostMediaRepository postMediaRepository,
+            UserClient userClient) {
         this.postRepository = postRepository;
         this.postMapper = postMapper;
         this.postMediaRepository = postMediaRepository;
+        this.userClient = userClient;
     }
 
     /**
@@ -89,60 +103,62 @@ public class PostQueryService extends QueryService<Post> {
          * @return the matching {@link Specification} of the entity.
          */
         protected Specification<Post> createSpecification(PostCriteria criteria) {
-            Specification<Post> specification = Specification.unrestricted();
+        Specification<Post> specification = Specification.unrestricted();
 
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        boolean isLoggedIn = auth != null && auth.isAuthenticated() && !"anonymousUser".equals(auth.getPrincipal());
 
-            Specification<Post> securitySpec = (root, query, builder) -> {
-                Predicate isActive = builder.equal(root.get(Post_.status), PostStatus.ACTIVE);
-
-                Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-                boolean isLoggedIn = auth != null && auth.isAuthenticated() && !"anonymousUser".equals(auth.getPrincipal());
-
-                // GUEST
-                if (!isLoggedIn) {
-                    Predicate isPublic = builder.equal(root.get(Post_.visibility), PostVisibility.PUBLIC);
-                    return builder.and(isActive, isPublic);
+        List<UUID> fetchedFriendIds = new ArrayList<>();
+        if (isLoggedIn) {
+            boolean isAdmin = auth.getAuthorities().stream()
+                    .anyMatch(a -> a.getAuthority().equals(AuthoritiesConstants.ADMIN));
+            if (!isAdmin && auth instanceof JwtAuthenticationToken jwtAuth) {
+                try {
+                    fetchedFriendIds = userClient
+                            .getFriendIdsByUserId(UUID.fromString(jwtAuth.getToken().getSubject()));
+                } catch (Exception e) {
+                    LOG.error("Error fetching friend ids from userService", e);
                 }
-
-                // ADMIN
-                boolean isAdmin = auth.getAuthorities().stream()
-                        .anyMatch(a -> a.getAuthority().equals(AuthoritiesConstants.ADMIN));
-                if (isAdmin) {
-                    return isActive;
-                }
-
-                // NORMAL USER
-                String sub = ((JwtAuthenticationToken) auth).
-  getToken().getSubject();
-                UUID currentUserId = UUID.fromString(sub);
-
-                Predicate isPublic = builder.equal(root.get(Post_.visibility), PostVisibility.PUBLIC);
-                Predicate isOwner = builder.equal(root.get(Post_.authorId), currentUserId);
-                Predicate isFriends = builder.equal(root.get(Post_.visibility), PostVisibility.FRIENDS);
-
-                // TODO (Row-Level Security & FeignClient): The 'isFriends' predicate currently allows ALL logged-in users.
-                // Must invoke userService to fetch actual friend IDs and inject them into an IN clause.
-
-                return builder.and(isActive, builder.or(isPublic, isOwner, isFriends));
-            };
-
-            specification = specification.and(securitySpec);
-
-            if (criteria != null) {
-            // This has to be called first, because the distinct method returns null
-                specification = specification.and(
-                    Specification.allOf(
-                        Boolean.TRUE.equals(criteria.getDistinct()) ? distinct(criteria.getDistinct()) : Specification.
-  unrestricted(),
-                        buildSpecification(criteria.getId(), Post_.id),
-                        buildSpecification(criteria.getAuthorId(), Post_.authorId),
-                        buildSpecification(criteria.getVisibility(), Post_.visibility),
-                        buildSpecification(criteria.getStatus(), Post_.status),
-                        buildRangeSpecification(criteria.getCreatedAt(), Post_.createdAt),
-                        buildRangeSpecification(criteria.getUpdatedAt(), Post_.updatedAt)
-                    )
-                );
             }
-            return specification;
         }
+        final List<UUID> finalFriendIds = fetchedFriendIds;
+
+        Specification<Post> securitySpec = (root, query, builder) -> {
+            Predicate isActive = builder.equal(root.get(Post_.status), PostStatus.ACTIVE);
+            if (!isLoggedIn) {
+                return builder.and(isActive, builder.equal(root.get(Post_.visibility),
+                        PostVisibility.PUBLIC));
+            }
+            boolean isAdmin = auth.getAuthorities().stream()
+                    .anyMatch(a -> a.getAuthority().equals(AuthoritiesConstants.ADMIN));
+            if (isAdmin) {
+                return isActive;
+            }
+            UUID currentUserId = UUID.fromString(((JwtAuthenticationToken) auth).getToken().getSubject());
+            Predicate isPublic = builder.equal(root.get(Post_.visibility), PostVisibility.PUBLIC);
+            Predicate isOwner = builder.equal(root.get(Post_.authorId), currentUserId);
+
+            Predicate isFriendsCondition = finalFriendIds.isEmpty() ? builder.disjunction()
+                    : root.get(Post_.authorId).in(finalFriendIds);
+            Predicate isFriends = builder.and(
+                    builder.equal(root.get(Post_.visibility), PostVisibility.FRIENDS),
+                    isFriendsCondition);
+            return builder.and(isActive, builder.or(isPublic, isOwner, isFriends));
+        };
+
+        specification = specification.and(securitySpec);
+
+        if (criteria != null) {
+            specification = specification.and(Specification.allOf(
+                    Boolean.TRUE.equals(criteria.getDistinct()) ? distinct(criteria.getDistinct())
+                            : Specification.unrestricted(),
+                    buildSpecification(criteria.getId(), Post_.id),
+                    buildSpecification(criteria.getAuthorId(), Post_.authorId),
+                    buildSpecification(criteria.getVisibility(), Post_.visibility),
+                    buildSpecification(criteria.getStatus(), Post_.status),
+                    buildRangeSpecification(criteria.getCreatedAt(), Post_.createdAt),
+                    buildRangeSpecification(criteria.getUpdatedAt(), Post_.updatedAt)));
+        }
+        return specification;
+    }
 }
