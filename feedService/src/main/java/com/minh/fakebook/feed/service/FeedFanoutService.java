@@ -3,7 +3,8 @@ package com.minh.fakebook.feed.service;
 import com.minh.fakebook.feed.client.UserServiceClient;
 import com.minh.fakebook.feed.repository.FeedItemRepository;
 import com.minh.fakebook.feed.service.dto.FeedItemDTO;
-import com.minh.fakebook.feed.service.dto.event.PostCreatedEvent;
+import com.minh.fakebook.feed.service.event.PostCreatedEvent;
+
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
@@ -46,22 +47,22 @@ public class FeedFanoutService {
     @Async
     @Transactional
     public void processPostCreated(PostCreatedEvent event) {
-        LOG.debug("Processing fan-out for postId: {}, visibility: {}", event.getPostId(), event.getVisibility());
+        LOG.debug("Processing fan-out for postId: {}, visibility: {}", event.id(), event.visibility());
         List<UUID> targetUserIds = new ArrayList<>();
 
-        if ("PRIVATE".equalsIgnoreCase(event.getVisibility())) {
-            targetUserIds.add(event.getAuthorId());
+        if ("PRIVATE".equalsIgnoreCase(event.visibility())) {
+            targetUserIds.add(event.authorId());
         } else {
             try {
-                List<UUID> friendIds = userServiceClient.getUserFriendsList(event.getAuthorId());
+                List<UUID> friendIds = userServiceClient.getUserFriendsList(event.authorId());
                 if (friendIds != null && !friendIds.isEmpty()) {
                     targetUserIds.addAll(friendIds);
                 }
             } catch (Exception e) {
-                LOG.error("Failed to fetch friends list for user {}", event.getAuthorId(), e);
+                LOG.error("Failed to fetch friends list for user {}", event.authorId(), e);
             }
-            if (!targetUserIds.contains(event.getAuthorId())) {
-                targetUserIds.add(event.getAuthorId());
+            if (!targetUserIds.contains(event.authorId())) {
+                targetUserIds.add(event.authorId());
             }
         }
 
@@ -69,9 +70,9 @@ public class FeedFanoutService {
             return;
         }
 
-        Instant createdAt = event.getCreatedAt() != null ? event.getCreatedAt() : Instant.now();
+        Instant createdAt = event.createdAt() != null ? event.createdAt() : Instant.now();
         double score = createdAt.toEpochMilli();
-        String postIdStr = event.getPostId().toString();
+        String postIdStr = event.id().toString();
         int maxFeedSize = 500;
 
         // 1. Redis ZSet Fan-out for O(1) Feed Reading
@@ -89,12 +90,12 @@ public class FeedFanoutService {
         for (UUID recipientId : targetUserIds) {
             FeedItemDTO dto = new FeedItemDTO();
             dto.setUserId(recipientId);
-            dto.setPostId(event.getPostId());
+            dto.setPostId(event.id());
             dto.setCreatedAt(createdAt);
             feedItemService.save(dto);
         }
 
-        LOG.info("Fan-out for postId: {} completed. Processed {} recipients", event.getPostId(), targetUserIds.size());
+        LOG.info("Fan-out for postId: {} completed. Processed {} recipients", event.id(), targetUserIds.size());
     }
 
     /**
