@@ -1,7 +1,7 @@
 package com.minh.fakebook.feed.service;
 
+import com.minh.fakebook.feed.client.UserServiceClient;
 import com.minh.fakebook.feed.repository.FeedItemRepository;
-import com.minh.fakebook.feed.service.client.UserServiceClient;
 import com.minh.fakebook.feed.service.dto.FeedItemDTO;
 import com.minh.fakebook.feed.service.dto.event.PostCreatedEvent;
 import java.time.Instant;

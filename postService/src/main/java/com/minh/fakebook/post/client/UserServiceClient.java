@@ -8,8 +8,8 @@ import org.springframework.web.bind.annotation.RequestParam;
 import com.minh.fakebook.post.config.FeignUserRelayRequestInterceptor;
 import java.util.List;
 
-@FeignClient(name = "userService", configuration = FeignUserRelayRequestInterceptor.class)
-public interface UserClient {
+@FeignClient(name = "userService", configuration = FeignUserRelayRequestInterceptor.class, fallback = UserServiceClientFallback.class)
+public interface UserServiceClient {
     /**
      * Call userService to check if two users are friends.
      */

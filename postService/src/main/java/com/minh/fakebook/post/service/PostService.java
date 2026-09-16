@@ -1,6 +1,6 @@
 package com.minh.fakebook.post.service;
 
-import com.minh.fakebook.post.client.UserClient;
+import com.minh.fakebook.post.client.UserServiceClient;
 import com.minh.fakebook.post.domain.Post;
 import com.minh.fakebook.post.domain.PostMedia;
 import com.minh.fakebook.post.domain.enumeration.PostStatus;
@@ -50,7 +50,7 @@ public class PostService {
 
     private final PostReactionRepository postReactionRepository;
 
-    private final UserClient userClient;
+    private final UserServiceClient userClient;
 
     private final StreamBridge streamBridge;
 
@@ -60,7 +60,7 @@ public class PostService {
         PostMediaRepository postMediaRepository,
         PostReactionRepository postReactionRepository,
         Outbox outbox,
-        UserClient userClient,
+        UserServiceClient userClient,
         StreamBridge streamBridge
     ) {
         this.postRepository = postRepository;

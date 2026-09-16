@@ -1,12 +1,12 @@
 package com.minh.fakebook.user.service;
 
+import com.minh.fakebook.user.client.MediaServiceClient;
 import com.minh.fakebook.user.domain.UserProfile;
 import com.minh.fakebook.user.domain.enumeration.FriendRequestStatus;
 import com.minh.fakebook.user.repository.FriendRequestRepository;
 import com.minh.fakebook.user.repository.FriendshipRepository;
 import com.minh.fakebook.user.repository.UserProfileRepository;
 import com.minh.fakebook.user.repository.FriendSuggestionProjection;
-import com.minh.fakebook.user.service.client.MediaClient;
 import com.minh.fakebook.user.service.dto.UserProfileDTO;
 import com.minh.fakebook.user.service.dto.UserProfileDetailDTO;
 import com.minh.fakebook.user.service.dto.UserSearchDTO;
@@ -61,7 +61,7 @@ public class UserProfileService {
 
     private final StreamBridge streamBridge;
 
-    private final MediaClient mediaClient;
+    private final MediaServiceClient mediaClient;
 
     public UserProfileService(
             UserProfileRepository userProfileRepository,
@@ -69,7 +69,7 @@ public class UserProfileService {
             FriendshipRepository friendshipRepository,
             FriendRequestRepository friendRequestRepository,
             StreamBridge streamBridge,
-            MediaClient mediaClient) {
+            MediaServiceClient mediaClient) {
         this.userProfileRepository = userProfileRepository;
         this.userProfileMapper = userProfileMapper;
         this.friendshipRepository = friendshipRepository;

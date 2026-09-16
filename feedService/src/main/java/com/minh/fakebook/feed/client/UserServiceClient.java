@@ -1,13 +1,12 @@
-package com.minh.fakebook.feed.service.client;
+package com.minh.fakebook.feed.client;
 
-import com.minh.fakebook.feed.client.TokenRelayRequestInterceptor;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 
-@FeignClient(name = "userService", path = "/api/friendships", configuration = TokenRelayRequestInterceptor.class)
+@FeignClient(name = "userService", path = "/api/friendships", configuration = TokenRelayRequestInterceptor.class, fallback = UserServiceFallback.class)
 public interface UserServiceClient {
 
     @GetMapping("/user/{userId}/friend-ids")

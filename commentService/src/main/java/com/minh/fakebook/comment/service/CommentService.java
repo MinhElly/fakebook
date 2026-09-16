@@ -17,7 +17,7 @@ import com.minh.fakebook.comment.service.dto.CommentDTO;
 import com.minh.fakebook.comment.service.dto.CreateCommentRequestDTO;
 import com.minh.fakebook.comment.service.dto.ReplyCommentRequestDTO;
 import com.minh.fakebook.comment.service.mapper.CommentMapper;
-import com.minh.fakebook.comment.client.UserFeignClient;
+import com.minh.fakebook.comment.client.UserServiceClient;
 import com.minh.fakebook.comment.domain.PostCache;
 import com.minh.fakebook.comment.repository.PostCacheRepository;
 import com.minh.fakebook.comment.client.PostFeignClient;
@@ -37,7 +37,7 @@ public class CommentService {
 
     private final PostCacheRepository postCacheRepository;
 
-    private final UserFeignClient userFeignClient;
+    private final UserServiceClient userFeignClient;
 
     private final PostFeignClient postFeignClient;
 
@@ -47,7 +47,7 @@ public class CommentService {
             CommentRepository commentRepository,
             CommentMapper commentMapper,
             PostCacheRepository postCacheRepository,
-            UserFeignClient userFeignClient,
+            UserServiceClient userFeignClient,
             PostFeignClient postFeignClient,
             JdbcTemplate jdbcTemplate 
     ) {
