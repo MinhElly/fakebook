@@ -55,24 +55,6 @@ public class PostResource {
         this.postQueryService = postQueryService;
     }
 
-    /**
-     * {@code POST  /posts} : Create a new post.
-     *
-     * @param postDTO the postDTO to create.
-     * @return the {@link ResponseEntity} with status {@code 201 (Created)} and with body the new postDTO, or with status {@code 400 (Bad Request)} if the post has already an ID.
-     * @throws URISyntaxException if the Location URI syntax is incorrect.
-     */
-    @PostMapping("")
-    public ResponseEntity<PostDTO> createPost(@Valid @RequestBody PostDTO postDTO) throws URISyntaxException {
-        LOG.debug("REST request to save Post : {}", postDTO);
-        if (postDTO.getId() != null) {
-            throw new BadRequestAlertException("A new post cannot already have an ID", ENTITY_NAME, "idexists");
-        }
-        postDTO = postService.save(postDTO);
-        return ResponseEntity.created(new URI("/api/posts/" + postDTO.getId()))
-            .headers(HeaderUtil.createEntityCreationAlert(applicationName, true, ENTITY_NAME, postDTO.getId().toString()))
-            .body(postDTO);
-    }
 
     /**
      * {@code PUT  /posts/:id} : Updates an existing post.
