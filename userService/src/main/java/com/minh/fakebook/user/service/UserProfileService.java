@@ -327,13 +327,13 @@ public class UserProfileService {
                             currentUserId, profile.getId(), FriendRequestStatus.PENDING);
                     if (sentReq.isPresent()) {
                         dto.setFriendshipStatus("PENDING_SENT");
-                        dto.setFriendRequestId(sentReq.get().getId());
+                        dto.setFriendRequestId(sentReq.orElseThrow().getId());
                     } else {
                         var recvReq = friendRequestRepository.findBySenderIdAndReceiverIdAndStatus(
                                 profile.getId(), currentUserId, FriendRequestStatus.PENDING);
                         if (recvReq.isPresent()) {
                             dto.setFriendshipStatus("PENDING_RECEIVED");
-                            dto.setFriendRequestId(recvReq.get().getId());
+                            dto.setFriendRequestId(recvReq.orElseThrow().getId());
                         } else {
                             dto.setFriendshipStatus("NONE");
                         }
@@ -353,7 +353,7 @@ public class UserProfileService {
                 .findFriendSuggestions(currentUserId, PageRequest.of(0, 100));
 
         if (suggestions.isEmpty()) {
-            return Collections.emptyList();
+            return List.of();
         }
 
         List<UUID> suggestionIds = suggestions.stream().map(FriendSuggestionProjection::getUserId).toList();

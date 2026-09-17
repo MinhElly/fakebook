@@ -16,7 +16,7 @@ public class UserServiceFallback implements UserServiceClient{
     @Override
     public List<UUID> getUserFriendsList(UUID userId) {
         LOG.warn("Fallback triggered: userService is unavailable. Returning getUserFriendsList=null for userId: {}", userId);
-        return Collections.emptyList();
+        return List.of();
     }
     
 }

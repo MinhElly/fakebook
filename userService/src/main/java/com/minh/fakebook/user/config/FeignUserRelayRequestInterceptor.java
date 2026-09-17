@@ -17,7 +17,7 @@ public class FeignUserRelayRequestInterceptor implements RequestInterceptor{
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if(authentication instanceof JwtAuthenticationToken jwtAuthenticationToken){
             String tokenValue = jwtAuthenticationToken.getToken().getTokenValue();
-            template.header(AUTHORIZATION_HEADER, String.format("%s %s", BEARER_TOKEN_TYPE, tokenValue));
+            template.header(AUTHORIZATION_HEADER, "%s %s".formatted(BEARER_TOKEN_TYPE, tokenValue));
         }
     }
 }
