@@ -5,7 +5,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import java.util.UUID;
 
-@FeignClient(name = "postService", configuration = TokenRelayRequestInterceptor.class)
+@FeignClient(name = "postservice", configuration = TokenRelayRequestInterceptor.class)
 public interface PostFeignClient {
 
     @GetMapping("/api/posts/{id}")
