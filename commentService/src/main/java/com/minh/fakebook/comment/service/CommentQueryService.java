@@ -22,7 +22,7 @@ import org.springframework.security.oauth2.server.resource.authentication.JwtAut
 import org.springframework.security.access.AccessDeniedException;
 import com.minh.fakebook.comment.domain.PostCache;
 import com.minh.fakebook.comment.repository.PostCacheRepository;
-import com.minh.fakebook.comment.client.UserFeignClient;
+import com.minh.fakebook.comment.client.UserServiceClient;
 import com.minh.fakebook.comment.security.AuthoritiesConstants;
 
 /**
@@ -43,13 +43,13 @@ public class CommentQueryService extends QueryService<Comment> {
 
     private final PostCacheRepository postCacheRepository;
 
-    private final UserFeignClient userFeignClient;
+    private final UserServiceClient userFeignClient;
 
     public CommentQueryService(
         CommentRepository commentRepository,
         CommentMapper commentMapper,
         PostCacheRepository postCacheRepository,
-        UserFeignClient userFeignClient
+        UserServiceClient userFeignClient
     ) {
         this.commentRepository = commentRepository;
         this.commentMapper = commentMapper;

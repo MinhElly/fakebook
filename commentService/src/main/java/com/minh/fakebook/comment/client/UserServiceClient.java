@@ -9,8 +9,8 @@ import java.util.UUID;
 /**
  * Feign Client to communicate with userService.
  */
-@FeignClient(name = "userService", configuration = TokenRelayRequestInterceptor.class)
-public interface UserFeignClient {
+@FeignClient(name = "userService", configuration = TokenRelayRequestInterceptor.class, fallback = UserServiceFallback.class)
+public interface UserServiceClient {
 
     /**
      * Calls userService to check friendship status.

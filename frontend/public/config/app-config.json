@@ -1,4 +1,4 @@
 {
-  "environment": "development",
-  "apiBaseUrl": "http://localhost:8080"
+  "environment": "production",
+  "apiBaseUrl": ""
 }

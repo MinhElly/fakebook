@@ -1,0 +1,19 @@
+logging:
+  level:
+    com.minh.fakebook.feed: INFO
+
+server:
+  port: 8086
+
+spring:
+  datasource:
+    type: com.zaxxer.hikari.HikariDataSource
+    url: jdbc:mariadb://${MARIADB_HOST:mariadb}:${MARIADB_PORT:3306}/feedservice?useLegacyDatetimeCode=false
+    username: ${FAKEBOOK_DB_USERNAME:root}
+    password: ${FAKEBOOK_DB_PASSWORD:}
+  data:
+    redis:
+      host: ${REDIS_HOST:redis}
+      port: ${REDIS_PORT:6379}
+  liquibase:
+    contexts: prod

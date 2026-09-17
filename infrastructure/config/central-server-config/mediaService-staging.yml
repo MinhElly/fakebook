@@ -1,0 +1,20 @@
+logging:
+  level:
+    com.minh.fakebook.media: INFO
+
+server:
+  port: 8084
+
+spring:
+  datasource:
+    type: com.zaxxer.hikari.HikariDataSource
+    url: jdbc:mariadb://${MARIADB_HOST:mariadb}:${MARIADB_PORT:3306}/mediaservice?useLegacyDatetimeCode=false
+    username: ${FAKEBOOK_DB_USERNAME:root}
+    password: ${FAKEBOOK_DB_PASSWORD:}
+  liquibase:
+    contexts: prod
+
+cloudinary:
+  cloud-name: ${CLOUDINARY_CLOUD_NAME}
+  api-key: ${CLOUDINARY_API_KEY}
+  api-secret: ${CLOUDINARY_API_SECRET}
