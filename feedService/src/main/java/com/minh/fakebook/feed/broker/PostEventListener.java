@@ -8,11 +8,12 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.minh.fakebook.feed.service.FeedFanoutService;
 import com.minh.fakebook.feed.service.event.PostCreatedEvent;
 import com.minh.fakebook.feed.service.event.PostUpdatedEvent;
+
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 
 @Component("processPostEvent")
 public class PostEventListener implements Consumer<String>{

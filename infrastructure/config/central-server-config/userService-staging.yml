@@ -11,5 +11,9 @@ spring:
     url: jdbc:mariadb://${MARIADB_HOST:mariadb}:${MARIADB_PORT:3306}/userservice?useLegacyDatetimeCode=false
     username: ${FAKEBOOK_DB_USERNAME}
     password: ${FAKEBOOK_DB_PASSWORD}
+  data:
+    redis:
+      host: ${REDIS_HOST:redis}
+      port: ${REDIS_PORT:6379}
   liquibase:
     contexts: prod

@@ -17,3 +17,9 @@ spring:
       port: ${REDIS_PORT:6379}
   liquibase:
     contexts: prod
+
+jhipster:
+  cache:
+    redis:
+      server: redis://${REDIS_HOST:redis}:${REDIS_PORT:6379}
+      cluster: false
