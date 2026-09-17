@@ -29,9 +29,12 @@ import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 import tech.jhipster.web.util.HeaderUtil;
 import tech.jhipster.web.util.PaginationUtil;
 import tech.jhipster.web.util.ResponseUtil;
+import com.minh.fakebook.media.domain.enumeration.MediaPurpose;
+import org.springframework.http.MediaType;
+import com.minh.fakebook.media.domain.Media;
 
 /**
- * REST controller for managing {@link com.minh.fakebook.media.domain.Media}.
+ * REST controller for managing {@link Media}.
  */
 @RestController
 @RequestMapping("/api/media")
@@ -207,12 +210,15 @@ public class MediaResource {
      * {@code POST  /medias/upload} : Upload a new media file (Image/Video).
      *
      * @param file the multipart file to upload.
-     * @return the {@link org.springframework.http.ResponseEntity} with status {@code 201 (Created)} and with body the new mediaDTO.
+     * @return the {@link ResponseEntity} with status {@code 201 (Created)} and with body the new mediaDTO.
      */
     @PostMapping(value = "/upload", consumes = { "multipart/form-data" })
-    public ResponseEntity<MediaDTO> uploadMedia(@RequestParam("file") MultipartFile file) throws URISyntaxException {
+    public ResponseEntity<MediaDTO> uploadMedia(
+        @RequestParam("file") MultipartFile file,
+                @RequestParam(value = "purpose", defaultValue = "GENERAL") MediaPurpose purpose )
+                throws URISyntaxException {
         LOG.debug("REST request to upload Media file: {}", file.getOriginalFilename());
-        MediaDTO result = mediaService.uploadMedia(file);
+        MediaDTO result = mediaService.uploadMedia(file, purpose);
         return ResponseEntity.created(new URI("/api/media/" + result.getId())).body(result);
     }
 
