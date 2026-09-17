@@ -30,6 +30,8 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.minh.fakebook.post.service.event.MediaCleanupEvent;
+import org.springframework.messaging.support.MessageBuilder;
 
 /**
  * Service Implementation for managing {@link Post}.
@@ -175,21 +177,24 @@ public class PostService {
 
         postRepository.save(existingPost);
 
-        //4. Replace media links
-        postMediaRepository.deleteByPostId(existingPost.getId());
+        // 4. Replace media links
+            java.util.List<UUID> oldMediaIds = postMediaRepository.
+  findByPostIdOrderByDisplayOrderAsc(existingPost.getId())
+                .stream()
+                .map(com.minh.fakebook.post.domain.PostMedia::getMediaId)
+                .toList();
+
+            postMediaRepository.deleteByPostId(existingPost.getId());
         List<UUID> newMediaIds = postDTO.getMediaIds();
-        if (newMediaIds != null && !newMediaIds.isEmpty()) {
-            List<PostMedia> postMedias = new ArrayList<>();
-            for (int i = 0; i < newMediaIds.size(); i++) {
-                PostMedia pm = new PostMedia();
-                pm.setMediaId(newMediaIds.get(i));
-                pm.setPost(existingPost);
-                pm.setDisplayOrder(i);
-                pm.setCreatedAt(java.time.Instant.now());
-                postMedias.add(pm);
+        if (oldMediaIds != null) {
+                for (UUID oldMediaId : oldMediaIds) {
+                    if (newMediaIds == null || !newMediaIds.contains(oldMediaId)) {
+                        MediaCleanupEvent event = new MediaCleanupEvent(oldMediaId, "POST UPDATED");
+                        streamBridge.send("mediaCleanupOut-out-0", event);
+                        LOG.info("Published MediaCleanupEvent for removed post mediaId: {}", oldMediaId);
+                    }
+                }
             }
-            postMediaRepository.saveAll(postMedias);
-        }
 
         //5. Convert and return DTO
         PostDTO resultDTO = postMapper.toDto(existingPost);
@@ -293,6 +298,13 @@ public class PostService {
 
         postMediaRepository.deleteByPostId(id);
         postReactionRepository.deleteByPostId(id);
+        if (mediaIds != null) {
+                for (UUID mediaId : mediaIds) {
+                    MediaCleanupEvent event = new MediaCleanupEvent(mediaId, "POST DELETED");
+                    streamBridge.send("mediaCleanupOut-out-0", event);
+                    LOG.info("Published MediaCleanupEvent for deleted post mediaId: {}",mediaId);
+                }
+            }
         outbox.schedule(
             new PostDeletedEvent(id),
             "post-" + id);

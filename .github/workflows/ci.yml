@@ -104,10 +104,16 @@ jobs:
             echo "PR detected: Running compile dry-run..."
             ./mvnw clean compile -DskipTests
           else
-            echo "Push detected: Building and pushing images: ${IMAGE_TAG}:${SHORT_SHA}, ${IMAGE_TAG}:staging, ${IMAGE_TAG}:latest"
+            BRANCH_REF="${{ github.ref_name }}"
+            EXTRA_TAGS="${BRANCH_REF}"
+            if [ "${BRANCH_REF}" = "main" ] || [ "${BRANCH_REF}" = "master" ]; then
+              EXTRA_TAGS="latest,main"
+            fi
+
+            echo "Push detected: Building and pushing images: ${IMAGE_TAG}:${SHORT_SHA}, ${IMAGE_TAG}:${EXTRA_TAGS}"
             ./mvnw clean package jib:build -DskipTests \
               -Djib.to.image="${IMAGE_TAG}:${SHORT_SHA}" \
-              -Djib.to.tags="staging,latest" \
+              -Djib.to.tags="${EXTRA_TAGS}" \
               -Djib.to.auth.username="${{ github.actor }}" \
               -Djib.to.auth.password="${{ secrets.GITHUB_TOKEN }}"
           fi
