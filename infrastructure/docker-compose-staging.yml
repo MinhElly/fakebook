@@ -128,7 +128,7 @@ services:
     restart: unless-stopped
 
   gateway:
-    image: fakebook-gateway:staging
+    image: ${DOCKER_REGISTRY_PREFIX:-}fakebook-gateway:${IMAGE_TAG:-staging}
     container_name: fakebook-gateway
     environment:
       SPRING_PROFILES_ACTIVE: staging
@@ -147,7 +147,7 @@ services:
     restart: unless-stopped
 
   authservice:
-    image: fakebook-authservice:staging
+    image: ${DOCKER_REGISTRY_PREFIX:-}fakebook-authservice:${IMAGE_TAG:-staging}
     container_name: fakebook-authservice
     environment:
       SPRING_PROFILES_ACTIVE: staging
@@ -164,7 +164,7 @@ services:
     restart: unless-stopped
 
   userservice:
-    image: fakebook-userservice:staging
+    image: ${DOCKER_REGISTRY_PREFIX:-}fakebook-userservice:${IMAGE_TAG:-staging}
     container_name: fakebook-userservice
     environment:
       SPRING_PROFILES_ACTIVE: staging
@@ -181,7 +181,7 @@ services:
     restart: unless-stopped
 
   postservice:
-    image: fakebook-postservice:staging
+    image: ${DOCKER_REGISTRY_PREFIX:-}fakebook-postservice:${IMAGE_TAG:-staging}
     container_name: fakebook-postservice
     environment:
       SPRING_PROFILES_ACTIVE: staging
@@ -200,7 +200,7 @@ services:
     restart: unless-stopped
 
   mediaservice:
-    image: fakebook-mediaservice:staging
+    image: ${DOCKER_REGISTRY_PREFIX:-}fakebook-mediaservice:${IMAGE_TAG:-staging}
     container_name: fakebook-mediaservice
     environment:
       SPRING_PROFILES_ACTIVE: staging
@@ -217,7 +217,7 @@ services:
     restart: unless-stopped
 
   commentservice:
-    image: fakebook-commentservice:staging
+    image: ${DOCKER_REGISTRY_PREFIX:-}fakebook-commentservice:${IMAGE_TAG:-staging}
     container_name: fakebook-commentservice
     environment:
       SPRING_PROFILES_ACTIVE: staging
@@ -236,7 +236,7 @@ services:
     restart: unless-stopped
 
   feedservice:
-    image: fakebook-feedservice:staging
+    image: ${DOCKER_REGISTRY_PREFIX:-}fakebook-feedservice:${IMAGE_TAG:-staging}
     container_name: fakebook-feedservice
     environment:
       SPRING_PROFILES_ACTIVE: staging
