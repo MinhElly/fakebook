@@ -23,7 +23,7 @@ import org.springframework.security.oauth2.server.resource.authentication.JwtAut
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import tech.jhipster.service.QueryService;
-import com.minh.fakebook.post.client.UserClient;
+import com.minh.fakebook.post.client.UserServiceClient;
 import com.minh.fakebook.post.security.AuthoritiesConstants;
 import jakarta.persistence.criteria.Predicate;
 import java.util.ArrayList;
@@ -51,15 +51,15 @@ public class PostQueryService extends QueryService<Post> {
 
     private final PostMediaRepository postMediaRepository;
 
-    private final UserClient userClient;
+    private final UserServiceClient userServiceClient;
 
     public PostQueryService(PostRepository postRepository, PostMapper postMapper,
             PostMediaRepository postMediaRepository,
-            UserClient userClient) {
+            UserServiceClient userServiceClient) {
         this.postRepository = postRepository;
         this.postMapper = postMapper;
         this.postMediaRepository = postMediaRepository;
-        this.userClient = userClient;
+        this.userServiceClient = userServiceClient;
     }
 
     /**
@@ -114,7 +114,7 @@ public class PostQueryService extends QueryService<Post> {
                     .anyMatch(a -> a.getAuthority().equals(AuthoritiesConstants.ADMIN));
             if (!isAdmin && auth instanceof JwtAuthenticationToken jwtAuth) {
                 try {
-                    fetchedFriendIds = userClient
+                    fetchedFriendIds = userServiceClient
                             .getFriendIdsByUserId(UUID.fromString(jwtAuth.getToken().getSubject()));
                 } catch (Exception e) {
                     LOG.error("Error fetching friend ids from userService", e);
