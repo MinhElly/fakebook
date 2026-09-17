@@ -9,7 +9,7 @@ spring:
   datasource:
     type: com.zaxxer.hikari.HikariDataSource
     url: jdbc:mariadb://${MARIADB_HOST:mariadb}:${MARIADB_PORT:3306}/postservice?useLegacyDatetimeCode=false
-    username: ${FAKEBOOK_DB_USERNAME:root}
-    password: ${FAKEBOOK_DB_PASSWORD:}
+    username: ${FAKEBOOK_DB_USERNAME}
+    password: ${FAKEBOOK_DB_PASSWORD}
   liquibase:
     contexts: prod

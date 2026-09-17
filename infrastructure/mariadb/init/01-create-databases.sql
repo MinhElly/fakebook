@@ -8,9 +8,10 @@ CREATE DATABASE IF NOT EXISTS postservice CHARACTER SET utf8mb4 COLLATE utf8mb4_
 CREATE DATABASE IF NOT EXISTS mediaservice CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 CREATE DATABASE IF NOT EXISTS commentservice CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 CREATE DATABASE IF NOT EXISTS feedservice CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE DATABASE IF NOT EXISTS keycloak CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 -- ============================================================================
--- 2. TẠO 7 DATABASE USERS RIÊNG BIỆT & PHÂN QUYỀN TRUY CẬP
+-- 2. TẠO 8 DATABASE USERS RIÊNG BIỆT & PHÂN QUYỀN TRUY CẬP
 -- ============================================================================
 
 -- Gateway User
@@ -40,6 +41,10 @@ GRANT ALL PRIVILEGES ON commentservice.* TO 'comment_user'@'%';
 -- Feed Service User
 CREATE USER IF NOT EXISTS 'feed_user'@'%' IDENTIFIED BY 'FeedPass2026!';
 GRANT ALL PRIVILEGES ON feedservice.* TO 'feed_user'@'%';
+
+-- Keycloak User
+CREATE USER IF NOT EXISTS 'keycloak_user'@'%' IDENTIFIED BY 'KeycloakPass2026!';
+GRANT ALL PRIVILEGES ON keycloak.* TO 'keycloak_user'@'%';
 
 -- Áp dụng ngay thay đổi quyền
 FLUSH PRIVILEGES;
