@@ -32,6 +32,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import com.minh.fakebook.post.service.event.MediaCleanupEvent;
 import org.springframework.messaging.support.MessageBuilder;
+import com.minh.fakebook.post.client.MediaServiceClient;
+import com.minh.fakebook.post.client.MediaValidationDTO;
 
 /**
  * Service Implementation for managing {@link Post}.
@@ -56,15 +58,17 @@ public class PostService {
 
     private final StreamBridge streamBridge;
 
+    private final MediaServiceClient mediaServiceClient;
+
     public PostService(
-        PostRepository postRepository,
-        PostMapper postMapper,
-        PostMediaRepository postMediaRepository,
-        PostReactionRepository postReactionRepository,
-        Outbox outbox,
-        UserServiceClient userClient,
-        StreamBridge streamBridge
-    ) {
+            PostRepository postRepository,
+            PostMapper postMapper,
+            PostMediaRepository postMediaRepository,
+            PostReactionRepository postReactionRepository,
+            Outbox outbox,
+            UserServiceClient userClient,
+            StreamBridge streamBridge,
+            MediaServiceClient mediaServiceClient) {
         this.postRepository = postRepository;
         this.postMapper = postMapper;
         this.postMediaRepository = postMediaRepository;
@@ -72,6 +76,7 @@ public class PostService {
         this.outbox = outbox;
         this.userClient = userClient;
         this.streamBridge = streamBridge;
+        this.mediaServiceClient = mediaServiceClient;
     }
 
     /**
@@ -354,18 +359,27 @@ public class PostService {
         // 3. Save to Database
         newPost = postRepository.save(newPost);
 
-        // 4. Save attached media files (if any)
-        if (mediaIds != null && !mediaIds.isEmpty()) {
-            int order = 0;
-            for (UUID mediaId : mediaIds) {
-                PostMedia postMedia = new PostMedia();
-                postMedia.setPost(newPost);
-                postMedia.setMediaId(mediaId);
-                postMedia.setDisplayOrder(order++);
-                postMedia.setCreatedAt(java.time.Instant.now());
-                postMediaRepository.save(postMedia);
+        // 4. Validate and Save attached media files (if any)
+            if (mediaIds != null && !mediaIds.isEmpty()) {
+                int order = 0;
+                for (UUID mediaId : mediaIds) {
+                    try {
+                        MediaValidationDTO mediaInfo = mediaServiceClient.getMedia(mediaId);
+                        if (!authorId.equals(mediaInfo.ownerId()) || !"ACTIVE".equals(mediaInfo.status()) || !"POST".equals(mediaInfo.purpose())) {
+                            throw new RuntimeException("Error: Invalid media permissions or status.");
+                        }
+                    } catch (Exception e) {
+                        throw new IllegalArgumentException("Error: Media validation failed for ID " + mediaId);
+                    }
+
+                    PostMedia postMedia = new PostMedia();
+                    postMedia.setPost(newPost);
+                    postMedia.setMediaId(mediaId);
+                    postMedia.setDisplayOrder(order++);
+                    postMedia.setCreatedAt(java.time.Instant.now());
+                    postMediaRepository.save(postMedia);
+                }
             }
-        }
         PostDTO result = postMapper.toDto(newPost);
         outbox.schedule(
             new com.minh.fakebook.post.service.event.PostCreatedEvent(result.getId(), result.
