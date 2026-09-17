@@ -8,8 +8,8 @@ server:
 spring:
   r2dbc:
     url: r2dbc:mariadb://${MARIADB_HOST:mariadb}:${MARIADB_PORT:3306}/gateway?useLegacyDatetimeCode=false
-    username: ${FAKEBOOK_DB_USERNAME:root}
-    password: ${FAKEBOOK_DB_PASSWORD:}
+    username: ${FAKEBOOK_DB_USERNAME}
+    password: ${FAKEBOOK_DB_PASSWORD}
   liquibase:
     contexts: prod
     url: jdbc:mariadb://${MARIADB_HOST:mariadb}:${MARIADB_PORT:3306}/gateway?useLegacyDatetimeCode=false
