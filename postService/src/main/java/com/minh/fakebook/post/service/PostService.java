@@ -34,6 +34,8 @@ import com.minh.fakebook.post.service.event.MediaCleanupEvent;
 import org.springframework.messaging.support.MessageBuilder;
 import com.minh.fakebook.post.client.MediaServiceClient;
 import com.minh.fakebook.post.client.MediaValidationDTO;
+import com.minh.fakebook.post.service.event.EventEnvelope;
+
 
 /**
  * Service Implementation for managing {@link Post}.
@@ -128,18 +130,11 @@ public class PostService {
         }
 
         // Emit "POST_CREATED" event to Kafka via Outbox pattern for feedService fanout.
-        outbox.schedule(
-            new PostCreatedEvent(
-                savedPost.getId(),
-                savedPost.getAuthorId(),
-                savedPost.getContent(),
-                savedPost.getVisibility(),
-                savedPost.getStatus(),
-                savedPost.getCreatedAt()
-            ),
-            "post-" + savedPost.getId()
-        );
-
+        publishEvent("POST_CREATED",
+                new PostCreatedEvent(savedPost.getId(), savedPost.getAuthorId(), savedPost.getContent(),
+                        savedPost.getVisibility(), savedPost.getStatus(),
+                        savedPost.getCreatedAt()),
+                savedPost.getId());
         PostDTO resultDTO = postMapper.toDto(savedPost);
         resultDTO.setMediaIds(mediaIds);
         return resultDTO;
@@ -206,10 +201,9 @@ public class PostService {
         resultDTO.setMediaIds(newMediaIds);
 
         // Emit "POST_UPDATED" event to Kafka via Outbox pattern.
-        outbox.schedule(
-            new PostUpdatedEvent(existingPost.getId(), existingPost.getAuthorId(), existingPost.getContent(), existingPost.getVisibility(), existingPost.getStatus(), java.time.Instant.now()),
-            "post-" + existingPost.getId()
-        );
+        publishEvent("POST_UPDATED", new PostUpdatedEvent(existingPost.getId(),
+                existingPost.getAuthorId(), existingPost.getContent(), existingPost.getVisibility(),
+                existingPost.getStatus(), java.time.Instant.now()), existingPost.getId());
         return resultDTO;
     }
 
@@ -249,11 +243,9 @@ public class PostService {
 
                     existingPost.setUpdatedAt(java.time.Instant.now());
                     // Emit "POST_UPDATED" event to Kafka via Outbox pattern.
-                    outbox.schedule(
-                        new PostUpdatedEvent(existingPost.getId(), existingPost.getAuthorId(),
-                            existingPost.getContent(),
-                            existingPost.getVisibility(), existingPost.getStatus(), java.time.Instant.now()),
-                        "post-" + existingPost.getId());
+                    publishEvent("POST_UPDATED", new PostUpdatedEvent(existingPost.getId(),
+                            existingPost.getAuthorId(), existingPost.getContent(), existingPost.getVisibility(),
+                            existingPost.getStatus(), java.time.Instant.now()), existingPost.getId());
 
                     return existingPost;
                 })
@@ -310,9 +302,7 @@ public class PostService {
                     LOG.info("Published MediaCleanupEvent for deleted post mediaId: {}",mediaId);
                 }
             }
-        outbox.schedule(
-            new PostDeletedEvent(id),
-            "post-" + id);
+            publishEvent("POST_DELETED", new PostDeletedEvent(id), id);
         // 5. Delete the actual post
         postRepository.deleteById(id);
     }
@@ -380,14 +370,10 @@ public class PostService {
                     postMediaRepository.save(postMedia);
                 }
             }
-        PostDTO result = postMapper.toDto(newPost);
-        outbox.schedule(
-            new com.minh.fakebook.post.service.event.PostCreatedEvent(result.getId(), result.
-                getAuthorId(), result.getContent(), result.getVisibility(), result.getStatus(), java.time.Instant.
-                now()),
-            "post-" + result.getId()
-        );
-        return findOne(newPost.getId()).orElseThrow();
+            PostDTO result = postMapper.toDto(newPost);
+            publishEvent("POST_CREATED", new PostCreatedEvent(result.getId(), result.getAuthorId(), result.getContent(),
+            result.getVisibility(), result.getStatus(), java.time.Instant.now()), result.getId());
+            return findOne(newPost.getId()).orElseThrow();
     }
 
     /**
@@ -402,33 +388,30 @@ public class PostService {
         LOG.debug("Request to get Post : {}", id);
         return postRepository.findById(id).map(post -> {
 
-                Authentication auth = org.springframework.security.core.context.
-  SecurityContextHolder.getContext().getAuthentication();
-                boolean isGuest = (auth == null || !auth.isAuthenticated() || "anonymousUser".equals(auth.getPrincipal()));
-                boolean isAdmin = !isGuest && auth.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals(com.minh.
-  fakebook.post.security.AuthoritiesConstants.ADMIN));
+            Authentication auth = org.springframework.security.core.context.SecurityContextHolder.getContext()
+                    .getAuthentication();
+            boolean isGuest = (auth == null || !auth.isAuthenticated() || "anonymousUser".equals(auth.getPrincipal()));
+            boolean isAdmin = !isGuest && auth.getAuthorities().stream()
+                    .anyMatch(a -> a.getAuthority().equals(com.minh.fakebook.post.security.AuthoritiesConstants.ADMIN));
 
+            if (post.getStatus() == PostStatus.DELETED && !isAdmin) {
+                throw new AccessDeniedException("Error: Post not found or has been deleted.");
+            }
 
-                if (post.getStatus() == PostStatus.DELETED && !isAdmin) {
-                    throw new AccessDeniedException("Error: Post not found or has been deleted.");
+            // 1. Check Private Visibility
+            if (post.getVisibility() == PostVisibility.PRIVATE) {
+                if (isGuest) {
+                    throw new AccessDeniedException("Error: You do not have permission to view this private post.");
                 }
-
-
-                // 1. Check Private Visibility
-                if (post.getVisibility() == PostVisibility.PRIVATE) {
-                    if (isGuest) {
-                        throw new AccessDeniedException("Error: You do not have permission to view this private post.");
-                    }
-                    if (!isAdmin) {
-                        String sub = ((JwtAuthenticationToken)
-  auth).getToken().getSubject();
-                        if (!post.getAuthorId().toString().equals(sub)) {
-                            throw new AccessDeniedException("Error: Only the author can view this private post.");
-                        }
+                if (!isAdmin) {
+                    String sub = ((JwtAuthenticationToken) auth).getToken().getSubject();
+                    if (!post.getAuthorId().toString().equals(sub)) {
+                        throw new AccessDeniedException("Error: Only the author can view this private post.");
                     }
                 }
+            }
 
-                // 2. Check Friends Visibility
+            // 2. Check Friends Visibility
             if (post.getVisibility() == PostVisibility.FRIENDS && !isAdmin) {
                 if (isGuest) {
                     throw new AccessDeniedException("Error: You must be logged in to view this friends-only post.");
@@ -444,18 +427,24 @@ public class PostService {
                 }
             }
 
-                // 3. Convert to DTO
-                PostDTO dto = postMapper.toDto(post);
+            // 3. Convert to DTO
+            PostDTO dto = postMapper.toDto(post);
 
-                // 4. Fetch and attach media IDs
-                List<UUID> mediaIds = postMediaRepository.findByPostIdOrderByDisplayOrderAsc(post.getId())
-                        .stream()
-                        .map(PostMedia::getMediaId)
-                        .toList();
-                dto.setMediaIds(mediaIds);
+            // 4. Fetch and attach media IDs
+            List<UUID> mediaIds = postMediaRepository.findByPostIdOrderByDisplayOrderAsc(post.getId())
+                    .stream()
+                    .map(PostMedia::getMediaId)
+                    .toList();
+            dto.setMediaIds(mediaIds);
 
-                return dto;
-            });
+            return dto;
+        });
+    }
+    
+    private void publishEvent(String eventType, Object payload, UUID aggregateId) {
+        EventEnvelope<Object> envelope = new EventEnvelope<>(
+                UUID.randomUUID(), eventType, 1, java.time.Instant.now(), payload);
+        outbox.schedule(envelope, "post-" + aggregateId);
     }
 }
 

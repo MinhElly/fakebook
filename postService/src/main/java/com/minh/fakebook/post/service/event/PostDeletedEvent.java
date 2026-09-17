@@ -5,7 +5,7 @@ import java.util.UUID;
 /**
  * Event published when a post is permanently deleted.
  */
-@io.namastack.outbox.annotation.OutboxEvent
+
 public record PostDeletedEvent(
         UUID id) {
 }

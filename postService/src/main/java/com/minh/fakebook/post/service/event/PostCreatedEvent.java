@@ -8,7 +8,7 @@ import java.util.UUID;
 /**
  * Event published when a new post is created.
  */
-@io.namastack.outbox.annotation.OutboxEvent
+
 public record PostCreatedEvent(
     UUID id,
     UUID authorId,
