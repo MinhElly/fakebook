@@ -25,33 +25,29 @@ package com.minh.fakebook.comment.broker;
         @Override
         @Transactional
         public void accept(Message<String> message) {
-            String payload = message.getPayload();
             try {
-                JsonNode jsonNode = objectMapper.readTree(payload);
-                String eventType = jsonNode.has("eventType") && !jsonNode.get("eventType").isNull() ? jsonNode.get("eventType").asString() : "";
+                JsonNode rootNode = objectMapper.readTree(message.getPayload());
+                String eventType = rootNode.has("eventType") ? rootNode.get("eventType").asString() : "";
+                JsonNode data = rootNode.has("data") ? rootNode.get("data") : rootNode;
 
-
-                if ("POST_DELETED".equalsIgnoreCase(eventType) || !jsonNode.has("authorId") || jsonNode.get("authorId").isNull()) {
-                    String postId = jsonNode.get("id").asString();
+                if ("POST_DELETED".equals(eventType) || !data.has("authorId") || data.get("authorId").isNull()) {
+                    String postId = data.get("id").asString();
                     jdbcTemplate.update("DELETE FROM post_cache WHERE id = ?", postId);
                 } else {
-                    String postId = jsonNode.get("id").asString();
-                    String authorId = jsonNode.get("authorId").asString();
-                    String status = jsonNode.has("status") && !jsonNode.get("status").isNull() ? jsonNode.get("status").asString() : "ACTIVE";
-                    String visibility = jsonNode.has("visibility") && !jsonNode.get("visibility").isNull() ? jsonNode.get("visibility").asString() : "PUBLIC";
+                    String postId = data.get("id").asString();
+                    String authorId = data.get("authorId").asString();
+                    String status = data.has("status") && !data.get("status").isNull() ?data.get("status").asString() : "ACTIVE";
+                    String visibility = data.has("visibility") && !data.get("visibility").isNull() ? data.get("visibility").asString() : "PUBLIC";
 
-                    String sql = "INSERT INTO post_cache (id, author_id, status, visibility) VALUES (?, ?, ?, ?) " +
-                                 "ON DUPLICATE KEY UPDATE author_id = ?, status = ?, visibility = ?";
+                    String sql = "INSERT INTO post_cache (id, author_id, status, visibility) VALUES (?, ?, ?, ?) " + "ON DUPLICATE KEY UPDATE author_id = ?, status = ?, visibility = ?";
                     jdbcTemplate.update(sql, postId, authorId, status, visibility, authorId, status, visibility);
                 }
-
-                Acknowledgment acknowledgment = message.getHeaders().get(KafkaHeaders.ACKNOWLEDGMENT, Acknowledgment.class);
-                if (acknowledgment != null) {
-                    acknowledgment.acknowledge();
-                }
+                Acknowledgment ack = message.getHeaders().get(KafkaHeaders.ACKNOWLEDGMENT, Acknowledgment.class);
+                if (ack != null) ack.acknowledge();
             } catch (Exception e) {
                 System.err.println("Kafka process error: " + e.getMessage());
-                throw new RuntimeException("Kafka process failed, triggering retry or DLT", e);
+                throw new RuntimeException("Kafka process failed, triggering retry or DLT",
+  e);
             }
         }
     }
