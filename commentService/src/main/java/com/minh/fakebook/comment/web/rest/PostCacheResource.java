@@ -21,12 +21,16 @@ import org.springframework.web.bind.annotation.*;
 import tech.jhipster.web.util.HeaderUtil;
 import tech.jhipster.web.util.ResponseUtil;
 
+import org.springframework.security.access.prepost.PreAuthorize;
+import com.minh.fakebook.comment.security.AuthoritiesConstants;
+
 /**
  * REST controller for managing {@link com.minh.fakebook.comment.domain.PostCache}.
  */
 @RestController
 @RequestMapping("/api/post-caches")
 @Transactional
+@PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\")")
 public class PostCacheResource {
 
     private static final Logger LOG = LoggerFactory.getLogger(PostCacheResource.class);

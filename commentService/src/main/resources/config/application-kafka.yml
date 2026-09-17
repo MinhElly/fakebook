@@ -12,7 +12,7 @@ spring:
           processPostEvent-in-0:
             consumer:
               enable-dlq: true
-              dlq-name: post-events-comment-dlq
+              dlq-name: post-events-dlt
               auto-commit-offset: false
       bindings:
         processPostEvent-in-0:
@@ -22,6 +22,7 @@ spring:
           consumer:
             max-attempts: 3
         binding-out-0:
+          destination: post-events
           content-type: text/plain
           group: comment-service
         kafkaConsumer-in-0:
