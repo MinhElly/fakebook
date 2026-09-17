@@ -36,6 +36,14 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
+      - name: Sanitize Branch Name & Calculate Short SHA
+        id: meta
+        run: |
+          CLEAN_TAG=$(echo "${{ github.ref_name }}" | sed 's/\//-/g')
+          SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
+          echo "clean_tag=${CLEAN_TAG}" >> $GITHUB_OUTPUT
+          echo "short_sha=${SHORT_SHA}" >> $GITHUB_OUTPUT
+
       - name: Build & Push Frontend Image
         uses: docker/build-push-action@v6
         with:
@@ -43,7 +51,8 @@ jobs:
           file: ./frontend/Dockerfile
           push: ${{ github.event_name != 'pull_request' }}
           tags: |
-            ghcr.io/${{ github.repository_owner }}/fakebook-frontend:${{ github.ref_name }}
+            ghcr.io/${{ github.repository_owner }}/fakebook-frontend:${{ steps.meta.outputs.clean_tag }}
+            ghcr.io/${{ github.repository_owner }}/fakebook-frontend:${{ steps.meta.outputs.short_sha }}
             ghcr.io/${{ github.repository_owner }}/fakebook-frontend:latest
 
   # 2. Backend Microservices Matrix Build & Push to GHCR
@@ -116,7 +125,8 @@ jobs:
             ./mvnw clean compile -DskipTests
           else
             BRANCH_REF="${{ github.ref_name }}"
-            EXTRA_TAGS="${BRANCH_REF}"
+            CLEAN_BRANCH=$(echo "${BRANCH_REF}" | sed 's/\//-/g')
+            EXTRA_TAGS="${CLEAN_BRANCH}"
             if [ "${BRANCH_REF}" = "main" ] || [ "${BRANCH_REF}" = "master" ]; then
               EXTRA_TAGS="latest,main"
             fi
