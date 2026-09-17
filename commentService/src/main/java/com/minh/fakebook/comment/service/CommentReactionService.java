@@ -121,7 +121,7 @@ public class CommentReactionService {
                 userId);
 
         if (existingReaction.isPresent()) {
-            CommentReaction reaction = existingReaction.get();
+            CommentReaction reaction = existingReaction.orElseThrow();
             if (reaction.getReactionType().equals(reactionType)) {
                 commentReactionRepository.delete(reaction);
                 return Optional.empty();

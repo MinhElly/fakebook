@@ -110,7 +110,7 @@ public class MediaService {
             return Optional.empty();
         }
 
-        Media media = mediaOpt.get();
+        Media media = mediaOpt.orElseThrow();
 
         // 1. Identify if the current request is from a Guest or an Authenticated User
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
@@ -145,7 +145,7 @@ public class MediaService {
         if (mediaOpt.isEmpty()) {
             return; // Media not found, safely return
         }
-        Media media = mediaOpt.get();
+        Media media = mediaOpt.orElseThrow();
 
         // 2. Authentication check
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
@@ -192,7 +192,7 @@ public class MediaService {
             LOG.debug("Media ID {} not found for system cleanup.", id);
             return;
         }
-        Media media = mediaOpt.get();
+        Media media = mediaOpt.orElseThrow();
 
         // 1. Physical file cleanup from Cloudinary / Storage Provider
         try {

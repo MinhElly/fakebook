@@ -129,7 +129,7 @@ public class CommentReactionResource {
                 currentUserId, reactionType);
 
         if (result.isPresent()) {
-            return ResponseEntity.ok(result.get());
+            return ResponseEntity.ok(result.orElseThrow());
         } else {
             return ResponseEntity.noContent().build();
         }
