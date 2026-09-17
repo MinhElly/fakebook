@@ -7,12 +7,14 @@ services:
     environment:
       MARIADB_ROOT_PASSWORD: ${MARIADB_ROOT_PASSWORD:-StagingRootPass2026!}
       MARIADB_DATABASE: gateway
-    ports:
-      - "3307:3306"
     volumes:
       - /var/lib/fakebook-staging/mariadb_data:/var/lib/mysql
       - ./mariadb/init:/docker-entrypoint-initdb.d:ro
     command: mariadbd --lower_case_table_names=1 --character_set_server=utf8mb4 --explicit_defaults_for_timestamp
+    deploy:
+      resources:
+        limits:
+          memory: 1536M
     healthcheck:
       test: ['CMD', '/usr/local/bin/healthcheck.sh', '--connect', '--innodb_initialized']
       interval: 5s
@@ -23,15 +25,21 @@ services:
   keycloak:
     image: quay.io/keycloak/keycloak:26.7.2-1
     container_name: fakebook-keycloak
-    command: start-dev --import-realm
+    command: start --import-realm
     environment:
       KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_BOOTSTRAP_ADMIN_USERNAME:-admin}
-      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_BOOTSTRAP_ADMIN_PASSWORD:-admin}
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_BOOTSTRAP_ADMIN_PASSWORD:-StagingAdminPass2026!}
       KC_FEATURES: scripts
       KC_HTTP_PORT: 9080
+      KC_HTTP_ENABLED: 'true'
+      KC_PROXY_HEADERS: xforwarded
+      KC_HOSTNAME: ${KEYCLOAK_HOSTNAME:-staging.fakebook.com}
+      KC_HOSTNAME_STRICT: 'false'
       KC_HEALTH_ENABLED: 'true'
-    ports:
-      - "9080:9080"
+    deploy:
+      resources:
+        limits:
+          memory: 1024M
     volumes:
       - /var/lib/fakebook-staging/keycloak_data:/opt/keycloak/data
       - ../gateway/src/main/docker/realm-config:/opt/keycloak/data/import:ro
@@ -46,8 +54,10 @@ services:
     image: hashicorp/consul:2.0.3
     container_name: fakebook-consul
     command: consul agent -dev -ui -client 0.0.0.0 -log-level=INFO
-    ports:
-      - "8500:8500"
+    deploy:
+      resources:
+        limits:
+          memory: 256M
     healthcheck:
       test: ['CMD', 'consul', 'members']
       interval: 5s
@@ -65,6 +75,10 @@ services:
       INIT_SLEEP_SECONDS: 2
       CONSUL_URL: consul
       CONSUL_PORT: 8500
+    deploy:
+      resources:
+        limits:
+          memory: 128M
     volumes:
       - ./config/central-server-config:/config:ro
     restart: unless-stopped
@@ -72,8 +86,6 @@ services:
   kafka:
     image: apache/kafka-native:4.3.1
     container_name: fakebook-kafka
-    ports:
-      - "9092:9092"
     environment:
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
@@ -84,13 +96,19 @@ services:
       KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
       KAFKA_CONTROLLER_QUORUM_VOTERS: 1@localhost:9093
+    deploy:
+      resources:
+        limits:
+          memory: 1024M
     restart: unless-stopped
 
   redis:
     image: redis:8.10.1
     container_name: fakebook-redis
-    ports:
-      - "6379:6379"
+    deploy:
+      resources:
+        limits:
+          memory: 512M
     volumes:
       - /var/lib/fakebook-staging/redis_data:/data
     healthcheck:
@@ -103,6 +121,153 @@ services:
   zipkin:
     image: openzipkin/zipkin:3.6.1
     container_name: fakebook-zipkin
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+    restart: unless-stopped
+
+  gateway:
+    image: ${DOCKER_REGISTRY_PREFIX:-}fakebook-gateway:${IMAGE_TAG:-staging}
+    container_name: fakebook-gateway
+    environment:
+      SPRING_PROFILES_ACTIVE: staging
+      JAVA_OPTS: "-Xmx512m -Xms256m -XX:+UseG1GC"
+    deploy:
+      resources:
+        limits:
+          memory: 768M
+    depends_on:
+      mariadb:
+        condition: service_healthy
+      consul-config-loader:
+        condition: service_started
+      keycloak:
+        condition: service_healthy
+    restart: unless-stopped
+
+  authservice:
+    image: ${DOCKER_REGISTRY_PREFIX:-}fakebook-authservice:${IMAGE_TAG:-staging}
+    container_name: fakebook-authservice
+    environment:
+      SPRING_PROFILES_ACTIVE: staging
+      JAVA_OPTS: "-Xmx512m -Xms256m -XX:+UseG1GC"
+    deploy:
+      resources:
+        limits:
+          memory: 768M
+    depends_on:
+      mariadb:
+        condition: service_healthy
+      consul-config-loader:
+        condition: service_started
+    restart: unless-stopped
+
+  userservice:
+    image: ${DOCKER_REGISTRY_PREFIX:-}fakebook-userservice:${IMAGE_TAG:-staging}
+    container_name: fakebook-userservice
+    environment:
+      SPRING_PROFILES_ACTIVE: staging
+      JAVA_OPTS: "-Xmx512m -Xms256m -XX:+UseG1GC"
+    deploy:
+      resources:
+        limits:
+          memory: 768M
+    depends_on:
+      mariadb:
+        condition: service_healthy
+      consul-config-loader:
+        condition: service_started
+    restart: unless-stopped
+
+  postservice:
+    image: ${DOCKER_REGISTRY_PREFIX:-}fakebook-postservice:${IMAGE_TAG:-staging}
+    container_name: fakebook-postservice
+    environment:
+      SPRING_PROFILES_ACTIVE: staging
+      JAVA_OPTS: "-Xmx512m -Xms256m -XX:+UseG1GC"
+    deploy:
+      resources:
+        limits:
+          memory: 768M
+    depends_on:
+      mariadb:
+        condition: service_healthy
+      consul-config-loader:
+        condition: service_started
+      kafka:
+        condition: service_started
+    restart: unless-stopped
+
+  mediaservice:
+    image: ${DOCKER_REGISTRY_PREFIX:-}fakebook-mediaservice:${IMAGE_TAG:-staging}
+    container_name: fakebook-mediaservice
+    environment:
+      SPRING_PROFILES_ACTIVE: staging
+      JAVA_OPTS: "-Xmx512m -Xms256m -XX:+UseG1GC"
+    deploy:
+      resources:
+        limits:
+          memory: 768M
+    depends_on:
+      mariadb:
+        condition: service_healthy
+      consul-config-loader:
+        condition: service_started
+    restart: unless-stopped
+
+  commentservice:
+    image: ${DOCKER_REGISTRY_PREFIX:-}fakebook-commentservice:${IMAGE_TAG:-staging}
+    container_name: fakebook-commentservice
+    environment:
+      SPRING_PROFILES_ACTIVE: staging
+      JAVA_OPTS: "-Xmx512m -Xms256m -XX:+UseG1GC"
+    deploy:
+      resources:
+        limits:
+          memory: 768M
+    depends_on:
+      mariadb:
+        condition: service_healthy
+      consul-config-loader:
+        condition: service_started
+      kafka:
+        condition: service_started
+    restart: unless-stopped
+
+  feedservice:
+    image: ${DOCKER_REGISTRY_PREFIX:-}fakebook-feedservice:${IMAGE_TAG:-staging}
+    container_name: fakebook-feedservice
+    environment:
+      SPRING_PROFILES_ACTIVE: staging
+      JAVA_OPTS: "-Xmx512m -Xms256m -XX:+UseG1GC"
+    deploy:
+      resources:
+        limits:
+          memory: 768M
+    depends_on:
+      mariadb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      consul-config-loader:
+        condition: service_started
+      kafka:
+        condition: service_started
+    restart: unless-stopped
+
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: fakebook-nginx
+    deploy:
+      resources:
+        limits:
+          memory: 256M
     ports:
-      - "9411:9411"
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - gateway
     restart: unless-stopped

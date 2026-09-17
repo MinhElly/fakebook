@@ -1,5 +1,6 @@
 package com.minh.fakebook.media.service.dto;
 
+import com.minh.fakebook.media.domain.enumeration.MediaPurpose;
 import com.minh.fakebook.media.domain.enumeration.MediaStatus;
 import com.minh.fakebook.media.domain.enumeration.MediaType;
 import com.minh.fakebook.media.domain.enumeration.StorageProvider;
@@ -8,6 +9,7 @@ import java.io.Serializable;
 import java.time.Instant;
 import java.util.Objects;
 import java.util.UUID;
+import com.minh.fakebook.media.domain.enumeration.MediaPurpose;
 
 /**
  * A DTO for the {@link com.minh.fakebook.media.domain.Media} entity.
@@ -54,13 +56,13 @@ public class MediaDTO implements Serializable {
 
     private Instant updatedAt;
 
-    private String purpose;
+    private MediaPurpose purpose;
 
-    public String getPurpose() {
+    public MediaPurpose getPurpose() {
         return purpose;
     }
 
-    public void setPurpose(String purpose) {
+    public void setPurpose(MediaPurpose purpose) {
         this.purpose = purpose;
     }
 

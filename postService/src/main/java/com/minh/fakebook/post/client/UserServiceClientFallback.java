@@ -1,5 +1,6 @@
 package com.minh.fakebook.post.client;
 
+import java.util.List;
 import java.util.UUID;
 
 import org.slf4j.Logger;
@@ -13,8 +14,15 @@ public class UserServiceClientFallback implements UserServiceClient {
 
     @Override
     public boolean areFriends(UUID userId1, UUID userId2) {
-        LOG.warn("Fallback triggered: userService is unavailable. Returning areFriends=false for userId1: {}, userId2: {}", userId1,userId2);
+        LOG.warn("Fallback triggered: userService is unavailable. Returning areFriends=false for userId1: {}, userId2: {}", userId1, userId2);
         return false;
     }
-    
+
+    @Override
+    public List<UUID> getFriendIdsByUserId(UUID userId) {
+        LOG.warn("Fallback triggered: userService is unavailable. Returning empty friendIds list for userId: {}", userId);
+        return List.of();
+    }
+
 }
+

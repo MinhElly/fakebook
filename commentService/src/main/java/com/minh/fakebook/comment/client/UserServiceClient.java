@@ -9,7 +9,7 @@ import java.util.UUID;
 /**
  * Feign Client to communicate with userService.
  */
-@FeignClient(name = "userService", configuration = TokenRelayRequestInterceptor.class, fallback = UserServiceFallback.class)
+@FeignClient(name = "userservice", configuration = TokenRelayRequestInterceptor.class, fallback = UserServiceFallback.class)
 public interface UserServiceClient {
 
     /**

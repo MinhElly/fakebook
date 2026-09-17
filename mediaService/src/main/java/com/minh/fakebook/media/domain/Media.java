@@ -1,5 +1,6 @@
 package com.minh.fakebook.media.domain;
 
+import com.minh.fakebook.media.domain.enumeration.MediaPurpose;
 import com.minh.fakebook.media.domain.enumeration.MediaStatus;
 import com.minh.fakebook.media.domain.enumeration.MediaType;
 import com.minh.fakebook.media.domain.enumeration.StorageProvider;
@@ -11,6 +12,9 @@ import java.time.Instant;
 import java.util.UUID;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
+import com.minh.fakebook.media.domain.enumeration.MediaPurpose;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 
 /**
  * A Media.
@@ -80,17 +84,15 @@ public class Media implements Serializable {
 
     @Column(name = "updated_at")
     private Instant updatedAt;
+@Enumerated(EnumType.STRING)
+@Column(name = "purpose", length = 50)
+private MediaPurpose purpose = MediaPurpose.GENERAL;
 
-    @Column(name = "purpose", length = 50)
-    private String purpose = "GENERAL";
-
-    // jhipster-needle-entity-add-field - JHipster will add fields here
-
-    public String getPurpose() {
+    public MediaPurpose getPurpose() {
         return this.purpose;
     }
 
-    public void setPurpose(String purpose) {
+    public void setPurpose(MediaPurpose purpose) {
         this.purpose = purpose;
     }
 

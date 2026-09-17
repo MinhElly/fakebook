@@ -1,6 +1,7 @@
 package com.minh.fakebook.media.service;
 
 import com.minh.fakebook.media.domain.Media;
+import com.minh.fakebook.media.domain.enumeration.MediaPurpose;
 import com.minh.fakebook.media.domain.enumeration.MediaStatus;
 import com.minh.fakebook.media.domain.enumeration.MediaType;
 import com.minh.fakebook.media.domain.enumeration.StorageProvider;
@@ -24,6 +25,7 @@ import org.springframework.security.oauth2.server.resource.authentication.JwtAut
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
+import com.minh.fakebook.media.domain.enumeration.MediaPurpose;
 
 /**
  * Service Implementation for managing {@link com.minh.fakebook.media.domain.Media}.
@@ -215,7 +217,7 @@ public class MediaService {
      * @param file the multipart file to upload
      * @return the persisted MediaDTO
      */
-    public MediaDTO uploadMedia(MultipartFile file) {
+     public MediaDTO uploadMedia(MultipartFile file, MediaPurpose purpose) {
         try {
             // 1. Extract user authentication and get current user ID
             Authentication auth = SecurityContextHolder.getContext().getAuthentication();
@@ -267,7 +269,7 @@ public class MediaService {
             media.setUrl(uploadResult.url());
             media.setStatus(MediaStatus.ACTIVE);
             media.setCreatedAt(Instant.now());
-            media.setPurpose("GENERAL");
+            media.setPurpose(purpose);
 
             media = mediaRepository.save(media);
             return mediaMapper.toDto(media);

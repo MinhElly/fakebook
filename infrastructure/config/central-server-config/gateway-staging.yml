@@ -23,7 +23,7 @@ spring:
 
 jhipster:
   cors:
-    allowed-origins: '${STAGING_FRONTEND_URL:https://staging.fakebook.com},http://localhost:9000'
+    allowed-origins: '${STAGING_FRONTEND_URL:https://staging.fakebook.com},http://*.nip.io,https://*.nip.io,http://localhost:9000,http://localhost:8080'
     allowed-methods: '*'
     allowed-headers: '*'
     allow-credentials: true
