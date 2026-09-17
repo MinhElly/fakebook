@@ -5,6 +5,7 @@ import java.util.UUID;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -19,6 +20,7 @@ import com.minh.fakebook.comment.service.mapper.CommentMapper;
 import com.minh.fakebook.comment.client.UserFeignClient;
 import com.minh.fakebook.comment.domain.PostCache;
 import com.minh.fakebook.comment.repository.PostCacheRepository;
+import com.minh.fakebook.comment.client.PostFeignClient;
 
 /**
  * Service Implementation for managing {@link com.minh.fakebook.comment.domain.Comment}.
@@ -37,16 +39,24 @@ public class CommentService {
 
     private final UserFeignClient userFeignClient;
 
+    private final PostFeignClient postFeignClient;
+
+    private final JdbcTemplate jdbcTemplate;
+
     public CommentService(
-        CommentRepository commentRepository,
-        CommentMapper commentMapper,
-        PostCacheRepository postCacheRepository,
-        UserFeignClient userFeignClient
+            CommentRepository commentRepository,
+            CommentMapper commentMapper,
+            PostCacheRepository postCacheRepository,
+            UserFeignClient userFeignClient,
+            PostFeignClient postFeignClient,
+            JdbcTemplate jdbcTemplate 
     ) {
         this.commentRepository = commentRepository;
         this.commentMapper = commentMapper;
         this.postCacheRepository = postCacheRepository;
         this.userFeignClient = userFeignClient;
+        this.postFeignClient = postFeignClient;
+        this.jdbcTemplate = jdbcTemplate; 
     }
 
     /**
@@ -63,7 +73,24 @@ public class CommentService {
 
         // 1. Check if post exist
         PostCache postCache = postCacheRepository.findById(request.postId())
-            .orElseThrow(() -> new IllegalArgumentException("Post not found in cache"));
+                .orElseGet(() -> {
+                    try {
+                        PostFeignClient.PostSyncDTO postDTO = postFeignClient.getPostById(request.postId());
+                        PostCache newCache = new PostCache();
+                        newCache.setId(postDTO.id());
+                        newCache.setAuthorId(postDTO.authorId());
+                        newCache.setStatus(postDTO.status());
+                        newCache.setVisibility(postDTO.visibility());
+                        String sql = "INSERT INTO post_cache (id, author_id, status, visibility) VALUES (?, ?, ?, ?) " + "ON DUPLICATE KEY UPDATE author_id = ?, status = ?, visibility = ?";
+                        jdbcTemplate.update(sql,
+                            newCache.getId().toString(), newCache.getAuthorId().toString(), newCache.getStatus(), newCache.getVisibility(),
+                            newCache.getAuthorId().toString(), newCache.getStatus(), newCache.getVisibility()
+                        );
+                        return newCache;
+                    } catch (Exception e) {
+                        throw new RuntimeException("FeignClient Error Detail: ", e);
+                    }
+                });
 
         // 2. Row-Level Security
         boolean isOwner = authorId.equals(postCache.getAuthorId());
