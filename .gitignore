@@ -39,6 +39,9 @@ yarn-error.log*
 .env
 .env.*
 !.env*.example
+infrastructure/nginx/certs/
+*.pem
+*.key
 *.tmp
 
 # Coverage & Test reports
