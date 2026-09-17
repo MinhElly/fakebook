@@ -25,7 +25,7 @@ services:
   keycloak:
     image: quay.io/keycloak/keycloak:26.7.2-1
     container_name: fakebook-keycloak
-    command: start --import-realm
+    command: start-dev --import-realm
     environment:
       KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_BOOTSTRAP_ADMIN_USERNAME:-admin}
       KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_BOOTSTRAP_ADMIN_PASSWORD:-StagingAdminPass2026!}
@@ -41,13 +41,15 @@ services:
         limits:
           memory: 1024M
     volumes:
-      - /var/lib/fakebook-staging/keycloak_data:/opt/keycloak/data
+      - keycloak-data:/opt/keycloak/data
       - ../gateway/src/main/docker/realm-config:/opt/keycloak/data/import:ro
+      - ../gateway/src/main/docker/realm-config/keycloak-health-check.sh:/opt/keycloak/health-check.sh:ro
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:9080/realms/jhipster || exit 1"]
+      test: ["CMD-SHELL", "exec 3<>/dev/tcp/127.0.0.1/9080 || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 20
+      start_period: 15s
     restart: unless-stopped
 
   consul:
@@ -72,7 +74,7 @@ services:
       consul:
         condition: service_healthy
     environment:
-      INIT_SLEEP_SECONDS: 2
+      INIT_SLEEP_SECONDS: 5
       CONSUL_URL: consul
       CONSUL_PORT: 8500
     deploy:
@@ -132,6 +134,12 @@ services:
     container_name: fakebook-gateway
     environment:
       SPRING_PROFILES_ACTIVE: staging
+      SPRING_CLOUD_CONSUL_HOST: ${SPRING_CLOUD_CONSUL_HOST:-consul}
+      SPRING_CLOUD_CONSUL_PORT: ${SPRING_CLOUD_CONSUL_PORT:-8500}
+      SPRING_DOCKER_COMPOSE_ENABLED: "false"
+      FAKEBOOK_DB_USERNAME: ${FAKEBOOK_DB_USERNAME}
+      FAKEBOOK_DB_PASSWORD: ${FAKEBOOK_DB_PASSWORD}
+      FAKEBOOK_OIDC_ISSUER_URI: ${FAKEBOOK_OIDC_ISSUER_URI}
       JAVA_OPTS: "-Xmx512m -Xms256m -XX:+UseG1GC"
     deploy:
       resources:
@@ -151,6 +159,12 @@ services:
     container_name: fakebook-authservice
     environment:
       SPRING_PROFILES_ACTIVE: staging
+      SPRING_CLOUD_CONSUL_HOST: ${SPRING_CLOUD_CONSUL_HOST:-consul}
+      SPRING_CLOUD_CONSUL_PORT: ${SPRING_CLOUD_CONSUL_PORT:-8500}
+      SPRING_DOCKER_COMPOSE_ENABLED: "false"
+      FAKEBOOK_DB_USERNAME: ${FAKEBOOK_DB_USERNAME}
+      FAKEBOOK_DB_PASSWORD: ${FAKEBOOK_DB_PASSWORD}
+      FAKEBOOK_OIDC_ISSUER_URI: ${FAKEBOOK_OIDC_ISSUER_URI}
       JAVA_OPTS: "-Xmx512m -Xms256m -XX:+UseG1GC"
     deploy:
       resources:
@@ -161,6 +175,8 @@ services:
         condition: service_healthy
       consul-config-loader:
         condition: service_started
+      keycloak:
+        condition: service_healthy
     restart: unless-stopped
 
   userservice:
@@ -168,6 +184,12 @@ services:
     container_name: fakebook-userservice
     environment:
       SPRING_PROFILES_ACTIVE: staging
+      SPRING_CLOUD_CONSUL_HOST: ${SPRING_CLOUD_CONSUL_HOST:-consul}
+      SPRING_CLOUD_CONSUL_PORT: ${SPRING_CLOUD_CONSUL_PORT:-8500}
+      SPRING_DOCKER_COMPOSE_ENABLED: "false"
+      FAKEBOOK_DB_USERNAME: ${FAKEBOOK_DB_USERNAME}
+      FAKEBOOK_DB_PASSWORD: ${FAKEBOOK_DB_PASSWORD}
+      FAKEBOOK_OIDC_ISSUER_URI: ${FAKEBOOK_OIDC_ISSUER_URI}
       JAVA_OPTS: "-Xmx512m -Xms256m -XX:+UseG1GC"
     deploy:
       resources:
@@ -178,6 +200,8 @@ services:
         condition: service_healthy
       consul-config-loader:
         condition: service_started
+      keycloak:
+        condition: service_healthy
     restart: unless-stopped
 
   postservice:
@@ -185,6 +209,12 @@ services:
     container_name: fakebook-postservice
     environment:
       SPRING_PROFILES_ACTIVE: staging
+      SPRING_CLOUD_CONSUL_HOST: ${SPRING_CLOUD_CONSUL_HOST:-consul}
+      SPRING_CLOUD_CONSUL_PORT: ${SPRING_CLOUD_CONSUL_PORT:-8500}
+      SPRING_DOCKER_COMPOSE_ENABLED: "false"
+      FAKEBOOK_DB_USERNAME: ${FAKEBOOK_DB_USERNAME}
+      FAKEBOOK_DB_PASSWORD: ${FAKEBOOK_DB_PASSWORD}
+      FAKEBOOK_OIDC_ISSUER_URI: ${FAKEBOOK_OIDC_ISSUER_URI}
       JAVA_OPTS: "-Xmx512m -Xms256m -XX:+UseG1GC"
     deploy:
       resources:
@@ -197,6 +227,8 @@ services:
         condition: service_started
       kafka:
         condition: service_started
+      keycloak:
+        condition: service_healthy
     restart: unless-stopped
 
   mediaservice:
@@ -204,6 +236,12 @@ services:
     container_name: fakebook-mediaservice
     environment:
       SPRING_PROFILES_ACTIVE: staging
+      SPRING_CLOUD_CONSUL_HOST: ${SPRING_CLOUD_CONSUL_HOST:-consul}
+      SPRING_CLOUD_CONSUL_PORT: ${SPRING_CLOUD_CONSUL_PORT:-8500}
+      SPRING_DOCKER_COMPOSE_ENABLED: "false"
+      FAKEBOOK_DB_USERNAME: ${FAKEBOOK_DB_USERNAME}
+      FAKEBOOK_DB_PASSWORD: ${FAKEBOOK_DB_PASSWORD}
+      FAKEBOOK_OIDC_ISSUER_URI: ${FAKEBOOK_OIDC_ISSUER_URI}
       JAVA_OPTS: "-Xmx512m -Xms256m -XX:+UseG1GC"
     deploy:
       resources:
@@ -214,6 +252,8 @@ services:
         condition: service_healthy
       consul-config-loader:
         condition: service_started
+      keycloak:
+        condition: service_healthy
     restart: unless-stopped
 
   commentservice:
@@ -221,6 +261,12 @@ services:
     container_name: fakebook-commentservice
     environment:
       SPRING_PROFILES_ACTIVE: staging
+      SPRING_CLOUD_CONSUL_HOST: ${SPRING_CLOUD_CONSUL_HOST:-consul}
+      SPRING_CLOUD_CONSUL_PORT: ${SPRING_CLOUD_CONSUL_PORT:-8500}
+      SPRING_DOCKER_COMPOSE_ENABLED: "false"
+      FAKEBOOK_DB_USERNAME: ${FAKEBOOK_DB_USERNAME}
+      FAKEBOOK_DB_PASSWORD: ${FAKEBOOK_DB_PASSWORD}
+      FAKEBOOK_OIDC_ISSUER_URI: ${FAKEBOOK_OIDC_ISSUER_URI}
       JAVA_OPTS: "-Xmx512m -Xms256m -XX:+UseG1GC"
     deploy:
       resources:
@@ -233,6 +279,8 @@ services:
         condition: service_started
       kafka:
         condition: service_started
+      keycloak:
+        condition: service_healthy
     restart: unless-stopped
 
   feedservice:
@@ -240,6 +288,12 @@ services:
     container_name: fakebook-feedservice
     environment:
       SPRING_PROFILES_ACTIVE: staging
+      SPRING_CLOUD_CONSUL_HOST: ${SPRING_CLOUD_CONSUL_HOST:-consul}
+      SPRING_CLOUD_CONSUL_PORT: ${SPRING_CLOUD_CONSUL_PORT:-8500}
+      SPRING_DOCKER_COMPOSE_ENABLED: "false"
+      FAKEBOOK_DB_USERNAME: ${FAKEBOOK_DB_USERNAME}
+      FAKEBOOK_DB_PASSWORD: ${FAKEBOOK_DB_PASSWORD}
+      FAKEBOOK_OIDC_ISSUER_URI: ${FAKEBOOK_OIDC_ISSUER_URI}
       JAVA_OPTS: "-Xmx512m -Xms256m -XX:+UseG1GC"
     deploy:
       resources:
@@ -254,6 +308,8 @@ services:
         condition: service_started
       kafka:
         condition: service_started
+      keycloak:
+        condition: service_healthy
     restart: unless-stopped
 
   nginx:
@@ -271,3 +327,6 @@ services:
     depends_on:
       - gateway
     restart: unless-stopped
+
+volumes:
+  keycloak-data:
