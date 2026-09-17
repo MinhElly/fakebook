@@ -198,6 +198,8 @@ services:
     depends_on:
       mariadb:
         condition: service_healthy
+      redis:
+        condition: service_healthy
       consul-config-loader:
         condition: service_started
       keycloak:
@@ -242,6 +244,9 @@ services:
       FAKEBOOK_DB_USERNAME: ${FAKEBOOK_DB_USERNAME}
       FAKEBOOK_DB_PASSWORD: ${FAKEBOOK_DB_PASSWORD}
       FAKEBOOK_OIDC_ISSUER_URI: ${FAKEBOOK_OIDC_ISSUER_URI}
+      CLOUDINARY_CLOUD_NAME: ${CLOUDINARY_CLOUD_NAME:?CLOUDINARY_CLOUD_NAME is required}
+      CLOUDINARY_API_KEY: ${CLOUDINARY_API_KEY:?CLOUDINARY_API_KEY is required}
+      CLOUDINARY_API_SECRET: ${CLOUDINARY_API_SECRET:?CLOUDINARY_API_SECRET is required}
       JAVA_OPTS: "-Xmx512m -Xms256m -XX:+UseG1GC"
     deploy:
       resources:
@@ -312,6 +317,18 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
+  frontend:
+    build: 
+      context: ../frontend
+      dockerfile: Dockerfile
+    image: ${DOCKER_REGISTRY_PREFIX:-}fakebook-frontend:${IMAGE_TAG:-staging}
+    container_name: fakebook-frontend
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+    restart: unless-stopped    
+
   nginx:
     image: nginx:1.27-alpine
     container_name: fakebook-nginx
@@ -324,6 +341,7 @@ services:
       - "443:443"
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/certs:/etc/letsencrypt/live/staging.fakebook.com:ro
     depends_on:
       - gateway
     restart: unless-stopped
