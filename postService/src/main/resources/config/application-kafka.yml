@@ -9,6 +9,11 @@ spring:
           auto-create-topics: true
           brokers: localhost:9092
       bindings:
+        mediaCleanupOut-out-0:
+          destination: media-cleanup-topic
+          content-type: application/json
+          producer:
+            use-native-encoding: true
         binding-out-0:
           content-type: text/plain
           group: post-service
