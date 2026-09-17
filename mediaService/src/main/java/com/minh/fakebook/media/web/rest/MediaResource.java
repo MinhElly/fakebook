@@ -226,8 +226,8 @@ public class MediaResource {
     public ResponseEntity<?> getMediaFile(@PathVariable("id") UUID id) {
         LOG.debug("REST request to get Media file : {}", id);
         Optional<MediaDTO> mediaDTO = mediaService.findOne(id);
-        if (mediaDTO.isPresent() && mediaDTO.get().getUrl() != null) {
-            String url = mediaDTO.get().getUrl();
+        if (mediaDTO.isPresent() && mediaDTO.orElseThrow().getUrl() != null) {
+            String url = mediaDTO.orElseThrow().getUrl();
             if (url.startsWith("data:")) {
                 try {
                     String[] parts = url.split(",");

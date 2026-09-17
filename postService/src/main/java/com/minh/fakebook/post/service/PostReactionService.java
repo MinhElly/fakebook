@@ -86,7 +86,7 @@ public class PostReactionService {
 
             if (existingReactionOpt.isPresent()) {
                 PostReaction postReaction =
-  existingReactionOpt.get();
+  existingReactionOpt.orElseThrow();
 
                 if (postReaction.getReactionType() == postReactionDTO.
   getReactionType()) {
