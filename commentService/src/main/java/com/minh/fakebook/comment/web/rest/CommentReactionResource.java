@@ -73,6 +73,7 @@ public class CommentReactionResource {
      * @return the {@link ResponseEntity} with status {@code 200 (OK)} and the list of Comment Reactions in body.
      */
     @GetMapping("")
+    @org.springframework.security.access.prepost.PreAuthorize("hasAuthority(\"" + com.minh.fakebook.comment.security.AuthoritiesConstants.ADMIN + "\")")
     public ResponseEntity<List<CommentReactionDTO>> getAllCommentReactions(
         CommentReactionCriteria criteria,
         @ParameterObject Pageable pageable
@@ -91,6 +92,7 @@ public class CommentReactionResource {
      * @return the {@link ResponseEntity} with status {@code 200 (OK)} and the count in body.
      */
     @GetMapping("/count")
+    @org.springframework.security.access.prepost.PreAuthorize("hasAuthority(\"" + com.minh.fakebook.comment.security.AuthoritiesConstants.ADMIN + "\")")
     public ResponseEntity<Long> countCommentReactions(CommentReactionCriteria criteria) {
         LOG.debug("REST request to count CommentReactions by criteria: {}", criteria);
         return ResponseEntity.ok().body(commentReactionQueryService.countByCriteria(criteria));
@@ -103,6 +105,7 @@ public class CommentReactionResource {
      * @return the {@link ResponseEntity} with status {@code 200 (OK)} and with body the commentReactionDTO, or with status {@code 404 (Not Found)}.
      */
     @GetMapping("/{id}")
+    @org.springframework.security.access.prepost.PreAuthorize("hasAuthority(\"" + com.minh.fakebook.comment.security.AuthoritiesConstants.ADMIN + "\")")
     public ResponseEntity<CommentReactionDTO> getCommentReaction(@PathVariable("id") UUID id) {
         LOG.debug("REST request to get CommentReaction : {}", id);
         Optional<CommentReactionDTO> commentReactionDTO = commentReactionService.findOne(id);
