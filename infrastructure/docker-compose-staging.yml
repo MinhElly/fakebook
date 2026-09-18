@@ -213,6 +213,8 @@ services:
       FAKEBOOK_DB_USERNAME: ${AUTH_DB_USERNAME:?AUTH_DB_USERNAME is required}
       FAKEBOOK_DB_PASSWORD: ${AUTH_DB_PASSWORD:?AUTH_DB_PASSWORD is required}
       FAKEBOOK_OIDC_ISSUER_URI: ${FAKEBOOK_OIDC_ISSUER_URI}
+      FAKEBOOK_OIDC_CLIENT_ID: ${FAKEBOOK_OIDC_INTERNAL_CLIENT_ID:?FAKEBOOK_OIDC_INTERNAL_CLIENT_ID is required}
+      FAKEBOOK_OIDC_CLIENT_SECRET: ${FAKEBOOK_OIDC_INTERNAL_CLIENT_SECRET:?FAKEBOOK_OIDC_INTERNAL_CLIENT_SECRET is required}
       JAVA_OPTS: "-Xmx512m -Xms256m -XX:+UseG1GC"
     deploy:
       resources:
@@ -225,6 +227,8 @@ services:
         condition: service_started
       keycloak:
         condition: service_healthy
+      keycloak-internal-client-config:
+        condition: service_completed_successfully
     restart: unless-stopped
 
   userservice:
@@ -238,6 +242,8 @@ services:
       FAKEBOOK_DB_USERNAME: ${USER_DB_USERNAME:?USER_DB_USERNAME is required}
       FAKEBOOK_DB_PASSWORD: ${USER_DB_PASSWORD:?USER_DB_PASSWORD is required}
       FAKEBOOK_OIDC_ISSUER_URI: ${FAKEBOOK_OIDC_ISSUER_URI}
+      FAKEBOOK_OIDC_CLIENT_ID: ${FAKEBOOK_OIDC_INTERNAL_CLIENT_ID:?FAKEBOOK_OIDC_INTERNAL_CLIENT_ID is required}
+      FAKEBOOK_OIDC_CLIENT_SECRET: ${FAKEBOOK_OIDC_INTERNAL_CLIENT_SECRET:?FAKEBOOK_OIDC_INTERNAL_CLIENT_SECRET is required}
       JAVA_OPTS: "-Xmx512m -Xms256m -XX:+UseG1GC"
     deploy:
       resources:
@@ -252,6 +258,8 @@ services:
         condition: service_started
       keycloak:
         condition: service_healthy
+      keycloak-internal-client-config:
+        condition: service_completed_successfully
     restart: unless-stopped
 
   postservice:
@@ -265,6 +273,8 @@ services:
       FAKEBOOK_DB_USERNAME: ${POST_DB_USERNAME:?POST_DB_USERNAME is required}
       FAKEBOOK_DB_PASSWORD: ${POST_DB_PASSWORD:?POST_DB_PASSWORD is required}
       FAKEBOOK_OIDC_ISSUER_URI: ${FAKEBOOK_OIDC_ISSUER_URI}
+      FAKEBOOK_OIDC_CLIENT_ID: ${FAKEBOOK_OIDC_INTERNAL_CLIENT_ID:?FAKEBOOK_OIDC_INTERNAL_CLIENT_ID is required}
+      FAKEBOOK_OIDC_CLIENT_SECRET: ${FAKEBOOK_OIDC_INTERNAL_CLIENT_SECRET:?FAKEBOOK_OIDC_INTERNAL_CLIENT_SECRET is required}
       JAVA_OPTS: "-Xmx512m -Xms256m -XX:+UseG1GC"
     deploy:
       resources:
@@ -279,6 +289,8 @@ services:
         condition: service_started
       keycloak:
         condition: service_healthy
+      keycloak-internal-client-config:
+        condition: service_completed_successfully
     restart: unless-stopped
 
   mediaservice:
@@ -292,6 +304,8 @@ services:
       FAKEBOOK_DB_USERNAME: ${MEDIA_DB_USERNAME:?MEDIA_DB_USERNAME is required}
       FAKEBOOK_DB_PASSWORD: ${MEDIA_DB_PASSWORD:?MEDIA_DB_PASSWORD is required}
       FAKEBOOK_OIDC_ISSUER_URI: ${FAKEBOOK_OIDC_ISSUER_URI}
+      FAKEBOOK_OIDC_CLIENT_ID: ${FAKEBOOK_OIDC_INTERNAL_CLIENT_ID:?FAKEBOOK_OIDC_INTERNAL_CLIENT_ID is required}
+      FAKEBOOK_OIDC_CLIENT_SECRET: ${FAKEBOOK_OIDC_INTERNAL_CLIENT_SECRET:?FAKEBOOK_OIDC_INTERNAL_CLIENT_SECRET is required}
       CLOUDINARY_CLOUD_NAME: ${CLOUDINARY_CLOUD_NAME:?CLOUDINARY_CLOUD_NAME is required}
       CLOUDINARY_API_KEY: ${CLOUDINARY_API_KEY:?CLOUDINARY_API_KEY is required}
       CLOUDINARY_API_SECRET: ${CLOUDINARY_API_SECRET:?CLOUDINARY_API_SECRET is required}
@@ -307,6 +321,8 @@ services:
         condition: service_started
       keycloak:
         condition: service_healthy
+      keycloak-internal-client-config:
+        condition: service_completed_successfully
     restart: unless-stopped
 
   commentservice:
@@ -320,6 +336,8 @@ services:
       FAKEBOOK_DB_USERNAME: ${COMMENT_DB_USERNAME:?COMMENT_DB_USERNAME is required}
       FAKEBOOK_DB_PASSWORD: ${COMMENT_DB_PASSWORD:?COMMENT_DB_PASSWORD is required}
       FAKEBOOK_OIDC_ISSUER_URI: ${FAKEBOOK_OIDC_ISSUER_URI}
+      FAKEBOOK_OIDC_CLIENT_ID: ${FAKEBOOK_OIDC_INTERNAL_CLIENT_ID:?FAKEBOOK_OIDC_INTERNAL_CLIENT_ID is required}
+      FAKEBOOK_OIDC_CLIENT_SECRET: ${FAKEBOOK_OIDC_INTERNAL_CLIENT_SECRET:?FAKEBOOK_OIDC_INTERNAL_CLIENT_SECRET is required}
       JAVA_OPTS: "-Xmx512m -Xms256m -XX:+UseG1GC"
     deploy:
       resources:
@@ -334,6 +352,8 @@ services:
         condition: service_started
       keycloak:
         condition: service_healthy
+      keycloak-internal-client-config:
+        condition: service_completed_successfully
     restart: unless-stopped
 
   feedservice:

@@ -10,6 +10,8 @@ set -eo pipefail
 
 BASE_URL="${1:-http://localhost:8080}"
 KEYCLOAK_URL="${KEYCLOAK_URL:-http://localhost:9080}"
+: "${FAKEBOOK_OIDC_INTERNAL_CLIENT_ID:?FAKEBOOK_OIDC_INTERNAL_CLIENT_ID is required}"
+: "${FAKEBOOK_OIDC_INTERNAL_CLIENT_SECRET:?FAKEBOOK_OIDC_INTERNAL_CLIENT_SECRET is required}"
 
 echo "================================================================="
 echo "🚀 STARTING FAKEBOOK E2E SMOKE TEST SUITE"
@@ -24,19 +26,11 @@ echo -n "1. Authenticating against Keycloak OIDC... "
 TOKEN_RESPONSE=$(curl -s -f -X POST "${KEYCLOAK_URL}/realms/jhipster/protocol/openid-connect/token" \
   -H "Content-Type: application/x-www-form-urlencoded" \
   -d "grant_type=client_credentials" \
-  -d "client_id=internal" \
-  -d "client_secret=internal") || {
-    # Fallback to admin-cli if client_credentials not used
-    TOKEN_RESPONSE=$(curl -s -f -X POST "${KEYCLOAK_URL}/realms/jhipster/protocol/openid-connect/token" \
-      -H "Content-Type: application/x-www-form-urlencoded" \
-      -d "grant_type=password" \
-      -d "client_id=admin-cli" \
-      -d "username=admin" \
-      -d "password=admin") || {
+  -d "client_id=${FAKEBOOK_OIDC_INTERNAL_CLIENT_ID}" \
+  -d "client_secret=${FAKEBOOK_OIDC_INTERNAL_CLIENT_SECRET}") || {
         echo "❌ Failed to obtain OIDC token!"
         exit 1
       }
-  }
 
 ACCESS_TOKEN=$(echo "$TOKEN_RESPONSE" | grep -o '"access_token":"[^"]*' | grep -o '[^"]*$')
 

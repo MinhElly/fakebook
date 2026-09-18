@@ -30,5 +30,5 @@ spring:
             issuer-uri: ${FAKEBOOK_OIDC_ISSUER_URI:http://keycloak:9080/realms/jhipster}
         registration:
           oidc:
-            client-id: ${FAKEBOOK_OIDC_CLIENT_ID:internal}
-            client-secret: ${FAKEBOOK_OIDC_CLIENT_SECRET:internal}
+            client-id: ${FAKEBOOK_OIDC_CLIENT_ID}
+            client-secret: ${FAKEBOOK_OIDC_CLIENT_SECRET}
