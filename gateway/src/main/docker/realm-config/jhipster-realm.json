@@ -675,7 +675,6 @@
       "enabled": true,
       "alwaysDisplayInConsole": false,
       "clientAuthenticatorType": "client-secret",
-      "secret": "internal",
       "redirectUris": [],
       "webOrigins": [],
       "notBefore": 0,

@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <changeSet id="20260915000000-1" author="antigravity">
+        <preConditions onFail="MARK_RAN"><not><tableExists tableName="outbox_record"/></not></preConditions>
+        <createTable tableName="outbox_record">
+            <column name="id" type="varchar(255)"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="status" type="varchar(255)"><constraints nullable="false"/></column>
+            <column name="record_key" type="varchar(255)"><constraints nullable="false"/></column>
+            <column name="record_type" type="varchar(255)"><constraints nullable="false"/></column>
+            <column name="payload" type="LONGTEXT"><constraints nullable="false"/></column>
+            <column name="context" type="varchar(255)"/>
+            <column name="partition_no" type="integer"><constraints nullable="false"/></column>
+            <column name="created_at" type="${datetimeType}"><constraints nullable="false"/></column>
+            <column name="completed_at" type="${datetimeType}"/>
+            <column name="failure_count" type="integer"><constraints nullable="false"/></column>
+            <column name="failure_reason" type="varchar(255)"/>
+            <column name="next_retry_at" type="${datetimeType}"><constraints nullable="false"/></column>
+            <column name="handler_id" type="varchar(255)"><constraints nullable="false"/></column>
+        </createTable>
+        <createIndex indexName="idx_outbox_record_record_key_created" tableName="outbox_record"><column name="record_key"/><column name="created_at"/></createIndex>
+        <createIndex indexName="idx_outbox_record_partition_status_retry" tableName="outbox_record"><column name="partition_no"/><column name="status"/><column name="next_retry_at"/></createIndex>
+        <createIndex indexName="idx_outbox_record_status_retry" tableName="outbox_record"><column name="status"/><column name="next_retry_at"/></createIndex>
+        <createIndex indexName="idx_outbox_record_status" tableName="outbox_record"><column name="status"/></createIndex>
+        <createIndex indexName="idx_outbox_record_key_completed_created" tableName="outbox_record"><column name="record_key"/><column name="completed_at"/><column name="created_at"/></createIndex>
+    </changeSet>
+
+    <changeSet id="20260915000000-2" author="antigravity">
+        <preConditions onFail="MARK_RAN"><not><tableExists tableName="outbox_instance"/></not></preConditions>
+        <createTable tableName="outbox_instance">
+            <column name="instance_id" type="varchar(255)"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="hostname" type="varchar(255)"><constraints nullable="false"/></column>
+            <column name="port" type="integer"><constraints nullable="false"/></column>
+            <column name="status" type="varchar(255)"><constraints nullable="false"/></column>
+            <column name="started_at" type="${datetimeType}"><constraints nullable="false"/></column>
+            <column name="last_heartbeat" type="${datetimeType}"><constraints nullable="false"/></column>
+            <column name="created_at" type="${datetimeType}"><constraints nullable="false"/></column>
+            <column name="updated_at" type="${datetimeType}"><constraints nullable="false"/></column>
+        </createTable>
+        <createIndex indexName="idx_outbox_instance_status_heartbeat" tableName="outbox_instance"><column name="status"/><column name="last_heartbeat"/></createIndex>
+        <createIndex indexName="idx_outbox_instance_last_heartbeat" tableName="outbox_instance"><column name="last_heartbeat"/></createIndex>
+        <createIndex indexName="idx_outbox_instance_status" tableName="outbox_instance"><column name="status"/></createIndex>
+    </changeSet>
+
+    <changeSet id="20260915000000-3" author="antigravity">
+        <preConditions onFail="MARK_RAN"><not><tableExists tableName="outbox_partition"/></not></preConditions>
+        <createTable tableName="outbox_partition">
+            <column name="partition_number" type="integer"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="instance_id" type="varchar(255)"/>
+            <column name="version" type="bigint"><constraints nullable="false"/></column>
+            <column name="updated_at" type="${datetimeType}"><constraints nullable="false"/></column>
+        </createTable>
+        <createIndex indexName="idx_outbox_partition_instance_id" tableName="outbox_partition"><column name="instance_id"/></createIndex>
+    </changeSet>
+</databaseChangeLog>
