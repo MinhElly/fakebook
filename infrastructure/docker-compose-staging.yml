@@ -5,8 +5,31 @@ services:
     image: mariadb:12.3.3
     container_name: fakebook-mariadb
     environment:
-      MARIADB_ROOT_PASSWORD: ${MARIADB_ROOT_PASSWORD:-StagingRootPass2026!}
+      MARIADB_ROOT_PASSWORD: ${MARIADB_ROOT_PASSWORD:?MARIADB_ROOT_PASSWORD is required}
       MARIADB_DATABASE: gateway
+      GATEWAY_DB_USERNAME: ${GATEWAY_DB_USERNAME:?GATEWAY_DB_USERNAME is required}
+      GATEWAY_DB_PASSWORD: ${GATEWAY_DB_PASSWORD:?GATEWAY_DB_PASSWORD is required}
+
+      AUTH_DB_USERNAME: ${AUTH_DB_USERNAME:?AUTH_DB_USERNAME is required}
+      AUTH_DB_PASSWORD: ${AUTH_DB_PASSWORD:?AUTH_DB_PASSWORD is required}
+
+      USER_DB_USERNAME: ${USER_DB_USERNAME:?USER_DB_USERNAME is required}
+      USER_DB_PASSWORD: ${USER_DB_PASSWORD:?USER_DB_PASSWORD is required}
+
+      POST_DB_USERNAME: ${POST_DB_USERNAME:?POST_DB_USERNAME is required}
+      POST_DB_PASSWORD: ${POST_DB_PASSWORD:?POST_DB_PASSWORD is required}
+
+      MEDIA_DB_USERNAME: ${MEDIA_DB_USERNAME:?MEDIA_DB_USERNAME is required}
+      MEDIA_DB_PASSWORD: ${MEDIA_DB_PASSWORD:?MEDIA_DB_PASSWORD is required}
+
+      COMMENT_DB_USERNAME: ${COMMENT_DB_USERNAME:?COMMENT_DB_USERNAME is required}
+      COMMENT_DB_PASSWORD: ${COMMENT_DB_PASSWORD:?COMMENT_DB_PASSWORD is required}
+
+      FEED_DB_USERNAME: ${FEED_DB_USERNAME:?FEED_DB_USERNAME is required}
+      FEED_DB_PASSWORD: ${FEED_DB_PASSWORD:?FEED_DB_PASSWORD is required}
+
+      KEYCLOAK_DB_USERNAME: ${KEYCLOAK_DB_USERNAME:?KEYCLOAK_DB_USERNAME is required}
+      KEYCLOAK_DB_PASSWORD: ${KEYCLOAK_DB_PASSWORD:?KEYCLOAK_DB_PASSWORD is required}
     volumes:
       - /var/lib/fakebook-staging/mariadb_data:/var/lib/mysql
       - ./mariadb/init:/docker-entrypoint-initdb.d:ro
@@ -25,16 +48,21 @@ services:
   keycloak:
     image: quay.io/keycloak/keycloak:26.7.2-1
     container_name: fakebook-keycloak
-    command: start-dev --import-realm
+    command: start --import-realm
     environment:
       KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_BOOTSTRAP_ADMIN_USERNAME:-admin}
       KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_BOOTSTRAP_ADMIN_PASSWORD:-StagingAdminPass2026!}
+      KC_DB: mariadb
+      KC_DB_URL: jdbc:mariadb://mariadb:3306/keycloak?useUnicode=true&characterEncoding=utf8&useSSL=false
+      KC_DB_USERNAME: ${KEYCLOAK_DB_USERNAME:?KEYCLOAK_DB_USERNAME is required}
+      KC_DB_PASSWORD: ${KEYCLOAK_DB_PASSWORD:?KEYCLOAK_DB_PASSWORD is required}
       KC_FEATURES: scripts
       KC_HTTP_PORT: 9080
       KC_HTTP_ENABLED: 'true'
       KC_PROXY_HEADERS: xforwarded
-      KC_HOSTNAME: ${KEYCLOAK_HOSTNAME:-staging.fakebook.com}
+      KC_HOSTNAME: ${KEYCLOAK_HOSTNAME:-https://staging.fakebook.com}
       KC_HOSTNAME_STRICT: 'false'
+      KC_HOSTNAME_STRICT_BACKCHANNEL: 'false'
       KC_HEALTH_ENABLED: 'true'
     deploy:
       resources:
@@ -51,6 +79,26 @@ services:
       retries: 20
       start_period: 15s
     restart: unless-stopped
+
+  keycloak-internal-client-config:
+    image: quay.io/keycloak/keycloak:26.7.2-1
+    container_name: fakebook-keycloak-internal-client-config
+    depends_on:
+      keycloak:
+        condition: service_healthy
+    environment:
+      KEYCLOAK_INTERNAL_URL: http://keycloak:9080
+      KEYCLOAK_REALM: jhipster
+      KEYCLOAK_SYNC_ADMIN_USERNAME: ${KEYCLOAK_BOOTSTRAP_ADMIN_USERNAME:?KEYCLOAK_BOOTSTRAP_ADMIN_USERNAME is required}
+      KEYCLOAK_SYNC_ADMIN_PASSWORD: ${KEYCLOAK_BOOTSTRAP_ADMIN_PASSWORD:?KEYCLOAK_BOOTSTRAP_ADMIN_PASSWORD is required}
+      FAKEBOOK_OIDC_INTERNAL_CLIENT_ID: ${FAKEBOOK_OIDC_INTERNAL_CLIENT_ID:?FAKEBOOK_OIDC_INTERNAL_CLIENT_ID is required}
+      FAKEBOOK_OIDC_INTERNAL_CLIENT_SECRET: ${FAKEBOOK_OIDC_INTERNAL_CLIENT_SECRET:?FAKEBOOK_OIDC_INTERNAL_CLIENT_SECRET is required}
+    volumes:
+      - ./keycloak/configure-internal-client.sh:/opt/keycloak-config/configure-internal-client.sh:ro
+    entrypoint:
+      - /bin/sh
+      - /opt/keycloak-config/configure-internal-client.sh
+    restart: "no"
 
   consul:
     image: hashicorp/consul:2.0.3
@@ -137,8 +185,8 @@ services:
       SPRING_CLOUD_CONSUL_HOST: ${SPRING_CLOUD_CONSUL_HOST:-consul}
       SPRING_CLOUD_CONSUL_PORT: ${SPRING_CLOUD_CONSUL_PORT:-8500}
       SPRING_DOCKER_COMPOSE_ENABLED: "false"
-      FAKEBOOK_DB_USERNAME: ${FAKEBOOK_DB_USERNAME}
-      FAKEBOOK_DB_PASSWORD: ${FAKEBOOK_DB_PASSWORD}
+      FAKEBOOK_DB_USERNAME: ${GATEWAY_DB_USERNAME:?GATEWAY_DB_USERNAME is required}
+      FAKEBOOK_DB_PASSWORD: ${GATEWAY_DB_PASSWORD:?GATEWAY_DB_PASSWORD is required}
       FAKEBOOK_OIDC_ISSUER_URI: ${FAKEBOOK_OIDC_ISSUER_URI}
       JAVA_OPTS: "-Xmx512m -Xms256m -XX:+UseG1GC"
     deploy:
@@ -162,9 +210,11 @@ services:
       SPRING_CLOUD_CONSUL_HOST: ${SPRING_CLOUD_CONSUL_HOST:-consul}
       SPRING_CLOUD_CONSUL_PORT: ${SPRING_CLOUD_CONSUL_PORT:-8500}
       SPRING_DOCKER_COMPOSE_ENABLED: "false"
-      FAKEBOOK_DB_USERNAME: ${FAKEBOOK_DB_USERNAME}
-      FAKEBOOK_DB_PASSWORD: ${FAKEBOOK_DB_PASSWORD}
+      FAKEBOOK_DB_USERNAME: ${AUTH_DB_USERNAME:?AUTH_DB_USERNAME is required}
+      FAKEBOOK_DB_PASSWORD: ${AUTH_DB_PASSWORD:?AUTH_DB_PASSWORD is required}
       FAKEBOOK_OIDC_ISSUER_URI: ${FAKEBOOK_OIDC_ISSUER_URI}
+      FAKEBOOK_OIDC_CLIENT_ID: ${FAKEBOOK_OIDC_INTERNAL_CLIENT_ID:?FAKEBOOK_OIDC_INTERNAL_CLIENT_ID is required}
+      FAKEBOOK_OIDC_CLIENT_SECRET: ${FAKEBOOK_OIDC_INTERNAL_CLIENT_SECRET:?FAKEBOOK_OIDC_INTERNAL_CLIENT_SECRET is required}
       JAVA_OPTS: "-Xmx512m -Xms256m -XX:+UseG1GC"
     deploy:
       resources:
@@ -177,6 +227,8 @@ services:
         condition: service_started
       keycloak:
         condition: service_healthy
+      keycloak-internal-client-config:
+        condition: service_completed_successfully
     restart: unless-stopped
 
   userservice:
@@ -187,9 +239,11 @@ services:
       SPRING_CLOUD_CONSUL_HOST: ${SPRING_CLOUD_CONSUL_HOST:-consul}
       SPRING_CLOUD_CONSUL_PORT: ${SPRING_CLOUD_CONSUL_PORT:-8500}
       SPRING_DOCKER_COMPOSE_ENABLED: "false"
-      FAKEBOOK_DB_USERNAME: ${FAKEBOOK_DB_USERNAME}
-      FAKEBOOK_DB_PASSWORD: ${FAKEBOOK_DB_PASSWORD}
+      FAKEBOOK_DB_USERNAME: ${USER_DB_USERNAME:?USER_DB_USERNAME is required}
+      FAKEBOOK_DB_PASSWORD: ${USER_DB_PASSWORD:?USER_DB_PASSWORD is required}
       FAKEBOOK_OIDC_ISSUER_URI: ${FAKEBOOK_OIDC_ISSUER_URI}
+      FAKEBOOK_OIDC_CLIENT_ID: ${FAKEBOOK_OIDC_INTERNAL_CLIENT_ID:?FAKEBOOK_OIDC_INTERNAL_CLIENT_ID is required}
+      FAKEBOOK_OIDC_CLIENT_SECRET: ${FAKEBOOK_OIDC_INTERNAL_CLIENT_SECRET:?FAKEBOOK_OIDC_INTERNAL_CLIENT_SECRET is required}
       JAVA_OPTS: "-Xmx512m -Xms256m -XX:+UseG1GC"
     deploy:
       resources:
@@ -198,10 +252,14 @@ services:
     depends_on:
       mariadb:
         condition: service_healthy
+      redis:
+        condition: service_healthy
       consul-config-loader:
         condition: service_started
       keycloak:
         condition: service_healthy
+      keycloak-internal-client-config:
+        condition: service_completed_successfully
     restart: unless-stopped
 
   postservice:
@@ -212,9 +270,11 @@ services:
       SPRING_CLOUD_CONSUL_HOST: ${SPRING_CLOUD_CONSUL_HOST:-consul}
       SPRING_CLOUD_CONSUL_PORT: ${SPRING_CLOUD_CONSUL_PORT:-8500}
       SPRING_DOCKER_COMPOSE_ENABLED: "false"
-      FAKEBOOK_DB_USERNAME: ${FAKEBOOK_DB_USERNAME}
-      FAKEBOOK_DB_PASSWORD: ${FAKEBOOK_DB_PASSWORD}
+      FAKEBOOK_DB_USERNAME: ${POST_DB_USERNAME:?POST_DB_USERNAME is required}
+      FAKEBOOK_DB_PASSWORD: ${POST_DB_PASSWORD:?POST_DB_PASSWORD is required}
       FAKEBOOK_OIDC_ISSUER_URI: ${FAKEBOOK_OIDC_ISSUER_URI}
+      FAKEBOOK_OIDC_CLIENT_ID: ${FAKEBOOK_OIDC_INTERNAL_CLIENT_ID:?FAKEBOOK_OIDC_INTERNAL_CLIENT_ID is required}
+      FAKEBOOK_OIDC_CLIENT_SECRET: ${FAKEBOOK_OIDC_INTERNAL_CLIENT_SECRET:?FAKEBOOK_OIDC_INTERNAL_CLIENT_SECRET is required}
       JAVA_OPTS: "-Xmx512m -Xms256m -XX:+UseG1GC"
     deploy:
       resources:
@@ -229,6 +289,8 @@ services:
         condition: service_started
       keycloak:
         condition: service_healthy
+      keycloak-internal-client-config:
+        condition: service_completed_successfully
     restart: unless-stopped
 
   mediaservice:
@@ -239,9 +301,14 @@ services:
       SPRING_CLOUD_CONSUL_HOST: ${SPRING_CLOUD_CONSUL_HOST:-consul}
       SPRING_CLOUD_CONSUL_PORT: ${SPRING_CLOUD_CONSUL_PORT:-8500}
       SPRING_DOCKER_COMPOSE_ENABLED: "false"
-      FAKEBOOK_DB_USERNAME: ${FAKEBOOK_DB_USERNAME}
-      FAKEBOOK_DB_PASSWORD: ${FAKEBOOK_DB_PASSWORD}
+      FAKEBOOK_DB_USERNAME: ${MEDIA_DB_USERNAME:?MEDIA_DB_USERNAME is required}
+      FAKEBOOK_DB_PASSWORD: ${MEDIA_DB_PASSWORD:?MEDIA_DB_PASSWORD is required}
       FAKEBOOK_OIDC_ISSUER_URI: ${FAKEBOOK_OIDC_ISSUER_URI}
+      FAKEBOOK_OIDC_CLIENT_ID: ${FAKEBOOK_OIDC_INTERNAL_CLIENT_ID:?FAKEBOOK_OIDC_INTERNAL_CLIENT_ID is required}
+      FAKEBOOK_OIDC_CLIENT_SECRET: ${FAKEBOOK_OIDC_INTERNAL_CLIENT_SECRET:?FAKEBOOK_OIDC_INTERNAL_CLIENT_SECRET is required}
+      CLOUDINARY_CLOUD_NAME: ${CLOUDINARY_CLOUD_NAME:?CLOUDINARY_CLOUD_NAME is required}
+      CLOUDINARY_API_KEY: ${CLOUDINARY_API_KEY:?CLOUDINARY_API_KEY is required}
+      CLOUDINARY_API_SECRET: ${CLOUDINARY_API_SECRET:?CLOUDINARY_API_SECRET is required}
       JAVA_OPTS: "-Xmx512m -Xms256m -XX:+UseG1GC"
     deploy:
       resources:
@@ -254,6 +321,8 @@ services:
         condition: service_started
       keycloak:
         condition: service_healthy
+      keycloak-internal-client-config:
+        condition: service_completed_successfully
     restart: unless-stopped
 
   commentservice:
@@ -264,9 +333,11 @@ services:
       SPRING_CLOUD_CONSUL_HOST: ${SPRING_CLOUD_CONSUL_HOST:-consul}
       SPRING_CLOUD_CONSUL_PORT: ${SPRING_CLOUD_CONSUL_PORT:-8500}
       SPRING_DOCKER_COMPOSE_ENABLED: "false"
-      FAKEBOOK_DB_USERNAME: ${FAKEBOOK_DB_USERNAME}
-      FAKEBOOK_DB_PASSWORD: ${FAKEBOOK_DB_PASSWORD}
+      FAKEBOOK_DB_USERNAME: ${COMMENT_DB_USERNAME:?COMMENT_DB_USERNAME is required}
+      FAKEBOOK_DB_PASSWORD: ${COMMENT_DB_PASSWORD:?COMMENT_DB_PASSWORD is required}
       FAKEBOOK_OIDC_ISSUER_URI: ${FAKEBOOK_OIDC_ISSUER_URI}
+      FAKEBOOK_OIDC_CLIENT_ID: ${FAKEBOOK_OIDC_INTERNAL_CLIENT_ID:?FAKEBOOK_OIDC_INTERNAL_CLIENT_ID is required}
+      FAKEBOOK_OIDC_CLIENT_SECRET: ${FAKEBOOK_OIDC_INTERNAL_CLIENT_SECRET:?FAKEBOOK_OIDC_INTERNAL_CLIENT_SECRET is required}
       JAVA_OPTS: "-Xmx512m -Xms256m -XX:+UseG1GC"
     deploy:
       resources:
@@ -281,6 +352,8 @@ services:
         condition: service_started
       keycloak:
         condition: service_healthy
+      keycloak-internal-client-config:
+        condition: service_completed_successfully
     restart: unless-stopped
 
   feedservice:
@@ -291,9 +364,11 @@ services:
       SPRING_CLOUD_CONSUL_HOST: ${SPRING_CLOUD_CONSUL_HOST:-consul}
       SPRING_CLOUD_CONSUL_PORT: ${SPRING_CLOUD_CONSUL_PORT:-8500}
       SPRING_DOCKER_COMPOSE_ENABLED: "false"
-      FAKEBOOK_DB_USERNAME: ${FAKEBOOK_DB_USERNAME}
-      FAKEBOOK_DB_PASSWORD: ${FAKEBOOK_DB_PASSWORD}
+      FAKEBOOK_DB_USERNAME: ${FEED_DB_USERNAME:?FEED_DB_USERNAME is required}
+      FAKEBOOK_DB_PASSWORD: ${FEED_DB_PASSWORD:?FEED_DB_PASSWORD is required}
       FAKEBOOK_OIDC_ISSUER_URI: ${FAKEBOOK_OIDC_ISSUER_URI}
+      FAKEBOOK_OIDC_CLIENT_ID: ${FAKEBOOK_OIDC_INTERNAL_CLIENT_ID:?FAKEBOOK_OIDC_INTERNAL_CLIENT_ID is required}
+      FAKEBOOK_OIDC_CLIENT_SECRET: ${FAKEBOOK_OIDC_INTERNAL_CLIENT_SECRET:?FAKEBOOK_OIDC_INTERNAL_CLIENT_SECRET is required}
       JAVA_OPTS: "-Xmx512m -Xms256m -XX:+UseG1GC"
     deploy:
       resources:
@@ -310,7 +385,21 @@ services:
         condition: service_started
       keycloak:
         condition: service_healthy
+      keycloak-internal-client-config:
+        condition: service_completed_successfully
     restart: unless-stopped
+
+  frontend:
+    build: 
+      context: ../frontend
+      dockerfile: Dockerfile
+    image: ${DOCKER_REGISTRY_PREFIX:-}fakebook-frontend:${IMAGE_TAG:-staging}
+    container_name: fakebook-frontend
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+    restart: unless-stopped    
 
   nginx:
     image: nginx:1.27-alpine
@@ -324,6 +413,7 @@ services:
       - "443:443"
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/certs:/etc/letsencrypt/live/staging.fakebook.com:ro
     depends_on:
       - gateway
     restart: unless-stopped

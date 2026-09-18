@@ -258,7 +258,7 @@ namastack:
       publish-after-save: true
     jdbc:
       schema-initialization:
-        enabled: true
+        enabled: false
     retry:
       policy: exponential
       max-retries: 5

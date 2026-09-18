@@ -12,13 +12,13 @@ export async function loadRuntimeConfig(): Promise<RuntimeConfig> {
   }
 
   const candidate = (await response.json()) as Partial<RuntimeConfig>;
-  if (typeof candidate.environment !== 'string' || typeof candidate.apiBaseUrl !== 'string' || !candidate.apiBaseUrl.trim()) {
+  if (typeof candidate.environment !== 'string' || typeof candidate.apiBaseUrl !== 'string') {
     throw new Error('Runtime configuration must define environment and apiBaseUrl');
   }
 
   runtimeConfig = {
     environment: candidate.environment,
-    apiBaseUrl: candidate.apiBaseUrl.replace(/\/$/, ''),
+    apiBaseUrl: candidate.apiBaseUrl ? candidate.apiBaseUrl.replace(/\/$/, '') : '',
   };
   return runtimeConfig;
 }
