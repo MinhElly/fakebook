@@ -19,6 +19,7 @@ import {
 } from "@/services/followService";
 
 import { useAuth } from "@/providers/AuthProvider";
+import { resolveApiUrl } from "@/config/runtime-config";
 
 export default function FriendProvider({ children }: { children: React.ReactNode }) {
   const { status } = useAuth();
@@ -44,7 +45,7 @@ export default function FriendProvider({ children }: { children: React.ReactNode
           id: friendObj.id,
           name: friendObj.displayName || friendObj.username || "User",
           avatar: getUserAvatarUrl(friendObj),
-          cover: friendObj.coverMediaId ? `/services/mediaservice/api/media/${friendObj.coverMediaId}/file` : "/default-cover.svg",
+          cover: friendObj.coverMediaId ? resolveApiUrl(`/services/mediaservice/api/media/${friendObj.coverMediaId}/file`) : "/default-cover.svg",
           mutualFriends: 0,
           location: friendObj.location || "",
           work: friendObj.work || "",
@@ -61,7 +62,7 @@ export default function FriendProvider({ children }: { children: React.ReactNode
           id: target ? target.id : item.id || "",
           name: target ? (target.displayName || target.username || "User") : "User",
           avatar: getUserAvatarUrl(target),
-          cover: target?.coverMediaId ? `/services/mediaservice/api/media/${target.coverMediaId}/file` : "/default-cover.svg",
+          cover: target?.coverMediaId ? resolveApiUrl(`/services/mediaservice/api/media/${target.coverMediaId}/file`) : "/default-cover.svg",
           mutualFriends: 0,
           location: target?.location || "",
           work: target?.work || "",
@@ -78,7 +79,7 @@ export default function FriendProvider({ children }: { children: React.ReactNode
           id: sender.id,
           name: sender.displayName || sender.username || "User",
           avatar: getUserAvatarUrl(sender),
-          cover: sender.coverMediaId ? `/services/mediaservice/api/media/${sender.coverMediaId}/file` : "/default-cover.svg",
+          cover: sender.coverMediaId ? resolveApiUrl(`/services/mediaservice/api/media/${sender.coverMediaId}/file`) : "/default-cover.svg",
           mutualFriends: 0,
           location: sender.location || "",
           work: sender.work || "",

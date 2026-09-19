@@ -1,4 +1,5 @@
 import api from "./apis";
+import { resolveApiUrl } from "@/config/runtime-config";
 
 export interface UserSummary {
   id: string;
@@ -19,7 +20,7 @@ export function getUserAvatarUrl(user?: UserSummary | null): string {
     return user.avatarUrl;
   }
   if (user.avatarMediaId) {
-    return `/services/mediaservice/api/media/${user.avatarMediaId}/file`;
+    return resolveApiUrl(`/services/mediaservice/api/media/${user.avatarMediaId}/file`);
   }
   return "/default-avatar.svg";
 }
