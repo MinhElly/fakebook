@@ -76,6 +76,7 @@ public class CommentService {
                 .orElseGet(() -> {
                     try {
                         PostFeignClient.PostSyncDTO postDTO = postFeignClient.getPostById(request.postId());
+                        if(postDTO == null) throw new IllegalArgumentException("Post not found");
                         PostCache newCache = new PostCache();
                         newCache.setId(postDTO.id());
                         newCache.setAuthorId(postDTO.authorId());

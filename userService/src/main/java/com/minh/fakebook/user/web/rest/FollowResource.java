@@ -261,4 +261,9 @@ public class FollowResource {
             HttpHeaders headers = PaginationUtil.generatePaginationHttpHeaders(ServletUriComponentsBuilder.fromCurrentRequest(),page );
             return ResponseEntity.ok().headers(headers).body(page.getContent());
     }
+    @GetMapping("/user/{userId}/follower-ids")
+    public ResponseEntity<List<UUID>> getFollowerIdsByUserId(@PathVariable("userId") UUID userId) {
+        LOG.debug("REST request to get follower IDs for user : {}", userId);
+        return ResponseEntity.ok().body(followService.getFollowerIdsByUserId(userId));
+    }
 }

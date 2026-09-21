@@ -1,4 +1,5 @@
 import api from "./apis";
+import { resolveApiUrl } from "@/config/runtime-config";
 
 export interface MediaDTO {
   id: string;
@@ -34,8 +35,9 @@ export async function uploadMedia(file: File): Promise<MediaDTO | null> {
  */
 export function getMediaUrl(mediaId: string): string {
   if (!mediaId) return "";
-  if (mediaId.startsWith("http://") || mediaId.startsWith("https://") || mediaId.startsWith("/")) {
+  if (mediaId.startsWith("http://") || mediaId.startsWith("https://")) {
     return mediaId;
   }
-  return `/services/mediaservice/api/media/${mediaId}`;
+  const path = mediaId.startsWith("/") ? mediaId : `/services/mediaservice/api/media/${mediaId}`;
+  return resolveApiUrl(path);
 }
