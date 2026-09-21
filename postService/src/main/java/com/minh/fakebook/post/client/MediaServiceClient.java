@@ -9,7 +9,7 @@ import com.minh.fakebook.post.config.FeignUserRelayRequestInterceptor;
 /**
  * Feign client to communicate with mediaService for media validation.
  */
-@FeignClient(name = "mediaservice", configuration = FeignUserRelayRequestInterceptor.class)
+@FeignClient(name = "mediaservice", configuration = FeignUserRelayRequestInterceptor.class, fallback = MediaServiceClientFallback.class)
 public interface MediaServiceClient {
 
     @GetMapping("/api/media/{id}")
