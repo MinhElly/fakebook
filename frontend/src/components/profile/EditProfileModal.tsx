@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useUserStore, type UserProfile } from "@/stores/userStore";
 import Toast from "@/components/ui/Toast";
 import api from "@/services/apis";
+import { resolveApiUrl } from "@/config/runtime-config";
 
 interface Props {
   onClose: () => void;
@@ -66,10 +67,10 @@ export default function EditProfileModal({ onClose }: Props) {
         avatarMediaId: uploadedAvatarMediaId,
         coverMediaId: uploadedCoverMediaId,
         avatar: uploadedAvatarMediaId
-          ? `/services/mediaservice/api/media/${uploadedAvatarMediaId}/file`
+          ? resolveApiUrl(`/services/mediaservice/api/media/${uploadedAvatarMediaId}/file`)
           : profile.avatar,
         cover: uploadedCoverMediaId
-          ? `/services/mediaservice/api/media/${uploadedCoverMediaId}/file`
+          ? resolveApiUrl(`/services/mediaservice/api/media/${uploadedCoverMediaId}/file`)
           : profile.cover,
       });
 

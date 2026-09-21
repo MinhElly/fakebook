@@ -2,6 +2,7 @@ package com.minh.fakebook.user.repository;
 
 import com.minh.fakebook.user.domain.Follow;
 
+import java.util.List;
 import java.util.UUID;
 
 import org.springframework.data.domain.Page;
@@ -40,4 +41,7 @@ public interface FollowRepository extends JpaRepository<Follow, UUID>, JpaSpecif
     Page<Follow> findFollowers(
             @Param("userId") UUID userId,
             Pageable pageable);
+
+    @Query("SELECT f.follower.id FROM Follow f WHERE f.following.id = :userId")
+    List<UUID> findFollowerIdsByUserId(@Param("userId") UUID userId);
 }

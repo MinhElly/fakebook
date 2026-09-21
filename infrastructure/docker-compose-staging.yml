@@ -390,6 +390,7 @@ services:
     restart: unless-stopped
 
   frontend:
+    profiles: ["vm-frontend"]
     build: 
       context: ../frontend
       dockerfile: Dockerfile

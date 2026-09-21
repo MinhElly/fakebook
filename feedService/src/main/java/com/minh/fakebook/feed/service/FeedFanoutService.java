@@ -6,10 +6,14 @@ import com.minh.fakebook.feed.repository.FeedItemRepository;
 import com.minh.fakebook.feed.service.dto.FeedItemDTO;
 import com.minh.fakebook.feed.service.event.PostCreatedEvent;
 import com.minh.fakebook.feed.service.event.PostUpdatedEvent;
+import com.minh.fakebook.feed.domain.UserFeedItemDocument;
+import com.minh.fakebook.feed.repository.UserFeedItemDocumentRepository;
 
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -30,27 +34,29 @@ public class FeedFanoutService {
     private final StringRedisTemplate redisTemplate;
     private final FeedItemService feedItemService;
     private final FeedItemRepository feedItemRepository;
+    private final UserFeedItemDocumentRepository mongoRepository;
 
     public FeedFanoutService(
         UserServiceClient userServiceClient,
         StringRedisTemplate redisTemplate,
         FeedItemService feedItemService,
-        FeedItemRepository feedItemRepository
+        FeedItemRepository feedItemRepository,
+        UserFeedItemDocumentRepository mongoRepository
     ) {
         this.userServiceClient = userServiceClient;
         this.redisTemplate = redisTemplate;
         this.feedItemService = feedItemService;
         this.feedItemRepository = feedItemRepository;
+        this.mongoRepository = mongoRepository;
     }
 
     /**
      * Async & Transactional Fan-out processing on new post creation.
      */
-    @Async
     @Transactional
     public void processPostCreated(PostCreatedEvent event) {
         LOG.debug("Processing fan-out for postId: {}, visibility: {}", event.id(), event.visibility());
-        List<UUID> targetUserIds = new ArrayList<>();
+        Set<UUID> targetUserIds = new LinkedHashSet<>();
 
         if ("PRIVATE".equalsIgnoreCase(event.visibility())) {
             targetUserIds.add(event.authorId());
@@ -63,9 +69,17 @@ public class FeedFanoutService {
             } catch (Exception e) {
                 LOG.error("Failed to fetch friends list for user {}", event.authorId(), e);
             }
-            if (!targetUserIds.contains(event.authorId())) {
-                targetUserIds.add(event.authorId());
+        }
+        if("PUBLIC".equalsIgnoreCase(event.visibility())){
+            try{
+                List<UUID> followeIds = userServiceClient.getUserFollowersList(event.authorId());
+                if(followeIds != null && !followeIds.isEmpty()){
+                    targetUserIds.addAll(followeIds);
+                }
+            }catch(Exception e){
+                LOG.error("Failed to fetch followers list for user {}", event.authorId(), e);
             }
+            targetUserIds.add(event.authorId());
         }
 
         if (targetUserIds.isEmpty()) {
@@ -95,7 +109,14 @@ public class FeedFanoutService {
             dto.setPostId(event.id());
             dto.setCreatedAt(createdAt);
             feedItemService.save(dto);
+            UserFeedItemDocument doc = new UserFeedItemDocument();
+            doc.setUserId(recipientId);
+            doc.setPostId(event.id());
+            doc.setCreatedAt(createdAt);
+            mongoRepository.save(doc);
         }
+
+        
 
         LOG.info("Fan-out for postId: {} completed. Processed {} recipients", event.id(), targetUserIds.size());
     }
@@ -103,7 +124,6 @@ public class FeedFanoutService {
     /**
      * Fan-out cleanup when a post is deleted.
      */
-    @Async
     @Transactional
     public void processPostDeleted(UUID postId) {
         LOG.debug("Removing feed items for deleted postId: {}", postId);
@@ -117,13 +137,13 @@ public class FeedFanoutService {
             }
         }
         feedItemRepository.deleteByPostId(postId);
+        mongoRepository.deleteByPostId(postId);
         LOG.info("Successfully deleted DB and Redis feed items for post {}", postId);
     }
 
         /**
      * Processing post update events.
      */
-    @Async
     @Transactional
     public void processPostUpdated(PostUpdatedEvent event) {
         LOG.debug("Processing post update for postId: {}, visibility: {}", event.id(), event.visibility());

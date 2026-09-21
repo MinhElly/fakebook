@@ -39,7 +39,7 @@
         <jacoco-maven-plugin.version>0.8.15</jacoco-maven-plugin.version>
         <jhipster-framework.version>9.3.0</jhipster-framework.version>
         <jib-maven-plugin.architecture>amd64</jib-maven-plugin.architecture>
-        <jib-maven-plugin.image>eclipse-temurin:25-jre-noble</jib-maven-plugin.image>
+        <jib-maven-plugin.image>eclipse-temurin:21-jre-alpine</jib-maven-plugin.image>
         <jib-maven-plugin.version>3.5.2</jib-maven-plugin.version>
         <lifecycle-mapping.version>1.0.0</lifecycle-mapping.version>
         <liquibase-plugin.password/>
@@ -265,6 +265,11 @@
         <dependency>
             <groupId>org.mariadb.jdbc</groupId>
             <artifactId>mariadb-java-client</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.h2database</groupId>
+            <artifactId>h2</artifactId>
+            <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>org.springframework.cloud</groupId>
@@ -1006,6 +1011,9 @@
                 Profile for tracing requests with Zipkin.
             -->
             <id>zipkin</id>
+            <activation>
+                <activeByDefault>true</activeByDefault>
+            </activation>
             <dependencies>
                 <dependency>
                     <groupId>io.micrometer</groupId>
