@@ -11,13 +11,24 @@
   kcadm="/opt/keycloak/bin/kcadm.sh"
   config_file="/tmp/kcadm.config"
 
-  "$kcadm" config credentials \
-    --config "$config_file" \
-    --server "$server_url" \
-    --realm master \
-    --user "$admin_username" \
-    --password "$admin_password"
+  for attempt in $(seq 1 60); do
+    if "$kcadm" config credentials \
+      --config "$config_file" \
+      --server "$server_url" \
+      --realm master \
+      --user "$admin_username" \
+      --password "$admin_password" >/dev/null 2>&1; then
+      break
+    fi
 
+    if [ "$attempt" -eq 60 ]; then
+      echo "Internal client sync failed: Keycloak did not become ready in time." >&2
+      exit 1
+    fi
+
+    sleep 2
+  done
+    
   client_uuid="$(
     "$kcadm" get clients \
       --config "$config_file" \

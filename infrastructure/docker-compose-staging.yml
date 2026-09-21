@@ -1,69 +1,26 @@
 name: fakebook-infrastructure-staging
 
 services:
-  mariadb:
-    image: mariadb:12.3.3
-    container_name: fakebook-mariadb
-    environment:
-      MARIADB_ROOT_PASSWORD: ${MARIADB_ROOT_PASSWORD:?MARIADB_ROOT_PASSWORD is required}
-      MARIADB_DATABASE: gateway
-      GATEWAY_DB_USERNAME: ${GATEWAY_DB_USERNAME:?GATEWAY_DB_USERNAME is required}
-      GATEWAY_DB_PASSWORD: ${GATEWAY_DB_PASSWORD:?GATEWAY_DB_PASSWORD is required}
-
-      AUTH_DB_USERNAME: ${AUTH_DB_USERNAME:?AUTH_DB_USERNAME is required}
-      AUTH_DB_PASSWORD: ${AUTH_DB_PASSWORD:?AUTH_DB_PASSWORD is required}
-
-      USER_DB_USERNAME: ${USER_DB_USERNAME:?USER_DB_USERNAME is required}
-      USER_DB_PASSWORD: ${USER_DB_PASSWORD:?USER_DB_PASSWORD is required}
-
-      POST_DB_USERNAME: ${POST_DB_USERNAME:?POST_DB_USERNAME is required}
-      POST_DB_PASSWORD: ${POST_DB_PASSWORD:?POST_DB_PASSWORD is required}
-
-      MEDIA_DB_USERNAME: ${MEDIA_DB_USERNAME:?MEDIA_DB_USERNAME is required}
-      MEDIA_DB_PASSWORD: ${MEDIA_DB_PASSWORD:?MEDIA_DB_PASSWORD is required}
-
-      COMMENT_DB_USERNAME: ${COMMENT_DB_USERNAME:?COMMENT_DB_USERNAME is required}
-      COMMENT_DB_PASSWORD: ${COMMENT_DB_PASSWORD:?COMMENT_DB_PASSWORD is required}
-
-      FEED_DB_USERNAME: ${FEED_DB_USERNAME:?FEED_DB_USERNAME is required}
-      FEED_DB_PASSWORD: ${FEED_DB_PASSWORD:?FEED_DB_PASSWORD is required}
-
-      KEYCLOAK_DB_USERNAME: ${KEYCLOAK_DB_USERNAME:?KEYCLOAK_DB_USERNAME is required}
-      KEYCLOAK_DB_PASSWORD: ${KEYCLOAK_DB_PASSWORD:?KEYCLOAK_DB_PASSWORD is required}
-    volumes:
-      - /var/lib/fakebook-staging/mariadb_data:/var/lib/mysql
-      - ./mariadb/init:/docker-entrypoint-initdb.d:ro
-    command: mariadbd --lower_case_table_names=1 --character_set_server=utf8mb4 --explicit_defaults_for_timestamp
-    deploy:
-      resources:
-        limits:
-          memory: 1536M
-    healthcheck:
-      test: ['CMD', '/usr/local/bin/healthcheck.sh', '--connect', '--innodb_initialized']
-      interval: 5s
-      timeout: 5s
-      retries: 20
-    restart: unless-stopped
-
   keycloak:
     image: quay.io/keycloak/keycloak:26.7.2-1
     container_name: fakebook-keycloak
     command: start --import-realm
     environment:
-      KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_BOOTSTRAP_ADMIN_USERNAME:-admin}
-      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_BOOTSTRAP_ADMIN_PASSWORD:-StagingAdminPass2026!}
+      KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_BOOTSTRAP_ADMIN_USERNAME:?KEYCLOAK_BOOTSTRAP_ADMIN_USERNAME is required}
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_BOOTSTRAP_ADMIN_PASSWORD:?KEYCLOAK_BOOTSTRAP_ADMIN_PASSWORD is required}
       KC_DB: mariadb
-      KC_DB_URL: jdbc:mariadb://mariadb:3306/keycloak?useUnicode=true&characterEncoding=utf8&useSSL=false
+      KC_DB_URL: "jdbc:mariadb://${MARIADB_HOST:?MARIADB_HOST is required}:${MARIADB_PORT}/keycloak?useUnicode=true&characterEncoding=utf8&sslMode=verify-full&serverSslCert=${MARIADB_SSL_CERT_CONTAINER_PATH:-/run/secrets/rds-global-bundle.pem}"
       KC_DB_USERNAME: ${KEYCLOAK_DB_USERNAME:?KEYCLOAK_DB_USERNAME is required}
       KC_DB_PASSWORD: ${KEYCLOAK_DB_PASSWORD:?KEYCLOAK_DB_PASSWORD is required}
       KC_FEATURES: scripts
       KC_HTTP_PORT: 9080
       KC_HTTP_ENABLED: 'true'
       KC_PROXY_HEADERS: xforwarded
-      KC_HOSTNAME: ${KEYCLOAK_HOSTNAME:-https://staging.fakebook.com}
+      KC_HOSTNAME: ${KEYCLOAK_HOSTNAME:?KEYCLOAK_HOSTNAME is required}
       KC_HOSTNAME_STRICT: 'false'
       KC_HOSTNAME_STRICT_BACKCHANNEL: 'false'
       KC_HEALTH_ENABLED: 'true'
+      KC_HTTP_MANAGEMENT_PORT: 9990
     deploy:
       resources:
         limits:
@@ -72,11 +29,12 @@ services:
       - keycloak-data:/opt/keycloak/data
       - ../gateway/src/main/docker/realm-config:/opt/keycloak/data/import:ro
       - ../gateway/src/main/docker/realm-config/keycloak-health-check.sh:/opt/keycloak/health-check.sh:ro
+      - ${MARIADB_SSL_CERT_HOST_PATH:?MARIADB_SSL_CERT_HOST_PATH is required}:${MARIADB_SSL_CERT_CONTAINER_PATH:-/run/secrets/rds-global-bundle.pem}:ro
     healthcheck:
-      test: ["CMD-SHELL", "exec 3<>/dev/tcp/127.0.0.1/9080 || exit 1"]
-      interval: 10s
+      test: bash /opt/keycloak/health-check.sh
+      interval: 5s
       timeout: 5s
-      retries: 20
+      retries: 50
       start_period: 15s
     restart: unless-stopped
 
@@ -185,6 +143,10 @@ services:
       SPRING_CLOUD_CONSUL_HOST: ${SPRING_CLOUD_CONSUL_HOST:-consul}
       SPRING_CLOUD_CONSUL_PORT: ${SPRING_CLOUD_CONSUL_PORT:-8500}
       SPRING_DOCKER_COMPOSE_ENABLED: "false"
+      MARIADB_HOST: ${MARIADB_HOST:?MARIADB_HOST is required}
+      MARIADB_PORT: ${MARIADB_PORT}
+      SPRING_R2DBC_URL: "r2dbc:mariadb://${MARIADB_HOST:?MARIADB_HOST is required}:${MARIADB_PORT}/gateway?useLegacyDatetimeCode=false&sslMode=VERIFY_FULL&serverSslCert=${MARIADB_SSL_CERT_CONTAINER_PATH:-/run/secrets/rds-global-bundle.pem}"
+      SPRING_LIQUIBASE_URL: "jdbc:mariadb://${MARIADB_HOST:?MARIADB_HOST is required}:${MARIADB_PORT}/gateway?useLegacyDatetimeCode=false&sslMode=verify-full&serverSslCert=${MARIADB_SSL_CERT_CONTAINER_PATH:-/run/secrets/rds-global-bundle.pem}"
       FAKEBOOK_DB_USERNAME: ${GATEWAY_DB_USERNAME:?GATEWAY_DB_USERNAME is required}
       FAKEBOOK_DB_PASSWORD: ${GATEWAY_DB_PASSWORD:?GATEWAY_DB_PASSWORD is required}
       FAKEBOOK_OIDC_ISSUER_URI: ${FAKEBOOK_OIDC_ISSUER_URI}
@@ -193,9 +155,9 @@ services:
       resources:
         limits:
           memory: 768M
+    volumes:
+      - ${MARIADB_SSL_CERT_HOST_PATH:?MARIADB_SSL_CERT_HOST_PATH is required}:${MARIADB_SSL_CERT_CONTAINER_PATH:-/run/secrets/rds-global-bundle.pem}:ro
     depends_on:
-      mariadb:
-        condition: service_healthy
       consul-config-loader:
         condition: service_started
       keycloak:
@@ -210,6 +172,9 @@ services:
       SPRING_CLOUD_CONSUL_HOST: ${SPRING_CLOUD_CONSUL_HOST:-consul}
       SPRING_CLOUD_CONSUL_PORT: ${SPRING_CLOUD_CONSUL_PORT:-8500}
       SPRING_DOCKER_COMPOSE_ENABLED: "false"
+      MARIADB_HOST: ${MARIADB_HOST:?MARIADB_HOST is required}
+      MARIADB_PORT: ${MARIADB_PORT}
+      SPRING_DATASOURCE_URL: "jdbc:mariadb://${MARIADB_HOST:?MARIADB_HOST is required}:${MARIADB_PORT}/authservice?useLegacyDatetimeCode=false&sslMode=verify-full&serverSslCert=${MARIADB_SSL_CERT_CONTAINER_PATH:-/run/secrets/rds-global-bundle.pem}"
       FAKEBOOK_DB_USERNAME: ${AUTH_DB_USERNAME:?AUTH_DB_USERNAME is required}
       FAKEBOOK_DB_PASSWORD: ${AUTH_DB_PASSWORD:?AUTH_DB_PASSWORD is required}
       FAKEBOOK_OIDC_ISSUER_URI: ${FAKEBOOK_OIDC_ISSUER_URI}
@@ -220,9 +185,9 @@ services:
       resources:
         limits:
           memory: 768M
+    volumes:
+      - ${MARIADB_SSL_CERT_HOST_PATH:?MARIADB_SSL_CERT_HOST_PATH is required}:${MARIADB_SSL_CERT_CONTAINER_PATH:-/run/secrets/rds-global-bundle.pem}:ro
     depends_on:
-      mariadb:
-        condition: service_healthy
       consul-config-loader:
         condition: service_started
       keycloak:
@@ -239,6 +204,9 @@ services:
       SPRING_CLOUD_CONSUL_HOST: ${SPRING_CLOUD_CONSUL_HOST:-consul}
       SPRING_CLOUD_CONSUL_PORT: ${SPRING_CLOUD_CONSUL_PORT:-8500}
       SPRING_DOCKER_COMPOSE_ENABLED: "false"
+      MARIADB_HOST: ${MARIADB_HOST:?MARIADB_HOST is required}
+      MARIADB_PORT: ${MARIADB_PORT}
+      SPRING_DATASOURCE_URL: "jdbc:mariadb://${MARIADB_HOST:?MARIADB_HOST is required}:${MARIADB_PORT}/userservice?useLegacyDatetimeCode=false&sslMode=verify-full&serverSslCert=${MARIADB_SSL_CERT_CONTAINER_PATH:-/run/secrets/rds-global-bundle.pem}"
       FAKEBOOK_DB_USERNAME: ${USER_DB_USERNAME:?USER_DB_USERNAME is required}
       FAKEBOOK_DB_PASSWORD: ${USER_DB_PASSWORD:?USER_DB_PASSWORD is required}
       FAKEBOOK_OIDC_ISSUER_URI: ${FAKEBOOK_OIDC_ISSUER_URI}
@@ -249,9 +217,9 @@ services:
       resources:
         limits:
           memory: 768M
+    volumes:
+      - ${MARIADB_SSL_CERT_HOST_PATH:?MARIADB_SSL_CERT_HOST_PATH is required}:${MARIADB_SSL_CERT_CONTAINER_PATH:-/run/secrets/rds-global-bundle.pem}:ro
     depends_on:
-      mariadb:
-        condition: service_healthy
       redis:
         condition: service_healthy
       consul-config-loader:
@@ -270,6 +238,9 @@ services:
       SPRING_CLOUD_CONSUL_HOST: ${SPRING_CLOUD_CONSUL_HOST:-consul}
       SPRING_CLOUD_CONSUL_PORT: ${SPRING_CLOUD_CONSUL_PORT:-8500}
       SPRING_DOCKER_COMPOSE_ENABLED: "false"
+      MARIADB_HOST: ${MARIADB_HOST:?MARIADB_HOST is required}
+      MARIADB_PORT: ${MARIADB_PORT}
+      SPRING_DATASOURCE_URL: "jdbc:mariadb://${MARIADB_HOST:?MARIADB_HOST is required}:${MARIADB_PORT}/postservice?useLegacyDatetimeCode=false&sslMode=verify-full&serverSslCert=${MARIADB_SSL_CERT_CONTAINER_PATH:-/run/secrets/rds-global-bundle.pem}"
       FAKEBOOK_DB_USERNAME: ${POST_DB_USERNAME:?POST_DB_USERNAME is required}
       FAKEBOOK_DB_PASSWORD: ${POST_DB_PASSWORD:?POST_DB_PASSWORD is required}
       FAKEBOOK_OIDC_ISSUER_URI: ${FAKEBOOK_OIDC_ISSUER_URI}
@@ -280,9 +251,9 @@ services:
       resources:
         limits:
           memory: 768M
+    volumes:
+      - ${MARIADB_SSL_CERT_HOST_PATH:?MARIADB_SSL_CERT_HOST_PATH is required}:${MARIADB_SSL_CERT_CONTAINER_PATH:-/run/secrets/rds-global-bundle.pem}:ro
     depends_on:
-      mariadb:
-        condition: service_healthy
       consul-config-loader:
         condition: service_started
       kafka:
@@ -301,6 +272,9 @@ services:
       SPRING_CLOUD_CONSUL_HOST: ${SPRING_CLOUD_CONSUL_HOST:-consul}
       SPRING_CLOUD_CONSUL_PORT: ${SPRING_CLOUD_CONSUL_PORT:-8500}
       SPRING_DOCKER_COMPOSE_ENABLED: "false"
+      MARIADB_HOST: ${MARIADB_HOST:?MARIADB_HOST is required}
+      MARIADB_PORT: ${MARIADB_PORT}
+      SPRING_DATASOURCE_URL: "jdbc:mariadb://${MARIADB_HOST:?MARIADB_HOST is required}:${MARIADB_PORT}/mediaservice?useLegacyDatetimeCode=false&sslMode=verify-full&serverSslCert=${MARIADB_SSL_CERT_CONTAINER_PATH:-/run/secrets/rds-global-bundle.pem}"
       FAKEBOOK_DB_USERNAME: ${MEDIA_DB_USERNAME:?MEDIA_DB_USERNAME is required}
       FAKEBOOK_DB_PASSWORD: ${MEDIA_DB_PASSWORD:?MEDIA_DB_PASSWORD is required}
       FAKEBOOK_OIDC_ISSUER_URI: ${FAKEBOOK_OIDC_ISSUER_URI}
@@ -314,9 +288,9 @@ services:
       resources:
         limits:
           memory: 768M
+    volumes:
+      - ${MARIADB_SSL_CERT_HOST_PATH:?MARIADB_SSL_CERT_HOST_PATH is required}:${MARIADB_SSL_CERT_CONTAINER_PATH:-/run/secrets/rds-global-bundle.pem}:ro
     depends_on:
-      mariadb:
-        condition: service_healthy
       consul-config-loader:
         condition: service_started
       keycloak:
@@ -333,6 +307,9 @@ services:
       SPRING_CLOUD_CONSUL_HOST: ${SPRING_CLOUD_CONSUL_HOST:-consul}
       SPRING_CLOUD_CONSUL_PORT: ${SPRING_CLOUD_CONSUL_PORT:-8500}
       SPRING_DOCKER_COMPOSE_ENABLED: "false"
+      MARIADB_HOST: ${MARIADB_HOST:?MARIADB_HOST is required}
+      MARIADB_PORT: ${MARIADB_PORT}
+      SPRING_DATASOURCE_URL: "jdbc:mariadb://${MARIADB_HOST:?MARIADB_HOST is required}:${MARIADB_PORT}/commentservice?useLegacyDatetimeCode=false&sslMode=verify-full&serverSslCert=${MARIADB_SSL_CERT_CONTAINER_PATH:-/run/secrets/rds-global-bundle.pem}"
       FAKEBOOK_DB_USERNAME: ${COMMENT_DB_USERNAME:?COMMENT_DB_USERNAME is required}
       FAKEBOOK_DB_PASSWORD: ${COMMENT_DB_PASSWORD:?COMMENT_DB_PASSWORD is required}
       FAKEBOOK_OIDC_ISSUER_URI: ${FAKEBOOK_OIDC_ISSUER_URI}
@@ -343,9 +320,9 @@ services:
       resources:
         limits:
           memory: 768M
+    volumes:
+      - ${MARIADB_SSL_CERT_HOST_PATH:?MARIADB_SSL_CERT_HOST_PATH is required}:${MARIADB_SSL_CERT_CONTAINER_PATH:-/run/secrets/rds-global-bundle.pem}:ro
     depends_on:
-      mariadb:
-        condition: service_healthy
       consul-config-loader:
         condition: service_started
       kafka:
@@ -364,6 +341,9 @@ services:
       SPRING_CLOUD_CONSUL_HOST: ${SPRING_CLOUD_CONSUL_HOST:-consul}
       SPRING_CLOUD_CONSUL_PORT: ${SPRING_CLOUD_CONSUL_PORT:-8500}
       SPRING_DOCKER_COMPOSE_ENABLED: "false"
+      MARIADB_HOST: ${MARIADB_HOST:?MARIADB_HOST is required}
+      MARIADB_PORT: ${MARIADB_PORT}
+      SPRING_DATASOURCE_URL: "jdbc:mariadb://${MARIADB_HOST:?MARIADB_HOST is required}:${MARIADB_PORT}/feedservice?useLegacyDatetimeCode=false&sslMode=verify-full&serverSslCert=${MARIADB_SSL_CERT_CONTAINER_PATH:-/run/secrets/rds-global-bundle.pem}"
       FAKEBOOK_DB_USERNAME: ${FEED_DB_USERNAME:?FEED_DB_USERNAME is required}
       FAKEBOOK_DB_PASSWORD: ${FEED_DB_PASSWORD:?FEED_DB_PASSWORD is required}
       FAKEBOOK_OIDC_ISSUER_URI: ${FAKEBOOK_OIDC_ISSUER_URI}
@@ -374,9 +354,9 @@ services:
       resources:
         limits:
           memory: 768M
+    volumes:
+      - ${MARIADB_SSL_CERT_HOST_PATH:?MARIADB_SSL_CERT_HOST_PATH is required}:${MARIADB_SSL_CERT_CONTAINER_PATH:-/run/secrets/rds-global-bundle.pem}:ro
     depends_on:
-      mariadb:
-        condition: service_healthy
       redis:
         condition: service_healthy
       consul-config-loader:
