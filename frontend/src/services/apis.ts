@@ -1,7 +1,10 @@
 import axios, { type InternalAxiosRequestConfig } from "axios";
 import keycloak from "./keycloak";
+import { getRuntimeConfig } from "@/config/runtime-config";
 
-const api = axios.create();
+const api = axios.create({
+  baseURL: getRuntimeConfig().apiBaseUrl || undefined,
+});
 
 api.interceptors.request.use(async (config: InternalAxiosRequestConfig) => {
   if (!keycloak.authenticated) return config;

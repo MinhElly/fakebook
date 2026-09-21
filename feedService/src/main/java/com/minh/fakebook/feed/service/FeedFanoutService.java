@@ -11,7 +11,9 @@ import com.minh.fakebook.feed.repository.UserFeedItemDocumentRepository;
 
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -51,11 +53,10 @@ public class FeedFanoutService {
     /**
      * Async & Transactional Fan-out processing on new post creation.
      */
-    @Async
     @Transactional
     public void processPostCreated(PostCreatedEvent event) {
         LOG.debug("Processing fan-out for postId: {}, visibility: {}", event.id(), event.visibility());
-        List<UUID> targetUserIds = new ArrayList<>();
+        Set<UUID> targetUserIds = new LinkedHashSet<>();
 
         if ("PRIVATE".equalsIgnoreCase(event.visibility())) {
             targetUserIds.add(event.authorId());
@@ -68,9 +69,17 @@ public class FeedFanoutService {
             } catch (Exception e) {
                 LOG.error("Failed to fetch friends list for user {}", event.authorId(), e);
             }
-            if (!targetUserIds.contains(event.authorId())) {
-                targetUserIds.add(event.authorId());
+        }
+        if("PUBLIC".equalsIgnoreCase(event.visibility())){
+            try{
+                List<UUID> followeIds = userServiceClient.getUserFollowersList(event.authorId());
+                if(followeIds != null && !followeIds.isEmpty()){
+                    targetUserIds.addAll(followeIds);
+                }
+            }catch(Exception e){
+                LOG.error("Failed to fetch followers list for user {}", event.authorId(), e);
             }
+            targetUserIds.add(event.authorId());
         }
 
         if (targetUserIds.isEmpty()) {
@@ -115,7 +124,6 @@ public class FeedFanoutService {
     /**
      * Fan-out cleanup when a post is deleted.
      */
-    @Async
     @Transactional
     public void processPostDeleted(UUID postId) {
         LOG.debug("Removing feed items for deleted postId: {}", postId);
@@ -136,7 +144,6 @@ public class FeedFanoutService {
         /**
      * Processing post update events.
      */
-    @Async
     @Transactional
     public void processPostUpdated(PostUpdatedEvent event) {
         LOG.debug("Processing post update for postId: {}, visibility: {}", event.id(), event.visibility());

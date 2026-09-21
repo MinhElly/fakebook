@@ -1,6 +1,8 @@
 import Keycloak from "keycloak-js";
+import { getRuntimeConfig } from "@/config/runtime-config";
+
 const keycloak = new Keycloak({
-    url: typeof window !== "undefined" ? window.location.origin : "http://localhost:8443",
+    url: getRuntimeConfig().keycloakBaseUrl,
     realm: "jhipster",
     clientId: "web_app"
 });

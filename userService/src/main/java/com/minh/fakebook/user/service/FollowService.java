@@ -11,6 +11,7 @@ import com.minh.fakebook.user.service.mapper.FollowMapper;
 import jakarta.persistence.EntityNotFoundException;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.slf4j.Logger;
@@ -160,5 +161,9 @@ public class FollowService {
     @Cacheable(value = "userFollowers", key = "#userId.toString() + '_' + #pageable.pageNumber + '_' + #pageable.pageSize")
     public Page<FollowDTO> getFollowerList(UUID userId, Pageable pageable){
         return followRepository.findFollowers(userId, pageable).map(followMapper::toDto);    
+    }
+    @Transactional(readOnly = true)
+    public List<UUID> getFollowerIdsByUserId(UUID userId){
+        return followRepository.findFollowerIdsByUserId(userId);
     }
 }

@@ -35,6 +35,7 @@ class TechnicalStructureTest {
         .ignoreDependency(belongToAnyOf(PostServiceApp.class), alwaysTrue())
         .ignoreDependency(alwaysTrue(), belongToAnyOf(
             Constants.class,
-            ApplicationProperties.class
+            ApplicationProperties.class,
+            com.minh.fakebook.post.config.FeignUserRelayRequestInterceptor.class
         ));
 }

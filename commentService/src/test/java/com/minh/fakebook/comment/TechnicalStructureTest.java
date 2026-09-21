@@ -35,6 +35,7 @@ class TechnicalStructureTest {
         .ignoreDependency(belongToAnyOf(CommentServiceApp.class), alwaysTrue())
         .ignoreDependency(alwaysTrue(), belongToAnyOf(
             Constants.class,
-            ApplicationProperties.class
+            ApplicationProperties.class,
+            com.minh.fakebook.comment.web.rest.errors.BadRequestAlertException.class
         ));
 }

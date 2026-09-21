@@ -8,11 +8,21 @@ spring:
           replicationFactor: 1
           auto-create-topics: true
           brokers: localhost:9092
+        bindings:
+          processPostEvent-in-0:
+            consumer:
+              enable-dlq: true
+              dlq-name: post-events-feed-dlt
+              auto-commit-offset: false
       bindings:
         processPostEvent-in-0:
           destination: post-events
           content-type: text/plain
           group: feed-service-post-sync
+          consumer:
+            max-attempts: 3
+            back-off-initial-interval: 1000
+            back-off-multiplier: 2.0
         binding-out-0:
           content-type: text/plain
           group: feed-service

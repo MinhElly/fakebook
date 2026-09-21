@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { UserContext, type UserProfile } from "@/stores/userStore";
 import { useAuth } from "@/providers/AuthProvider";
 import api from "@/services/apis";
+import { resolveApiUrl } from "@/config/runtime-config";
 
 const DEFAULT_AVATAR = "/default-avatar.svg";
 const DEFAULT_COVER = "/default-cover.svg";
@@ -40,10 +41,10 @@ export default function UserProvider({ children }: { children: React.ReactNode }
           avatarMediaId: data.avatarMediaId,
           coverMediaId: data.coverMediaId,
           avatar: data.avatarMediaId
-            ? `/services/mediaservice/api/media/${data.avatarMediaId}/file`
+            ? resolveApiUrl(`/services/mediaservice/api/media/${data.avatarMediaId}/file`)
             : prev.avatar,
           cover: data.coverMediaId
-            ? `/services/mediaservice/api/media/${data.coverMediaId}/file`
+            ? resolveApiUrl(`/services/mediaservice/api/media/${data.coverMediaId}/file`)
             : prev.cover,
         }));
       })

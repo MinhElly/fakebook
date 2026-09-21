@@ -83,9 +83,9 @@ public class PostEventListener implements Consumer<String> {
             LOG.info("Processing PostCreatedEvent for postId: {} by authorId: {}",
                     postId, authorId);
             feedFanoutService.processPostCreated(createdEvent);
-        } catch (Exception e) {
-            LOG.error("Error parsing/processing post event payload '{}' : {}",
-                    payload, e.getMessage(), e);
+        } catch (Exception e){
+            LOG.error("Error parsing/processing post event payload '{}' : {}", payload, e.getMessage(), e);
+            throw new RuntimeException("Failed to process post event payload" + payload, e);
         }
     }
 }
