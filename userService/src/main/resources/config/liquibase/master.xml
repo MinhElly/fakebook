@@ -10,6 +10,11 @@
     <property name="uuidType" value="varchar(36)" dbms="mariadb"/>
     <property name="datetimeType" value="datetime(6)" dbms="mariadb"/>
     <property name="timeType" value="time(6)" dbms="mariadb"/>
+    <property name="clobType" value="clob" dbms="h2"/>
+    <property name="blobType" value="blob" dbms="h2"/>
+    <property name="uuidType" value="varchar(36)" dbms="h2"/>
+    <property name="datetimeType" value="datetime(6)" dbms="h2"/>
+    <property name="timeType" value="time(6)" dbms="h2"/>
 
     <include file="config/liquibase/changelog/00000000000000_initial_schema.xml" relativeToChangelogFile="false"/>
     <include file="config/liquibase/changelog/20231210042757_added_entity_UserProfile.xml" relativeToChangelogFile="false"/>
