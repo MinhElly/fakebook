@@ -33,7 +33,7 @@ public class UserFeedService {
     }
 
     public Page<FeedItemDTO> getUserFeed(UUID userId, Pageable pageable){
-        String redisKey = "feed:user" + userId.toString();
+        String redisKey = "feed:user:" + userId.toString();
         try{
             long start = pageable.getOffset();
             long end = start + pageable.getPageSize() - 1;
