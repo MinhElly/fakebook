@@ -27,7 +27,7 @@ spring:
       client:
         provider:
           oidc:
-            issuer-uri: ${FAKEBOOK_OIDC_ISSUER_URI:http://keycloak:9080/realms/jhipster}
+            issuer-uri: ${FAKEBOOK_OIDC_ISSUER_URI}
         registration:
           oidc:
             client-id: ${FAKEBOOK_OIDC_CLIENT_ID}

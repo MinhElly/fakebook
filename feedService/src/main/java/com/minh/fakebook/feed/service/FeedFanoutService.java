@@ -6,6 +6,8 @@ import com.minh.fakebook.feed.repository.FeedItemRepository;
 import com.minh.fakebook.feed.service.dto.FeedItemDTO;
 import com.minh.fakebook.feed.service.event.PostCreatedEvent;
 import com.minh.fakebook.feed.service.event.PostUpdatedEvent;
+import com.minh.fakebook.feed.domain.UserFeedItemDocument;
+import com.minh.fakebook.feed.repository.UserFeedItemDocumentRepository;
 
 import java.time.Instant;
 import java.util.ArrayList;
@@ -32,17 +34,20 @@ public class FeedFanoutService {
     private final StringRedisTemplate redisTemplate;
     private final FeedItemService feedItemService;
     private final FeedItemRepository feedItemRepository;
+    private final UserFeedItemDocumentRepository mongoRepository;
 
     public FeedFanoutService(
         UserServiceClient userServiceClient,
         StringRedisTemplate redisTemplate,
         FeedItemService feedItemService,
-        FeedItemRepository feedItemRepository
+        FeedItemRepository feedItemRepository,
+        UserFeedItemDocumentRepository mongoRepository
     ) {
         this.userServiceClient = userServiceClient;
         this.redisTemplate = redisTemplate;
         this.feedItemService = feedItemService;
         this.feedItemRepository = feedItemRepository;
+        this.mongoRepository = mongoRepository;
     }
 
     /**
@@ -104,7 +109,14 @@ public class FeedFanoutService {
             dto.setPostId(event.id());
             dto.setCreatedAt(createdAt);
             feedItemService.save(dto);
+            UserFeedItemDocument doc = new UserFeedItemDocument();
+            doc.setUserId(recipientId);
+            doc.setPostId(event.id());
+            doc.setCreatedAt(createdAt);
+            mongoRepository.save(doc);
         }
+
+        
 
         LOG.info("Fan-out for postId: {} completed. Processed {} recipients", event.id(), targetUserIds.size());
     }
@@ -125,6 +137,7 @@ public class FeedFanoutService {
             }
         }
         feedItemRepository.deleteByPostId(postId);
+        mongoRepository.deleteByPostId(postId);
         LOG.info("Successfully deleted DB and Redis feed items for post {}", postId);
     }
 
