@@ -6,6 +6,7 @@ export interface PostState {
   loading: boolean;
   hasMore: boolean;
   isUploading: boolean;
+  pendingPost: any;
   toastMessage: string | null;
   setToastMessage: (msg: string | null) => void;
   loadMorePosts: () => void;
@@ -19,6 +20,7 @@ export const PostContext = createContext<PostState>({
   loading: false,
   hasMore: true,
   isUploading: false,
+  pendingPost: null,
   toastMessage: null,
   setToastMessage: () => {},
   loadMorePosts: () => { },

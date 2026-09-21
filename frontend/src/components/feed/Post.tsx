@@ -448,11 +448,11 @@ export default function Post({ post }: Props) {
             <div
               className="flex-1 relative"
               onMouseEnter={onReactionMouseEnter}
-              onMouseLeave={() => { onReactionMouseLeave(); setShowReactionPicker(false); }}
+              onMouseLeave={onReactionMouseLeave}
             >
               {/* Reaction floating picker */}
               {showReactionPicker && (
-                <div className="absolute bottom-full left-0 pb-1 z-20">
+                <div className="absolute bottom-full left-[-10px] w-max pb-1 z-20">
                   <div className="bg-white rounded-full shadow-[0_2px_12px_rgba(0,0,0,0.2)] border border-[#E4E6EB] px-2 py-1.5 flex gap-1">
                     {REACTIONS.map(r => (
                       <button

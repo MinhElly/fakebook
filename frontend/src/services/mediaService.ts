@@ -35,9 +35,9 @@ export async function uploadMedia(file: File): Promise<MediaDTO | null> {
  */
 export function getMediaUrl(mediaId: string): string {
   if (!mediaId) return "";
-  if (mediaId.startsWith("http://") || mediaId.startsWith("https://")) {
+  if (mediaId.startsWith("http://") || mediaId.startsWith("https://") || mediaId.startsWith("blob:")) {
     return mediaId;
   }
-  const path = mediaId.startsWith("/") ? mediaId : `/services/mediaservice/api/media/${mediaId}`;
+  const path = mediaId.startsWith("/") ? mediaId : `/services/mediaservice/api/media/${mediaId}/file`;
   return resolveApiUrl(path);
 }

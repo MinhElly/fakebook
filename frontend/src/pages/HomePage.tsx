@@ -9,7 +9,7 @@ import Toast from "@/components/ui/Toast";
 import { useEffect } from "react";
 
 export default function HomePage() {
-  const { posts, loadMorePosts, hasMore, loading, isUploading, toastMessage, setToastMessage } = usePostStore();
+  const { posts, loadMorePosts, hasMore, loading, isUploading, pendingPost, toastMessage, setToastMessage } = usePostStore();
 
   // Bắt sự kiện cuộn chuột để làm Infinity Scroll
   useEffect(() => {
@@ -38,23 +38,13 @@ export default function HomePage() {
         <PostCreator />
 
         {/* Uploading Placeholder */}
-        {isUploading && (
-          <div className="bg-white rounded-xl shadow border border-[#E4E6EB] mb-4 overflow-hidden relative opacity-70">
-            {/* Progress bar */}
-            <div className="h-1 w-full bg-gray-200 absolute top-0 left-0">
-              <div className="h-full bg-blue-500 animate-pulse w-2/3 rounded-r-full"></div>
+        {isUploading && pendingPost && (
+          <div className="relative mb-4 opacity-60 grayscale pointer-events-none">
+            {/* Thanh tiến trình (Progress bar) */}
+            <div className="h-1.5 w-full bg-gray-200 absolute top-0 left-0 z-10 overflow-hidden rounded-t-xl">
+              <div className="h-full bg-blue-600 w-1/3 animate-pulse rounded-r-full relative left-0 animate-[slide_1.5s_ease-in-out_infinite]"></div>
             </div>
-            <div className="p-4 flex items-center gap-2">
-               <div className="w-10 h-10 rounded-full bg-gray-300 animate-pulse"></div>
-               <div className="flex flex-col gap-2">
-                 <div className="w-32 h-3 bg-gray-300 rounded animate-pulse"></div>
-                 <div className="w-20 h-2 bg-gray-200 rounded animate-pulse"></div>
-               </div>
-            </div>
-            <div className="px-4 pb-4">
-               <div className="w-full h-3 bg-gray-300 rounded animate-pulse mb-2"></div>
-               <div className="w-2/3 h-3 bg-gray-300 rounded animate-pulse"></div>
-            </div>
+            <Post post={pendingPost} />
           </div>
         )}
 

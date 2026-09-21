@@ -13,6 +13,7 @@ export default function PostProvider({ children }: { children: React.ReactNode }
   const [loading, setLoading] = useState(false);
   const [hasMore, setHasMore] = useState(true);
   const [isUploading, setIsUploading] = useState(false);
+  const [pendingPost, setPendingPost] = useState<any>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [friendIds, setFriendIds] = useState<Set<string>>(new Set());
   const { status, user } = useAuth();
@@ -186,17 +187,36 @@ export default function PostProvider({ children }: { children: React.ReactNode }
   async function addPost(content: string, imageFile: File | string | null, visibility: string = "PUBLIC", taggedUserIds?: string[]) {
     try {
       setIsUploading(true);
+      
+      // Create pending post preview
+      let imageUrl = null;
+      if (imageFile instanceof File) {
+        imageUrl = URL.createObjectURL(imageFile);
+      }
+      
+      setPendingPost({
+        id: "pending",
+        user: user?.name || "Bạn",
+        avatar: user?.avatarMediaId ? `/services/mediaservice/api/media/${user.avatarMediaId}/file` : "/default-avatar.svg",
+        time: "Vừa xong",
+        content: content,
+        visibility: visibility,
+        image: imageUrl,
+        taggedUsers: []
+      });
+
       let mediaIds: string[] = [];
       if (imageFile instanceof File) {
         const formData = new FormData();
         formData.append("file", imageFile);
+        formData.append("purpose", "POST");
         const mediaRes = await api.post("/services/mediaservice/api/media/upload", formData);
         if (mediaRes.data && mediaRes.data.id) {
           mediaIds.push(mediaRes.data.id);
         }
       }
 
-      await api.post("/services/postservice/api/posts", {
+      await api.post("/services/postservice/api/posts/create", {
         content: content,
         visibility: visibility,
         mediaIds: mediaIds,
@@ -211,6 +231,7 @@ export default function PostProvider({ children }: { children: React.ReactNode }
       throw error;
     } finally {
       setIsUploading(false);
+      setPendingPost(null);
     }
   }
 
@@ -222,6 +243,7 @@ export default function PostProvider({ children }: { children: React.ReactNode }
       if (imageFile instanceof File) {
         const formData = new FormData();
         formData.append("file", imageFile);
+        formData.append("purpose", "POST");
         const mediaRes = await api.post("/services/mediaservice/api/media/upload", formData);
         if (mediaRes.data && mediaRes.data.id) {
           mediaIds.push(mediaRes.data.id);
@@ -262,8 +284,7 @@ export default function PostProvider({ children }: { children: React.ReactNode }
 
   return (
     <PostContext.Provider value={{
-      posts, loading, hasMore, isUploading, toastMessage, setToastMessage, loadMorePosts, addPost, updatePost,
-      deletePost
+      posts, loading, hasMore, isUploading, pendingPost, toastMessage, setToastMessage, loadMorePosts, addPost, updatePost, deletePost
     }}>
       {children}
     </PostContext.Provider>
