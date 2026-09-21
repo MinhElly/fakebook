@@ -15,6 +15,7 @@ spring:
           producer:
             use-native-encoding: true
         binding-out-0:
+          destination: post-events
           content-type: text/plain
           group: post-service
         kafkaConsumer-in-0:
