@@ -156,6 +156,7 @@ services:
       SPRING_LIQUIBASE_URL: "jdbc:mariadb://${MARIADB_HOST:?MARIADB_HOST is required}:${MARIADB_PORT}/gateway?useLegacyDatetimeCode=false&sslMode=verify-full&serverSslCert=${MARIADB_SSL_CERT_CONTAINER_PATH:-/run/secrets/rds-global-bundle.pem}"
       FAKEBOOK_DB_USERNAME: ${GATEWAY_DB_USERNAME:?GATEWAY_DB_USERNAME is required}
       FAKEBOOK_DB_PASSWORD: ${GATEWAY_DB_PASSWORD:?GATEWAY_DB_PASSWORD is required}
+      STAGING_FRONTEND_URL: ${STAGING_FRONTEND_URL:?STAGING_FRONTEND_URL is required}
       FAKEBOOK_OIDC_ISSUER_URI: ${FAKEBOOK_OIDC_ISSUER_URI}
       JAVA_OPTS: "-Xmx512m -Xms256m -XX:+UseG1GC"
     deploy:
