@@ -3,14 +3,10 @@ package com.minh.fakebook.feed.service;
 import com.minh.fakebook.feed.client.UserServiceClient;
 import com.minh.fakebook.feed.domain.FeedItem;
 import com.minh.fakebook.feed.repository.FeedItemRepository;
-import com.minh.fakebook.feed.service.dto.FeedItemDTO;
 import com.minh.fakebook.feed.service.event.PostCreatedEvent;
 import com.minh.fakebook.feed.service.event.PostUpdatedEvent;
-import com.minh.fakebook.feed.domain.UserFeedItemDocument;
-import com.minh.fakebook.feed.repository.UserFeedItemDocumentRepository;
 
 import java.time.Instant;
-import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
@@ -18,9 +14,10 @@ import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.redis.core.StringRedisTemplate;
-import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 /**
  * Service for fanning out post events to users' news feeds (Redis ZSet + MariaDB).
@@ -32,27 +29,18 @@ public class FeedFanoutService {
 
     private final UserServiceClient userServiceClient;
     private final StringRedisTemplate redisTemplate;
-    private final FeedItemService feedItemService;
     private final FeedItemRepository feedItemRepository;
-    private final UserFeedItemDocumentRepository mongoRepository;
 
     public FeedFanoutService(
         UserServiceClient userServiceClient,
         StringRedisTemplate redisTemplate,
-        FeedItemService feedItemService,
-        FeedItemRepository feedItemRepository,
-        UserFeedItemDocumentRepository mongoRepository
+        FeedItemRepository feedItemRepository
     ) {
         this.userServiceClient = userServiceClient;
         this.redisTemplate = redisTemplate;
-        this.feedItemService = feedItemService;
         this.feedItemRepository = feedItemRepository;
-        this.mongoRepository = mongoRepository;
     }
 
-    /**
-     * Async & Transactional Fan-out processing on new post creation.
-     */
     @Transactional
     public void processPostCreated(PostCreatedEvent event) {
         LOG.debug("Processing fan-out for postId: {}, visibility: {}", event.id(), event.visibility());
@@ -61,23 +49,15 @@ public class FeedFanoutService {
         if ("PRIVATE".equalsIgnoreCase(event.visibility())) {
             targetUserIds.add(event.authorId());
         } else {
-            try {
-                List<UUID> friendIds = userServiceClient.getUserFriendsList(event.authorId());
-                if (friendIds != null && !friendIds.isEmpty()) {
-                    targetUserIds.addAll(friendIds);
-                }
-            } catch (Exception e) {
-                LOG.error("Failed to fetch friends list for user {}", event.authorId(), e);
+            List<UUID> friendIds = userServiceClient.getUserFriendsList(event.authorId());
+            if (friendIds != null && !friendIds.isEmpty()) {
+                targetUserIds.addAll(friendIds);
             }
         }
-        if("PUBLIC".equalsIgnoreCase(event.visibility())){
-            try{
-                List<UUID> followeIds = userServiceClient.getUserFollowersList(event.authorId());
-                if(followeIds != null && !followeIds.isEmpty()){
-                    targetUserIds.addAll(followeIds);
-                }
-            }catch(Exception e){
-                LOG.error("Failed to fetch followers list for user {}", event.authorId(), e);
+        if ("PUBLIC".equalsIgnoreCase(event.visibility())) {
+            List<UUID> followerIds = userServiceClient.getUserFollowersList(event.authorId());
+            if (followerIds != null && !followerIds.isEmpty()) {
+                targetUserIds.addAll(followerIds);
             }
             targetUserIds.add(event.authorId());
         }
@@ -87,36 +67,16 @@ public class FeedFanoutService {
         }
 
         Instant createdAt = event.createdAt() != null ? event.createdAt() : Instant.now();
-        double score = createdAt.toEpochMilli();
-        String postIdStr = event.id().toString();
-        int maxFeedSize = 500;
-
-        // 1. Redis ZSet Fan-out for O(1) Feed Reading
         for (UUID recipientId : targetUserIds) {
-            String redisKey = "feed:user:" + recipientId.toString();
-            try {
-                redisTemplate.opsForZSet().add(redisKey, postIdStr, score);
-                redisTemplate.opsForZSet().removeRange(redisKey, 0, -(maxFeedSize + 1));
-            } catch (Exception e) {
-                LOG.warn("Failed to update Redis ZSet feed for user {}: {}", recipientId, e.getMessage());
-            }
+            feedItemRepository.insertIgnore(
+                UUID.randomUUID().toString(),
+                recipientId.toString(),
+                event.id().toString(),
+                createdAt
+            );
         }
 
-        // 2. MariaDB Persistence
-        for (UUID recipientId : targetUserIds) {
-            FeedItemDTO dto = new FeedItemDTO();
-            dto.setUserId(recipientId);
-            dto.setPostId(event.id());
-            dto.setCreatedAt(createdAt);
-            feedItemService.save(dto);
-            UserFeedItemDocument doc = new UserFeedItemDocument();
-            doc.setUserId(recipientId);
-            doc.setPostId(event.id());
-            doc.setCreatedAt(createdAt);
-            mongoRepository.save(doc);
-        }
-
-        
+        updateRedisAfterCommit(targetUserIds, event.id(), createdAt);
 
         LOG.info("Fan-out for postId: {} completed. Processed {} recipients", event.id(), targetUserIds.size());
     }
@@ -129,15 +89,9 @@ public class FeedFanoutService {
         LOG.debug("Removing feed items for deleted postId: {}", postId);
         List<FeedItem> items = feedItemRepository.findByPostId(postId);
         for (FeedItem item : items) {
-            String redisKey = "feed:user:" + item.getUserId().toString();
-            try {
-                redisTemplate.opsForZSet().remove(redisKey, postId.toString());
-            } catch (Exception e) {
-                LOG.warn("Failed to remove postId {} from Redis ZSet for user {}: {}", postId, item.getUserId(), e.getMessage());
-            }
+            redisTemplate.opsForZSet().remove(feedKey(item.getUserId()), postId.toString());
         }
         feedItemRepository.deleteByPostId(postId);
-        mongoRepository.deleteByPostId(postId);
         LOG.info("Successfully deleted DB and Redis feed items for post {}", postId);
     }
 
@@ -152,6 +106,35 @@ public class FeedFanoutService {
         if ("PRIVATE".equalsIgnoreCase(event.visibility()) || "INACTIVE".equalsIgnoreCase(event.status())) {
             processPostDeleted(event.id());
         }
+    }
+
+    private void updateRedisAfterCommit(Set<UUID> recipientIds, UUID postId, Instant createdAt) {
+        Runnable update = () -> updateRedis(recipientIds, postId, createdAt);
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(
+                new TransactionSynchronization() {
+                    @Override
+                    public void afterCommit() {
+                        update.run();
+                    }
+                }
+            );
+        } else {
+            update.run();
+        }
+    }
+
+    private void updateRedis(Set<UUID> recipientIds, UUID postId, Instant createdAt) {
+        double score = createdAt.toEpochMilli();
+        for (UUID recipientId : recipientIds) {
+            String redisKey = feedKey(recipientId);
+            redisTemplate.opsForZSet().add(redisKey, postId.toString(), score);
+            redisTemplate.opsForZSet().removeRange(redisKey, 0, -501);
+        }
+    }
+
+    private String feedKey(UUID userId) {
+        return "feed:user:" + userId;
     }
 
 }

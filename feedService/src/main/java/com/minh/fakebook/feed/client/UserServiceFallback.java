@@ -1,6 +1,5 @@
 package com.minh.fakebook.feed.client;
 
-import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
 
@@ -15,14 +14,14 @@ public class UserServiceFallback implements UserServiceClient{
 
     @Override
     public List<UUID> getUserFriendsList(UUID userId) {
-        LOG.warn("Fallback triggered: userService is unavailable. Returning getUserFriendsList=null for userId: {}", userId);
-        return List.of();
+        LOG.error("Fallback triggered while loading friends for userId: {}", userId);
+        throw new IllegalStateException("userService is unavailable while loading friends for " + userId);
     }
 
     @Override
     public List<UUID> getUserFollowersList(UUID userId) {
-        LOG.warn("Fallback triggered: userService is unavailable. Returning getUserFollowersList=null for userId: {}", userId);
-        return List.of();
+        LOG.error("Fallback triggered while loading followers for userId: {}", userId);
+        throw new IllegalStateException("userService is unavailable while loading followers for " + userId);
     }
     
 }

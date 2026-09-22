@@ -12,6 +12,9 @@ services:
       KC_DB_URL: "jdbc:mariadb://${MARIADB_HOST:?MARIADB_HOST is required}:${MARIADB_PORT}/keycloak?useUnicode=true&characterEncoding=utf8&sslMode=verify-full&serverSslCert=${MARIADB_SSL_CERT_CONTAINER_PATH:-/run/secrets/rds-global-bundle.pem}"
       KC_DB_USERNAME: ${KEYCLOAK_DB_USERNAME:?KEYCLOAK_DB_USERNAME is required}
       KC_DB_PASSWORD: ${KEYCLOAK_DB_PASSWORD:?KEYCLOAK_DB_PASSWORD is required}
+      KC_DB_POOL_INITIAL_SIZE: ${KEYCLOAK_DB_POOL_INITIAL_SIZE:-1}
+      KC_DB_POOL_MIN_SIZE: ${KEYCLOAK_DB_POOL_MIN_SIZE:-1}
+      KC_DB_POOL_MAX_SIZE: ${KEYCLOAK_DB_POOL_MAX_SIZE:-5}
       KC_FEATURES: scripts
       KC_HTTP_PORT: 9080
       KC_HTTP_ENABLED: 'true'
@@ -36,7 +39,7 @@ services:
       timeout: 5s
       retries: 50
       start_period: 15s
-    restart: unless-stopped
+    restart: "on-failure:5"
 
   keycloak-internal-client-config:
     image: quay.io/keycloak/keycloak:26.7.2-1
@@ -138,6 +141,8 @@ services:
   gateway:
     image: ${DOCKER_REGISTRY_PREFIX:-}fakebook-gateway:${IMAGE_TAG:-staging}
     container_name: fakebook-gateway
+    extra_hosts:
+      - "${DOMAIN_NAME}:host-gateway"
     environment:
       SPRING_PROFILES_ACTIVE: staging
       SPRING_CLOUD_CONSUL_HOST: ${SPRING_CLOUD_CONSUL_HOST:-consul}
@@ -146,6 +151,8 @@ services:
       MARIADB_HOST: ${MARIADB_HOST:?MARIADB_HOST is required}
       MARIADB_PORT: ${MARIADB_PORT}
       SPRING_R2DBC_URL: "r2dbc:mariadb://${MARIADB_HOST:?MARIADB_HOST is required}:${MARIADB_PORT}/gateway?useLegacyDatetimeCode=false&sslMode=VERIFY_FULL&serverSslCert=${MARIADB_SSL_CERT_CONTAINER_PATH:-/run/secrets/rds-global-bundle.pem}"
+      SPRING_R2DBC_POOL_INITIAL_SIZE: ${GATEWAY_DB_POOL_INITIAL_SIZE:-1}
+      SPRING_R2DBC_POOL_MAX_SIZE: ${GATEWAY_DB_POOL_MAX_SIZE:-3}
       SPRING_LIQUIBASE_URL: "jdbc:mariadb://${MARIADB_HOST:?MARIADB_HOST is required}:${MARIADB_PORT}/gateway?useLegacyDatetimeCode=false&sslMode=verify-full&serverSslCert=${MARIADB_SSL_CERT_CONTAINER_PATH:-/run/secrets/rds-global-bundle.pem}"
       FAKEBOOK_DB_USERNAME: ${GATEWAY_DB_USERNAME:?GATEWAY_DB_USERNAME is required}
       FAKEBOOK_DB_PASSWORD: ${GATEWAY_DB_PASSWORD:?GATEWAY_DB_PASSWORD is required}
@@ -162,11 +169,13 @@ services:
         condition: service_started
       keycloak:
         condition: service_healthy
-    restart: unless-stopped
+    restart: "on-failure:5"
 
   authservice:
     image: ${DOCKER_REGISTRY_PREFIX:-}fakebook-authservice:${IMAGE_TAG:-staging}
     container_name: fakebook-authservice
+    extra_hosts:
+      - "${DOMAIN_NAME}:host-gateway"
     environment:
       SPRING_PROFILES_ACTIVE: staging
       SPRING_CLOUD_CONSUL_HOST: ${SPRING_CLOUD_CONSUL_HOST:-consul}
@@ -174,7 +183,9 @@ services:
       SPRING_DOCKER_COMPOSE_ENABLED: "false"
       MARIADB_HOST: ${MARIADB_HOST:?MARIADB_HOST is required}
       MARIADB_PORT: ${MARIADB_PORT}
-      SPRING_DATASOURCE_URL: "jdbc:mariadb://${MARIADB_HOST:?MARIADB_HOST is required}:${MARIADB_PORT}/authservice?useLegacyDatetimeCode=false&sslMode=verify-full&serverSslCert=${MARIADB_SSL_CERT_CONTAINER_PATH:-/run/secrets/rds-global-bundle.pem}"
+      SPRING_DATASOURCE_URL: "jdbc:mariadb://${MARIADB_HOST:?MARIADB_HOST is required}:${MARIADB_PORT}/auth_service?useLegacyDatetimeCode=false&sslMode=verify-full&serverSslCert=${MARIADB_SSL_CERT_CONTAINER_PATH:-/run/secrets/rds-global-bundle.pem}"
+      SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: ${APP_DB_POOL_MIN_IDLE:-1}
+      SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: ${APP_DB_POOL_MAX_SIZE:-3}
       FAKEBOOK_DB_USERNAME: ${AUTH_DB_USERNAME:?AUTH_DB_USERNAME is required}
       FAKEBOOK_DB_PASSWORD: ${AUTH_DB_PASSWORD:?AUTH_DB_PASSWORD is required}
       FAKEBOOK_OIDC_ISSUER_URI: ${FAKEBOOK_OIDC_ISSUER_URI}
@@ -194,11 +205,13 @@ services:
         condition: service_healthy
       keycloak-internal-client-config:
         condition: service_completed_successfully
-    restart: unless-stopped
+    restart: "on-failure:5"
 
   userservice:
     image: ${DOCKER_REGISTRY_PREFIX:-}fakebook-userservice:${IMAGE_TAG:-staging}
     container_name: fakebook-userservice
+    extra_hosts:
+      - "${DOMAIN_NAME}:host-gateway"
     environment:
       SPRING_PROFILES_ACTIVE: staging
       SPRING_CLOUD_CONSUL_HOST: ${SPRING_CLOUD_CONSUL_HOST:-consul}
@@ -206,7 +219,9 @@ services:
       SPRING_DOCKER_COMPOSE_ENABLED: "false"
       MARIADB_HOST: ${MARIADB_HOST:?MARIADB_HOST is required}
       MARIADB_PORT: ${MARIADB_PORT}
-      SPRING_DATASOURCE_URL: "jdbc:mariadb://${MARIADB_HOST:?MARIADB_HOST is required}:${MARIADB_PORT}/userservice?useLegacyDatetimeCode=false&sslMode=verify-full&serverSslCert=${MARIADB_SSL_CERT_CONTAINER_PATH:-/run/secrets/rds-global-bundle.pem}"
+      SPRING_DATASOURCE_URL: "jdbc:mariadb://${MARIADB_HOST:?MARIADB_HOST is required}:${MARIADB_PORT}/user_service?useLegacyDatetimeCode=false&sslMode=verify-full&serverSslCert=${MARIADB_SSL_CERT_CONTAINER_PATH:-/run/secrets/rds-global-bundle.pem}"
+      SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: ${APP_DB_POOL_MIN_IDLE:-1}
+      SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: ${APP_DB_POOL_MAX_SIZE:-3}
       FAKEBOOK_DB_USERNAME: ${USER_DB_USERNAME:?USER_DB_USERNAME is required}
       FAKEBOOK_DB_PASSWORD: ${USER_DB_PASSWORD:?USER_DB_PASSWORD is required}
       FAKEBOOK_OIDC_ISSUER_URI: ${FAKEBOOK_OIDC_ISSUER_URI}
@@ -228,11 +243,13 @@ services:
         condition: service_healthy
       keycloak-internal-client-config:
         condition: service_completed_successfully
-    restart: unless-stopped
+    restart: "on-failure:5"
 
   postservice:
     image: ${DOCKER_REGISTRY_PREFIX:-}fakebook-postservice:${IMAGE_TAG:-staging}
     container_name: fakebook-postservice
+    extra_hosts:
+      - "${DOMAIN_NAME}:host-gateway"
     environment:
       SPRING_PROFILES_ACTIVE: staging
       SPRING_CLOUD_CONSUL_HOST: ${SPRING_CLOUD_CONSUL_HOST:-consul}
@@ -240,7 +257,9 @@ services:
       SPRING_DOCKER_COMPOSE_ENABLED: "false"
       MARIADB_HOST: ${MARIADB_HOST:?MARIADB_HOST is required}
       MARIADB_PORT: ${MARIADB_PORT}
-      SPRING_DATASOURCE_URL: "jdbc:mariadb://${MARIADB_HOST:?MARIADB_HOST is required}:${MARIADB_PORT}/postservice?useLegacyDatetimeCode=false&sslMode=verify-full&serverSslCert=${MARIADB_SSL_CERT_CONTAINER_PATH:-/run/secrets/rds-global-bundle.pem}"
+      SPRING_DATASOURCE_URL: "jdbc:mariadb://${MARIADB_HOST:?MARIADB_HOST is required}:${MARIADB_PORT}/post_service?useLegacyDatetimeCode=false&sslMode=verify-full&serverSslCert=${MARIADB_SSL_CERT_CONTAINER_PATH:-/run/secrets/rds-global-bundle.pem}"
+      SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: ${APP_DB_POOL_MIN_IDLE:-1}
+      SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: ${APP_DB_POOL_MAX_SIZE:-3}
       FAKEBOOK_DB_USERNAME: ${POST_DB_USERNAME:?POST_DB_USERNAME is required}
       FAKEBOOK_DB_PASSWORD: ${POST_DB_PASSWORD:?POST_DB_PASSWORD is required}
       FAKEBOOK_OIDC_ISSUER_URI: ${FAKEBOOK_OIDC_ISSUER_URI}
@@ -262,11 +281,13 @@ services:
         condition: service_healthy
       keycloak-internal-client-config:
         condition: service_completed_successfully
-    restart: unless-stopped
+    restart: "on-failure:5"
 
   mediaservice:
     image: ${DOCKER_REGISTRY_PREFIX:-}fakebook-mediaservice:${IMAGE_TAG:-staging}
     container_name: fakebook-mediaservice
+    extra_hosts:
+      - "${DOMAIN_NAME}:host-gateway"
     environment:
       SPRING_PROFILES_ACTIVE: staging
       SPRING_CLOUD_CONSUL_HOST: ${SPRING_CLOUD_CONSUL_HOST:-consul}
@@ -274,7 +295,9 @@ services:
       SPRING_DOCKER_COMPOSE_ENABLED: "false"
       MARIADB_HOST: ${MARIADB_HOST:?MARIADB_HOST is required}
       MARIADB_PORT: ${MARIADB_PORT}
-      SPRING_DATASOURCE_URL: "jdbc:mariadb://${MARIADB_HOST:?MARIADB_HOST is required}:${MARIADB_PORT}/mediaservice?useLegacyDatetimeCode=false&sslMode=verify-full&serverSslCert=${MARIADB_SSL_CERT_CONTAINER_PATH:-/run/secrets/rds-global-bundle.pem}"
+      SPRING_DATASOURCE_URL: "jdbc:mariadb://${MARIADB_HOST:?MARIADB_HOST is required}:${MARIADB_PORT}/media_service?useLegacyDatetimeCode=false&sslMode=verify-full&serverSslCert=${MARIADB_SSL_CERT_CONTAINER_PATH:-/run/secrets/rds-global-bundle.pem}"
+      SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: ${APP_DB_POOL_MIN_IDLE:-1}
+      SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: ${APP_DB_POOL_MAX_SIZE:-3}
       FAKEBOOK_DB_USERNAME: ${MEDIA_DB_USERNAME:?MEDIA_DB_USERNAME is required}
       FAKEBOOK_DB_PASSWORD: ${MEDIA_DB_PASSWORD:?MEDIA_DB_PASSWORD is required}
       FAKEBOOK_OIDC_ISSUER_URI: ${FAKEBOOK_OIDC_ISSUER_URI}
@@ -297,11 +320,13 @@ services:
         condition: service_healthy
       keycloak-internal-client-config:
         condition: service_completed_successfully
-    restart: unless-stopped
+    restart: "on-failure:5"
 
   commentservice:
     image: ${DOCKER_REGISTRY_PREFIX:-}fakebook-commentservice:${IMAGE_TAG:-staging}
     container_name: fakebook-commentservice
+    extra_hosts:
+      - "${DOMAIN_NAME}:host-gateway"
     environment:
       SPRING_PROFILES_ACTIVE: staging
       SPRING_CLOUD_CONSUL_HOST: ${SPRING_CLOUD_CONSUL_HOST:-consul}
@@ -309,7 +334,9 @@ services:
       SPRING_DOCKER_COMPOSE_ENABLED: "false"
       MARIADB_HOST: ${MARIADB_HOST:?MARIADB_HOST is required}
       MARIADB_PORT: ${MARIADB_PORT}
-      SPRING_DATASOURCE_URL: "jdbc:mariadb://${MARIADB_HOST:?MARIADB_HOST is required}:${MARIADB_PORT}/commentservice?useLegacyDatetimeCode=false&sslMode=verify-full&serverSslCert=${MARIADB_SSL_CERT_CONTAINER_PATH:-/run/secrets/rds-global-bundle.pem}"
+      SPRING_DATASOURCE_URL: "jdbc:mariadb://${MARIADB_HOST:?MARIADB_HOST is required}:${MARIADB_PORT}/comment_service?useLegacyDatetimeCode=false&sslMode=verify-full&serverSslCert=${MARIADB_SSL_CERT_CONTAINER_PATH:-/run/secrets/rds-global-bundle.pem}"
+      SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: ${APP_DB_POOL_MIN_IDLE:-1}
+      SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: ${APP_DB_POOL_MAX_SIZE:-3}
       FAKEBOOK_DB_USERNAME: ${COMMENT_DB_USERNAME:?COMMENT_DB_USERNAME is required}
       FAKEBOOK_DB_PASSWORD: ${COMMENT_DB_PASSWORD:?COMMENT_DB_PASSWORD is required}
       FAKEBOOK_OIDC_ISSUER_URI: ${FAKEBOOK_OIDC_ISSUER_URI}
@@ -331,11 +358,13 @@ services:
         condition: service_healthy
       keycloak-internal-client-config:
         condition: service_completed_successfully
-    restart: unless-stopped
+    restart: "on-failure:5"
 
   feedservice:
     image: ${DOCKER_REGISTRY_PREFIX:-}fakebook-feedservice:${IMAGE_TAG:-staging}
     container_name: fakebook-feedservice
+    extra_hosts:
+      - "${DOMAIN_NAME}:host-gateway"
     environment:
       SPRING_PROFILES_ACTIVE: staging
       SPRING_CLOUD_CONSUL_HOST: ${SPRING_CLOUD_CONSUL_HOST:-consul}
@@ -343,7 +372,9 @@ services:
       SPRING_DOCKER_COMPOSE_ENABLED: "false"
       MARIADB_HOST: ${MARIADB_HOST:?MARIADB_HOST is required}
       MARIADB_PORT: ${MARIADB_PORT}
-      SPRING_DATASOURCE_URL: "jdbc:mariadb://${MARIADB_HOST:?MARIADB_HOST is required}:${MARIADB_PORT}/feedservice?useLegacyDatetimeCode=false&sslMode=verify-full&serverSslCert=${MARIADB_SSL_CERT_CONTAINER_PATH:-/run/secrets/rds-global-bundle.pem}"
+      SPRING_DATASOURCE_URL: "jdbc:mariadb://${MARIADB_HOST:?MARIADB_HOST is required}:${MARIADB_PORT}/feed_service?useLegacyDatetimeCode=false&sslMode=verify-full&serverSslCert=${MARIADB_SSL_CERT_CONTAINER_PATH:-/run/secrets/rds-global-bundle.pem}"
+      SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: ${APP_DB_POOL_MIN_IDLE:-1}
+      SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: ${APP_DB_POOL_MAX_SIZE:-3}
       FAKEBOOK_DB_USERNAME: ${FEED_DB_USERNAME:?FEED_DB_USERNAME is required}
       FAKEBOOK_DB_PASSWORD: ${FEED_DB_PASSWORD:?FEED_DB_PASSWORD is required}
       FAKEBOOK_OIDC_ISSUER_URI: ${FAKEBOOK_OIDC_ISSUER_URI}
@@ -367,7 +398,7 @@ services:
         condition: service_healthy
       keycloak-internal-client-config:
         condition: service_completed_successfully
-    restart: unless-stopped
+    restart: "on-failure:5"
 
   frontend:
     profiles: ["vm-frontend"]
@@ -393,10 +424,8 @@ services:
       - "80:80"
       - "443:443"
     volumes:
-      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/${NGINX_CONFIG_FILE:-nginx.conf}:/etc/nginx/nginx.conf:ro
       - ./nginx/certs:/etc/letsencrypt/live/staging.fakebook.com:ro
-    depends_on:
-      - gateway
     restart: unless-stopped
 
 volumes:
