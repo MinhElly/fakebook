@@ -1,7 +1,8 @@
 package com.minh.fakebook.feed.service;
 
-import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
@@ -17,8 +18,7 @@ import org.springframework.transaction.annotation.Transactional;
 import com.minh.fakebook.feed.repository.FeedItemRepository;
 import com.minh.fakebook.feed.service.dto.FeedItemDTO;
 import com.minh.fakebook.feed.service.mapper.FeedItemMapper;
-import com.minh.fakebook.feed.domain.UserFeedItemDocument;
-import com.minh.fakebook.feed.repository.UserFeedItemDocumentRepository;
+import com.minh.fakebook.feed.domain.FeedItem;
 
 @Service
 @Transactional(readOnly = true)
@@ -28,56 +28,55 @@ public class UserFeedService {
     private final StringRedisTemplate redisTemplate;
     private final FeedItemRepository feedItemRepository;
     private final FeedItemMapper feedItemMapper;
-    private final UserFeedItemDocumentRepository mongoRepository;
 
-    public UserFeedService(StringRedisTemplate redisTemplate, FeedItemRepository feedItemRepository,
-            FeedItemMapper feedItemMapper, UserFeedItemDocumentRepository mongoRepository) {
+    public UserFeedService(StringRedisTemplate redisTemplate, FeedItemRepository feedItemRepository, FeedItemMapper feedItemMapper) {
         this.redisTemplate = redisTemplate;
         this.feedItemRepository = feedItemRepository;
         this.feedItemMapper = feedItemMapper;
-        this.mongoRepository = mongoRepository;
     }
 
     public Page<FeedItemDTO> getUserFeed(UUID userId, Pageable pageable) {
-            String redisKey = "feed:user:" + userId.toString();
+        String redisKey = feedKey(userId);
 
-            try {
-                long start = pageable.getOffset();
-                long end = start + pageable.getPageSize() - 1;
-                Set<String> postIds = redisTemplate.opsForZSet().reverseRange(redisKey,
-  start, end);
+        try {
+            long start = pageable.getOffset();
+            long end = start + pageable.getPageSize() - 1;
+            Set<String> cachedPostIds = redisTemplate.opsForZSet().reverseRange(redisKey, start, end);
 
-                if (postIds != null && !postIds.isEmpty()) {
-                    List<UUID> uuids = postIds.stream().map(UUID::fromString).toList();
-
-                    List<FeedItemDTO> dtos = new ArrayList<>();
-                    for (UserFeedItemDocument doc : mongoRepository.
-  findByUserIdAndPostIdIn(userId, uuids)) {
-                        FeedItemDTO dto = new FeedItemDTO();
-                        dto.setUserId(doc.getUserId());
-                        dto.setPostId(doc.getPostId());
-                        dto.setCreatedAt(doc.getCreatedAt());
-                        dtos.add(dto);
-                    }
-
-                    Long total = redisTemplate.opsForZSet().zCard(redisKey);
-                    return new PageImpl<>(dtos, pageable, total != null ? total : dtos.
-  size());
+            if (cachedPostIds != null && !cachedPostIds.isEmpty()) {
+                List<String> orderedPostIdStrings = List.copyOf(cachedPostIds);
+                List<UUID> orderedPostIds = orderedPostIdStrings.stream().map(UUID::fromString).toList();
+                List<FeedItem> feedItems = feedItemRepository.findByUserIdAndPostIdIn(userId, orderedPostIds);
+                Map<UUID, FeedItem> itemsByPostId = new HashMap<>();
+                for (FeedItem feedItem : feedItems) {
+                    itemsByPostId.put(feedItem.getPostId(), feedItem);
                 }
-            } catch (Exception e) {
-                LOG.warn("Failed to read feed from redis for user {}: {}. Falling back to MongoDB", userId, e.getMessage());
-            }
 
-            Page<UserFeedItemDocument> docs = mongoRepository.
-  findByUserIdOrderByCreatedAtDesc(userId, pageable);
-            List<FeedItemDTO> fallbackDtos = new ArrayList<>();
-            for (UserFeedItemDocument doc : docs) {
-                FeedItemDTO dto = new FeedItemDTO();
-                dto.setUserId(doc.getUserId());
-                dto.setPostId(doc.getPostId());
-                dto.setCreatedAt(doc.getCreatedAt());
-                fallbackDtos.add(dto);
+                List<FeedItemDTO> orderedDtos = orderedPostIds
+                    .stream()
+                    .map(itemsByPostId::get)
+                    .filter(java.util.Objects::nonNull)
+                    .map(feedItemMapper::toDto)
+                    .toList();
+
+                for (int index = 0; index < orderedPostIds.size(); index++) {
+                    if (!itemsByPostId.containsKey(orderedPostIds.get(index))) {
+                        redisTemplate.opsForZSet().remove(redisKey, orderedPostIdStrings.get(index));
+                    }
+                }
+
+                Long total = redisTemplate.opsForZSet().zCard(redisKey);
+                return new PageImpl<>(orderedDtos, pageable, total != null ? total : orderedDtos.size());
             }
-            return new PageImpl<>(fallbackDtos, pageable, docs.getTotalElements());
+        } catch (Exception e) {
+            LOG.warn("Failed to read feed from Redis for user {}: {}. Falling back to MariaDB", userId, e.getMessage());
         }
+
+        Page<FeedItem> page = feedItemRepository.findByUserIdOrderByCreatedAtDescPostIdDesc(userId, pageable);
+        return page.map(feedItemMapper::toDto);
+    }
+
+    private String feedKey(UUID userId) {
+        return "feed:user:" + userId;
+    }
 }
