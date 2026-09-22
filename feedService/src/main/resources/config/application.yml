@@ -131,11 +131,6 @@ spring:
   jmx:
     enabled: false
   data:
-    mongodb:
-      uri: mongodb://localhost:27017/feedService
-      database: feedService
-      uuid-representation: standard
-      auto-index-creation: true
     jpa:
       repositories:
         bootstrap-mode: deferred

@@ -154,15 +154,6 @@ services:
       - 127.0.0.1:${ZIPKIN_PORT:-9411}:9411
     restart: unless-stopped
 
-  mongodb:
-    image: mongo:6.0
-    container_name: fakebook-mongodb
-    ports:
-      - "27017:27017"
-    volumes:
-      - mongodb_data:/data/db
-
 volumes:
   mariadb-data:
   keycloak-data:
-  mongodb_data:
