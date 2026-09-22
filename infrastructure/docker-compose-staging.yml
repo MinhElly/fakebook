@@ -24,6 +24,8 @@ services:
       KC_HOSTNAME_STRICT_BACKCHANNEL: 'false'
       KC_HEALTH_ENABLED: 'true'
       KC_HTTP_MANAGEMENT_PORT: 9990
+      KEYCLOAK_GOOGLE_CLIENT_ID: ${KEYCLOAK_GOOGLE_CLIENT_ID:?KEYCLOAK_GOOGLE_CLIENT_ID is required}
+      KEYCLOAK_GOOGLE_CLIENT_SECRET: ${KEYCLOAK_GOOGLE_CLIENT_SECRET:?KEYCLOAK_GOOGLE_CLIENT_SECRET is required}
     deploy:
       resources:
         limits:
@@ -32,6 +34,7 @@ services:
       - keycloak-data:/opt/keycloak/data
       - ../gateway/src/main/docker/realm-config:/opt/keycloak/data/import:ro
       - ../gateway/src/main/docker/realm-config/keycloak-health-check.sh:/opt/keycloak/health-check.sh:ro
+      - ./keycloak/themes:/opt/keycloak/themes:ro
       - ${MARIADB_SSL_CERT_HOST_PATH:?MARIADB_SSL_CERT_HOST_PATH is required}:${MARIADB_SSL_CERT_CONTAINER_PATH:-/run/secrets/rds-global-bundle.pem}:ro
     healthcheck:
       test: bash /opt/keycloak/health-check.sh
@@ -59,6 +62,26 @@ services:
     entrypoint:
       - /bin/sh
       - /opt/keycloak-config/configure-internal-client.sh
+    restart: "no"
+
+  keycloak-google-config:
+    image: quay.io/keycloak/keycloak:26.7.2-1
+    container_name: fakebook-keycloak-google-config
+    depends_on:
+      keycloak:
+        condition: service_healthy
+    environment:
+      KEYCLOAK_INTERNAL_URL: http://keycloak:9080
+      KEYCLOAK_REALM: jhipster
+      KEYCLOAK_SYNC_ADMIN_USERNAME: ${KEYCLOAK_BOOTSTRAP_ADMIN_USERNAME:?KEYCLOAK_BOOTSTRAP_ADMIN_USERNAME is required}
+      KEYCLOAK_SYNC_ADMIN_PASSWORD: ${KEYCLOAK_BOOTSTRAP_ADMIN_PASSWORD:?KEYCLOAK_BOOTSTRAP_ADMIN_PASSWORD is required}
+      KEYCLOAK_GOOGLE_CLIENT_ID: ${KEYCLOAK_GOOGLE_CLIENT_ID:?KEYCLOAK_GOOGLE_CLIENT_ID is required}
+      KEYCLOAK_GOOGLE_CLIENT_SECRET: ${KEYCLOAK_GOOGLE_CLIENT_SECRET:?KEYCLOAK_GOOGLE_CLIENT_SECRET is required}
+    volumes:
+      - ./keycloak/configure-google-idp.sh:/opt/keycloak/configure-google-idp.sh:ro
+    entrypoint:
+      - /bin/bash
+      - /opt/keycloak/configure-google-idp.sh
     restart: "no"
 
   consul:
@@ -156,6 +179,7 @@ services:
       SPRING_LIQUIBASE_URL: "jdbc:mariadb://${MARIADB_HOST:?MARIADB_HOST is required}:${MARIADB_PORT}/gateway?useLegacyDatetimeCode=false&sslMode=verify-full&serverSslCert=${MARIADB_SSL_CERT_CONTAINER_PATH:-/run/secrets/rds-global-bundle.pem}"
       FAKEBOOK_DB_USERNAME: ${GATEWAY_DB_USERNAME:?GATEWAY_DB_USERNAME is required}
       FAKEBOOK_DB_PASSWORD: ${GATEWAY_DB_PASSWORD:?GATEWAY_DB_PASSWORD is required}
+      STAGING_FRONTEND_URL: ${STAGING_FRONTEND_URL:?STAGING_FRONTEND_URL is required}
       FAKEBOOK_OIDC_ISSUER_URI: ${FAKEBOOK_OIDC_ISSUER_URI}
       JAVA_OPTS: "-Xmx512m -Xms256m -XX:+UseG1GC"
     deploy:
@@ -425,7 +449,7 @@ services:
       - "443:443"
     volumes:
       - ./nginx/${NGINX_CONFIG_FILE:-nginx.conf}:/etc/nginx/nginx.conf:ro
-      - ./nginx/certs:/etc/letsencrypt/live/staging.fakebook.com:ro
+      - ./nginx/certs:/etc/letsencrypt:ro
     restart: unless-stopped
 
 volumes:
