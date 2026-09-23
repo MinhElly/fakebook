@@ -24,9 +24,26 @@ env:
   REGISTRY: ghcr.io
 
 jobs:
+  # 0. Validate configuration files and Docker Compose templates
+  validate-config:
+    name: Validate Configuration & Compose
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Validate Local Dev Docker Compose
+        run: docker compose -f infrastructure/docker-compose.yml config --quiet
+
+      - name: Validate Staging Docker Compose Template
+        run: docker compose --env-file infrastructure/.env.staging.example -f infrastructure/docker-compose-staging.yml config --quiet
+
   # 1. Validate the frontend artifact deployed by Vercel
   build-frontend:
     name: Build Frontend for Vercel
+    needs: [validate-config]
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -55,6 +72,7 @@ jobs:
   # 2. Verify every backend; publish only after protected-branch pushes
   build-backend-services:
     name: Verify / Publish (${{ matrix.service }})
+    needs: [validate-config]
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -106,7 +124,8 @@ jobs:
       - name: Log in to GitHub Container Registry (GHCR)
         if: >-
           github.event_name == 'push' &&
-          (github.ref == 'refs/heads/staging' ||
+          (github.ref == 'refs/heads/develop' ||
+          github.ref == 'refs/heads/staging' ||
           github.ref == 'refs/heads/main' ||
           github.ref == 'refs/heads/master')
         uses: docker/login-action@v3
@@ -118,7 +137,8 @@ jobs:
       - name: Lowercase repository owner name
         if: >-
           github.event_name == 'push' &&
-          (github.ref == 'refs/heads/staging' ||
+          (github.ref == 'refs/heads/develop' ||
+          github.ref == 'refs/heads/staging' ||
           github.ref == 'refs/heads/main' ||
           github.ref == 'refs/heads/master')
         run: |
@@ -127,7 +147,8 @@ jobs:
       - name: Build and push immutable OCI image
         if: >-
           github.event_name == 'push' &&
-          (github.ref == 'refs/heads/staging' ||
+          (github.ref == 'refs/heads/develop' ||
+          github.ref == 'refs/heads/staging' ||
           github.ref == 'refs/heads/main' ||
           github.ref == 'refs/heads/master')
         working-directory: ${{ matrix.path }}
@@ -140,6 +161,7 @@ jobs:
             exit 1
           fi
 
+          IMMUTABLE_TAG="sha-${FULL_SHA}"
           BRANCH_REF="${GITHUB_REF_NAME}"
           EXTRA_TAGS="${BRANCH_REF}"
 
@@ -147,11 +169,11 @@ jobs:
             EXTRA_TAGS="latest,main"
           fi
 
-          echo "Publishing immutable image: ${IMAGE_NAME}:${FULL_SHA}"
+          echo "Publishing immutable image: ${IMAGE_NAME}:${IMMUTABLE_TAG}"
           echo "Publishing moving aliases: ${EXTRA_TAGS}"
 
           ./mvnw -ntp package jib:build -DskipTests \
-            -Djib.to.image="${IMAGE_NAME}:${FULL_SHA}" \
+            -Djib.to.image="${IMAGE_NAME}:${IMMUTABLE_TAG}" \
             -Djib.to.tags="${EXTRA_TAGS}" \
             -Djib.to.auth.username="${{ github.actor }}" \
             -Djib.to.auth.password="${{ secrets.GITHUB_TOKEN }}"
@@ -159,13 +181,15 @@ jobs:
   # 3. Pipeline Completion Summary
   pipeline-summary:
     name: CI/CD Pipeline Summary
-    needs: [build-frontend, build-backend-services]
+    needs: [validate-config, build-frontend, build-backend-services]
     runs-on: ubuntu-latest
     if: always()
     steps:
       - name: Check Status
         run: |
-          if [ "${{ needs.build-frontend.result }}" = "success" ] && [ "${{ needs.build-backend-services.result }}" = "success" ]; then
+          if [ "${{ needs.validate-config.result }}" = "success" ] && \
+             [ "${{ needs.build-frontend.result }}" = "success" ] && \
+             [ "${{ needs.build-backend-services.result }}" = "success" ]; then
             echo "🎉 CI/CD Pipeline Completed Successfully!"
           else
             echo "❌ CI/CD Pipeline Failed!"
