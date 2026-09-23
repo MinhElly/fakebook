@@ -104,8 +104,12 @@ jobs:
           cd ${{ matrix.path }}
           chmod +x mvnw
           
-          IMAGE_TAG="${IMAGE_PREFIX}/${{ matrix.image_name }}"
-          SHORT_SHA=$(echo ${{ github.sha }} | cut -c1-7)
+          IMAGE_NAME="${IMAGE_PREFIX}/${{ matrix.image_name }}"
+          FULL_SHA="${GITHUB_SHA}"
+          if [[ ! "${FULL_SHA}" =~ ^[0-9a-f]{40}$ ]]; then
+          echo "Invalid Git commit SHA: ${FULL_SHA}"
+          exit 1
+          fi
           
           if [ "${{ github.event_name }}" = "pull_request" ]; then
             echo "PR detected: Running compile dry-run..."
@@ -118,9 +122,9 @@ jobs:
               EXTRA_TAGS="latest,main"
             fi
 
-            echo "Push detected: Building and pushing images: ${IMAGE_TAG}:${SHORT_SHA}, ${IMAGE_TAG}:${EXTRA_TAGS}"
+            echo "Push detected: Building and pushing images: ${IMAGE_NAME}:${SHORT_SHA}, ${IMAGE_NAME}:${EXTRA_TAGS}"
             ./mvnw clean package jib:build -DskipTests \
-              -Djib.to.image="${IMAGE_TAG}:${SHORT_SHA}" \
+              -Djib.to.image="${IMAGE_NAME}:${SHORT_SHA}" \
               -Djib.to.tags="${EXTRA_TAGS}" \
               -Djib.to.auth.username="${{ github.actor }}" \
               -Djib.to.auth.password="${{ secrets.GITHUB_TOKEN }}"
