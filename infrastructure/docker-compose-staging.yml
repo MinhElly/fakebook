@@ -167,7 +167,7 @@ services:
     extra_hosts:
       - "${DOMAIN_NAME}:host-gateway"
     environment:
-      SPRING_PROFILES_ACTIVE: staging
+      SPRING_PROFILES_ACTIVE: "prod,staging"
       SPRING_CLOUD_CONSUL_HOST: ${SPRING_CLOUD_CONSUL_HOST:-consul}
       SPRING_CLOUD_CONSUL_PORT: ${SPRING_CLOUD_CONSUL_PORT:-8500}
       SPRING_DOCKER_COMPOSE_ENABLED: "false"
@@ -201,7 +201,7 @@ services:
     extra_hosts:
       - "${DOMAIN_NAME}:host-gateway"
     environment:
-      SPRING_PROFILES_ACTIVE: staging
+      SPRING_PROFILES_ACTIVE: "prod,staging"
       SPRING_CLOUD_CONSUL_HOST: ${SPRING_CLOUD_CONSUL_HOST:-consul}
       SPRING_CLOUD_CONSUL_PORT: ${SPRING_CLOUD_CONSUL_PORT:-8500}
       SPRING_DOCKER_COMPOSE_ENABLED: "false"
@@ -237,7 +237,7 @@ services:
     extra_hosts:
       - "${DOMAIN_NAME}:host-gateway"
     environment:
-      SPRING_PROFILES_ACTIVE: staging
+      SPRING_PROFILES_ACTIVE: "prod,staging"
       SPRING_CLOUD_CONSUL_HOST: ${SPRING_CLOUD_CONSUL_HOST:-consul}
       SPRING_CLOUD_CONSUL_PORT: ${SPRING_CLOUD_CONSUL_PORT:-8500}
       SPRING_DOCKER_COMPOSE_ENABLED: "false"
@@ -275,7 +275,7 @@ services:
     extra_hosts:
       - "${DOMAIN_NAME}:host-gateway"
     environment:
-      SPRING_PROFILES_ACTIVE: staging
+      SPRING_PROFILES_ACTIVE: "prod,staging"
       SPRING_CLOUD_CONSUL_HOST: ${SPRING_CLOUD_CONSUL_HOST:-consul}
       SPRING_CLOUD_CONSUL_PORT: ${SPRING_CLOUD_CONSUL_PORT:-8500}
       SPRING_DOCKER_COMPOSE_ENABLED: "false"
@@ -313,7 +313,7 @@ services:
     extra_hosts:
       - "${DOMAIN_NAME}:host-gateway"
     environment:
-      SPRING_PROFILES_ACTIVE: staging
+      SPRING_PROFILES_ACTIVE: "prod,staging"
       SPRING_CLOUD_CONSUL_HOST: ${SPRING_CLOUD_CONSUL_HOST:-consul}
       SPRING_CLOUD_CONSUL_PORT: ${SPRING_CLOUD_CONSUL_PORT:-8500}
       SPRING_DOCKER_COMPOSE_ENABLED: "false"
@@ -352,7 +352,7 @@ services:
     extra_hosts:
       - "${DOMAIN_NAME}:host-gateway"
     environment:
-      SPRING_PROFILES_ACTIVE: staging
+      SPRING_PROFILES_ACTIVE: "prod,staging"
       SPRING_CLOUD_CONSUL_HOST: ${SPRING_CLOUD_CONSUL_HOST:-consul}
       SPRING_CLOUD_CONSUL_PORT: ${SPRING_CLOUD_CONSUL_PORT:-8500}
       SPRING_DOCKER_COMPOSE_ENABLED: "false"
@@ -390,7 +390,7 @@ services:
     extra_hosts:
       - "${DOMAIN_NAME}:host-gateway"
     environment:
-      SPRING_PROFILES_ACTIVE: staging
+      SPRING_PROFILES_ACTIVE: "prod,staging"
       SPRING_CLOUD_CONSUL_HOST: ${SPRING_CLOUD_CONSUL_HOST:-consul}
       SPRING_CLOUD_CONSUL_PORT: ${SPRING_CLOUD_CONSUL_PORT:-8500}
       SPRING_DOCKER_COMPOSE_ENABLED: "false"
