@@ -84,6 +84,28 @@ services:
       - /opt/keycloak/configure-google-idp.sh
     restart: "no"
 
+  keycloak-realm-config:
+    image: quay.io/keycloak/keycloak:26.7.2-1
+    container_name: fakebook-keycloak-realm-config
+    depends_on:
+      keycloak:
+        condition: service_healthy
+    environment:
+      KEYCLOAK_INTERNAL_URL: http://keycloak:9080
+      KEYCLOAK_REALM: jhipster
+      KEYCLOAK_SYNC_ADMIN_USERNAME: ${KEYCLOAK_BOOTSTRAP_ADMIN_USERNAME:?KEYCLOAK_BOOTSTRAP_ADMIN_USERNAME is required}
+      KEYCLOAK_SYNC_ADMIN_PASSWORD: ${KEYCLOAK_BOOTSTRAP_ADMIN_PASSWORD:?KEYCLOAK_BOOTSTRAP_ADMIN_PASSWORD is required}
+      STAGING_FRONTEND_URL: ${STAGING_FRONTEND_URL:?STAGING_FRONTEND_URL is required}
+      DOMAIN_NAME: ${DOMAIN_NAME:?DOMAIN_NAME is required}
+      KEYCLOAK_FRONTEND_URL: https://${DOMAIN_NAME}
+    volumes:
+      - ./keycloak/configure-realm.sh:/opt/keycloak-config/configure-realm.sh:ro
+    entrypoint:
+      - /bin/sh
+      - /opt/keycloak-config/configure-realm.sh
+    restart: "no"
+
+
   consul:
     image: hashicorp/consul:2.0.3
     container_name: fakebook-consul
@@ -134,6 +156,14 @@ services:
       resources:
         limits:
           memory: 1024M
+    volumes:
+      - kafka-data:/tmp/kraft-combined-logs
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092 > /dev/null 2>&1 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
     restart: unless-stopped
 
   redis:
@@ -159,6 +189,12 @@ services:
       resources:
         limits:
           memory: 512M
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1:9411/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
     restart: unless-stopped
 
   gateway:
@@ -193,6 +229,12 @@ services:
         condition: service_started
       keycloak:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'exec 3<>/dev/tcp/127.0.0.1/8080; printf \"GET /management/health/liveness HTTP/1.0\\r\\nHost: localhost\\r\\n\\r\\n\" >&3; grep -q \"\\\"status\\\":\\\"UP\\\"\" <&3'"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 40s
     restart: "on-failure:5"
 
   authservice:
@@ -229,6 +271,12 @@ services:
         condition: service_healthy
       keycloak-internal-client-config:
         condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'exec 3<>/dev/tcp/127.0.0.1/8081; printf \"GET /management/health/liveness HTTP/1.0\\r\\nHost: localhost\\r\\n\\r\\n\" >&3; grep -q \"\\\"status\\\":\\\"UP\\\"\" <&3'"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 40s
     restart: "on-failure:5"
 
   userservice:
@@ -267,6 +315,12 @@ services:
         condition: service_healthy
       keycloak-internal-client-config:
         condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'exec 3<>/dev/tcp/127.0.0.1/8082; printf \"GET /management/health/liveness HTTP/1.0\\r\\nHost: localhost\\r\\n\\r\\n\" >&3; grep -q \"\\\"status\\\":\\\"UP\\\"\" <&3'"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 40s
     restart: "on-failure:5"
 
   postservice:
@@ -305,6 +359,12 @@ services:
         condition: service_healthy
       keycloak-internal-client-config:
         condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'exec 3<>/dev/tcp/127.0.0.1/8083; printf \"GET /management/health/liveness HTTP/1.0\\r\\nHost: localhost\\r\\n\\r\\n\" >&3; grep -q \"\\\"status\\\":\\\"UP\\\"\" <&3'"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 40s
     restart: "on-failure:5"
 
   mediaservice:
@@ -344,6 +404,12 @@ services:
         condition: service_healthy
       keycloak-internal-client-config:
         condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'exec 3<>/dev/tcp/127.0.0.1/8084; printf \"GET /management/health/liveness HTTP/1.0\\r\\nHost: localhost\\r\\n\\r\\n\" >&3; grep -q \"\\\"status\\\":\\\"UP\\\"\" <&3'"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 40s
     restart: "on-failure:5"
 
   commentservice:
@@ -382,6 +448,12 @@ services:
         condition: service_healthy
       keycloak-internal-client-config:
         condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'exec 3<>/dev/tcp/127.0.0.1/8085; printf \"GET /management/health/liveness HTTP/1.0\\r\\nHost: localhost\\r\\n\\r\\n\" >&3; grep -q \"\\\"status\\\":\\\"UP\\\"\" <&3'"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 40s
     restart: "on-failure:5"
 
   feedservice:
@@ -422,6 +494,12 @@ services:
         condition: service_healthy
       keycloak-internal-client-config:
         condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'exec 3<>/dev/tcp/127.0.0.1/8086; printf \"GET /management/health/liveness HTTP/1.0\\r\\nHost: localhost\\r\\n\\r\\n\" >&3; grep -q \"\\\"status\\\":\\\"UP\\\"\" <&3'"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 40s
     restart: "on-failure:5"
 
   frontend:
@@ -457,7 +535,14 @@ services:
     volumes:
       - ./nginx/nginx.conf.template:/etc/nginx/templates/nginx.conf.template:ro
       - ./nginx/certs:/etc/letsencrypt:ro
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1:80/ || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
     restart: unless-stopped
 
 volumes:
   keycloak-data:
+  kafka-data:
