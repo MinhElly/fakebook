@@ -447,8 +447,15 @@ services:
     ports:
       - "80:80"
       - "443:443"
+    environment:
+      PUBLIC_DOMAIN: ${DOMAIN_NAME:?DOMAIN_NAME is required}
+      FRONTEND_URL: ${STAGING_FRONTEND_URL:?STAGING_FRONTEND_URL is required}
+      TLS_CERT_NAME: ${TLS_CERT_NAME:-${DOMAIN_NAME}}
+      KEYCLOAK_ADMIN_ALLOWLIST: ${KEYCLOAK_ADMIN_ALLOWLIST:-}
+      NGINX_ENVSUBST_OUTPUT_DIR: /etc/nginx
+      NGINX_ENVSUBST_FILTER: "PUBLIC_DOMAIN|FRONTEND_URL|TLS_CERT_NAME|KEYCLOAK_ADMIN_ALLOWLIST"
     volumes:
-      - ./nginx/${NGINX_CONFIG_FILE:-nginx.conf}:/etc/nginx/nginx.conf:ro
+      - ./nginx/nginx.conf.template:/etc/nginx/templates/nginx.conf.template:ro
       - ./nginx/certs:/etc/letsencrypt:ro
     restart: unless-stopped
 
