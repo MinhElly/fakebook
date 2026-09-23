@@ -87,37 +87,37 @@ Mở các tab terminal riêng biệt cho từng service:
 #### 1. Khởi động API Gateway (Port 8080)
 ```powershell
 cd gateway
-.\mvnw.cmd spring-boot:run '-Dspring-boot.run.arguments=--spring.docker.compose.enabled=false'
+.\mvnw.cmd spring-boot:run
 ```
 
 #### 2. Khởi động User Service (Port 8082)
 ```powershell
 cd userService
-.\mvnw.cmd spring-boot:run '-Dspring-boot.run.arguments=--spring.docker.compose.enabled=false'
+.\mvnw.cmd spring-boot:run
 ```
 
 #### 3. Khởi động Post Service (Port 8083)
 ```powershell
 cd postService
-.\mvnw.cmd spring-boot:run '-Dspring-boot.run.arguments=--spring.docker.compose.enabled=false'
+.\mvnw.cmd spring-boot:run
 ```
 
 #### 4. Khởi động Feed Service (Port 8086)
 ```powershell
 cd feedService
-.\mvnw.cmd spring-boot:run '-Dspring-boot.run.arguments=--spring.docker.compose.enabled=false'
+.\mvnw.cmd spring-boot:run
 ```
 
 #### 5. Khởi động Comment Service (Port 8085)
 ```powershell
 cd commentService
-.\mvnw.cmd spring-boot:run '-Dspring-boot.run.arguments=--spring.docker.compose.enabled=false'
+.\mvnw.cmd spring-boot:run
 ```
 
 #### 6. Khởi động Media Service (Port 8084)
 ```powershell
 cd mediaService
-.\mvnw.cmd spring-boot:run '-Dspring-boot.run.arguments=--spring.docker.compose.enabled=false'
+.\mvnw.cmd spring-boot:run
 ```
 
 *(Trên Linux / macOS, thay `.\mvnw.cmd` bằng `./mvnw`)*

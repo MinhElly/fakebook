@@ -136,7 +136,7 @@ spring:
           trusted-proxies: '.*'
   docker:
     compose:
-      enabled: true
+      enabled: false
       lifecycle-management: start-only
       file: src/main/docker/services.yml
   profiles:
@@ -167,6 +167,9 @@ spring:
   security:
     oauth2:
       client:
+        provider:
+          oidc:
+            issuer-uri: ${FAKEBOOK_OIDC_ISSUER_URI:http://localhost:9080/realms/jhipster}
         registration:
           oidc:
             scope: openid, profile
