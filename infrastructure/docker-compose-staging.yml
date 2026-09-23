@@ -162,7 +162,7 @@ services:
     restart: unless-stopped
 
   gateway:
-    image: ${DOCKER_REGISTRY_PREFIX:-}fakebook-gateway:${IMAGE_TAG:-staging}
+    image: ${DOCKER_REGISTRY_PREFIX:?DOCKER_REGISTRY_PREFIX is required}fakebook-gateway:${IMAGE_TAG:?IMAGE_TAG is required}
     container_name: fakebook-gateway
     extra_hosts:
       - "${DOMAIN_NAME}:host-gateway"
@@ -196,7 +196,7 @@ services:
     restart: "on-failure:5"
 
   authservice:
-    image: ${DOCKER_REGISTRY_PREFIX:-}fakebook-authservice:${IMAGE_TAG:-staging}
+    image: ${DOCKER_REGISTRY_PREFIX:?DOCKER_REGISTRY_PREFIX is required}fakebook-authservice:${IMAGE_TAG:?IMAGE_TAG is required}
     container_name: fakebook-authservice
     extra_hosts:
       - "${DOMAIN_NAME}:host-gateway"
@@ -232,7 +232,7 @@ services:
     restart: "on-failure:5"
 
   userservice:
-    image: ${DOCKER_REGISTRY_PREFIX:-}fakebook-userservice:${IMAGE_TAG:-staging}
+    image: ${DOCKER_REGISTRY_PREFIX:?DOCKER_REGISTRY_PREFIX is required}fakebook-userservice:${IMAGE_TAG:?IMAGE_TAG is required}
     container_name: fakebook-userservice
     extra_hosts:
       - "${DOMAIN_NAME}:host-gateway"
@@ -270,7 +270,7 @@ services:
     restart: "on-failure:5"
 
   postservice:
-    image: ${DOCKER_REGISTRY_PREFIX:-}fakebook-postservice:${IMAGE_TAG:-staging}
+    image: ${DOCKER_REGISTRY_PREFIX:?DOCKER_REGISTRY_PREFIX is required}fakebook-postservice:${IMAGE_TAG:?IMAGE_TAG is required}
     container_name: fakebook-postservice
     extra_hosts:
       - "${DOMAIN_NAME}:host-gateway"
@@ -308,7 +308,7 @@ services:
     restart: "on-failure:5"
 
   mediaservice:
-    image: ${DOCKER_REGISTRY_PREFIX:-}fakebook-mediaservice:${IMAGE_TAG:-staging}
+    image: ${DOCKER_REGISTRY_PREFIX:?DOCKER_REGISTRY_PREFIX is required}fakebook-mediaservice:${IMAGE_TAG:?IMAGE_TAG is required}
     container_name: fakebook-mediaservice
     extra_hosts:
       - "${DOMAIN_NAME}:host-gateway"
@@ -347,7 +347,7 @@ services:
     restart: "on-failure:5"
 
   commentservice:
-    image: ${DOCKER_REGISTRY_PREFIX:-}fakebook-commentservice:${IMAGE_TAG:-staging}
+    image: ${DOCKER_REGISTRY_PREFIX:?DOCKER_REGISTRY_PREFIX is required}fakebook-commentservice:${IMAGE_TAG:?IMAGE_TAG is required}
     container_name: fakebook-commentservice
     extra_hosts:
       - "${DOMAIN_NAME}:host-gateway"
@@ -385,7 +385,7 @@ services:
     restart: "on-failure:5"
 
   feedservice:
-    image: ${DOCKER_REGISTRY_PREFIX:-}fakebook-feedservice:${IMAGE_TAG:-staging}
+    image: ${DOCKER_REGISTRY_PREFIX:?DOCKER_REGISTRY_PREFIX is required}fakebook-feedservice:${IMAGE_TAG:?IMAGE_TAG is required}
     container_name: fakebook-feedservice
     extra_hosts:
       - "${DOMAIN_NAME}:host-gateway"
@@ -429,7 +429,7 @@ services:
     build: 
       context: ../frontend
       dockerfile: Dockerfile
-    image: ${DOCKER_REGISTRY_PREFIX:-}fakebook-frontend:${IMAGE_TAG:-staging}
+    image: ${DOCKER_REGISTRY_PREFIX:?DOCKER_REGISTRY_PREFIX is required}fakebook-frontend:${IMAGE_TAG:?IMAGE_TAG is required}
     container_name: fakebook-frontend
     deploy:
       resources:
