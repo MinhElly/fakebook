@@ -3,6 +3,7 @@ import NavBar from "@/components/navbar/NavBar";
 import { useAuth } from "@/providers/AuthProvider";
 import { useFriendRequestRealtime } from "@/hooks/useFriendRequestRealtime";
 import FriendRequestToast from "@/components/ui/FriendRequestToast";
+import SplashScreen from "@/components/ui/SplashScreen";
 
 export default function MainLayout() {
   const { status } = useAuth();
@@ -14,7 +15,7 @@ export default function MainLayout() {
   } = useFriendRequestRealtime(status === "authenticated", 4000); // Polling 4s background
 
   if (status === "initializing") {
-    return <div className="flex min-h-screen items-center justify-center bg-[#F0F2F5] text-sm font-medium text-[#65676B]" role="status">Đang kiểm tra phiên đăng nhập...</div>;
+    return <SplashScreen />;
   }
 
   if (status !== "authenticated") return <Navigate to="/login" replace />;

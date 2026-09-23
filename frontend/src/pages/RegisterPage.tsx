@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import { Navigate } from "react-router";
 import { useAuth } from "@/providers/AuthProvider";
+import SplashScreen from "@/components/ui/SplashScreen";
 
 export default function RegisterPage() {
   const { status, error, register } = useAuth();
@@ -41,9 +42,5 @@ export default function RegisterPage() {
     );
   }
 
-  return (
-    <main className="flex min-h-screen items-center justify-center bg-fb-bg" aria-busy="true">
-      <p className="sr-only">Đang mở trang đăng ký…</p>
-    </main>
-  );
+  return <SplashScreen message="Đang mở trang đăng ký..." />;
 }
