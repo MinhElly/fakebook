@@ -12,10 +12,10 @@ services:
       - SPRING_SECURITY_OAUTH2_CLIENT_PROVIDER_OIDC_ISSUER_URI=http://keycloak:9080/realms/jhipster
       - SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_OIDC_CLIENT_ID=internal
       - SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_OIDC_CLIENT_SECRET=internal
-      - SPRING_DATASOURCE_URL=jdbc:mariadb://mariadb:3306/postservice?useLegacyDatetimeCode=false
+      - SPRING_DATASOURCE_URL=jdbc:mariadb://mariadb:3306/post_service?useLegacyDatetimeCode=false
       - SPRING_DATASOURCE_USERNAME=root
       - SPRING_DATASOURCE_PASSWORD=
-      - SPRING_LIQUIBASE_URL=jdbc:mariadb://mariadb:3306/postservice?useLegacyDatetimeCode=false
+      - SPRING_LIQUIBASE_URL=jdbc:mariadb://mariadb:3306/post_service?useLegacyDatetimeCode=false
       - SPRING_CLOUD_STREAM_KAFKA_BINDER_BROKERS=kafka:9092
     healthcheck:
       test:

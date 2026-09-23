@@ -69,12 +69,12 @@ Copy-Item infrastructure/.env.example infrastructure/.env
 > Chạy Gateway trước, sau đó mở các tab terminal riêng cho từng service:
 ```powershell
 # Chạy Gateway (Port 8080)
-cd gateway; .\mvnw.cmd spring-boot:run '-Dspring-boot.run.arguments=--spring.docker.compose.enabled=false'
+cd gateway; .\mvnw.cmd spring-boot:run
 
 # Chạy các service cần thiết (User, Post, Feed, Comment, Media)
-cd userService; .\mvnw.cmd spring-boot:run '-Dspring-boot.run.arguments=--spring.docker.compose.enabled=false'
-cd postService; .\mvnw.cmd spring-boot:run '-Dspring-boot.run.arguments=--spring.docker.compose.enabled=false'
-cd feedService; .\mvnw.cmd spring-boot:run '-Dspring-boot.run.arguments=--spring.docker.compose.enabled=false'
+cd userService; .\mvnw.cmd spring-boot:run
+cd postService; .\mvnw.cmd spring-boot:run
+cd feedService; .\mvnw.cmd spring-boot:run
 ```
 
 ### Bước 3: Khởi động Frontend Web

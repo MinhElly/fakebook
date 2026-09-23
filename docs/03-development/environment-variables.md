@@ -51,6 +51,8 @@ Tài liệu này tổng hợp toàn bộ các biến môi trường được s�
 | `DOMAIN_NAME` | Nginx, Gateway, Keycloak | **Có** | `20-189-114-210.nip.io` | Tên miền chính của môi trường staging |
 | `STAGING_FRONTEND_URL` | Nginx, Gateway | **Có** | `https://fakebook-zeta.vercel.app` | URL ứng dụng frontend được Vercel host |
 | `KEYCLOAK_HOSTNAME` | `keycloak` | **Có** | `https://20-189-114-210.nip.io` | Public Hostname mà trình duyệt gọi tới Keycloak |
+| `TLS_CERT_NAME` | `nginx` | Không | `20-189-114-210.nip.io` | Thư mục chứng chỉ Let's Encrypt (mặc định bằng `DOMAIN_NAME`) |
+| `KEYCLOAK_ADMIN_ALLOWLIST` | `nginx` | Không | `allow 203.0.113.50;` | Chỉ thị allow IP bổ sung cho Keycloak `/admin/` (mặc định cho phép localhost & VPN) |
 | `DOCKER_REGISTRY_PREFIX`| Docker Compose | **Có** | `ghcr.io/minhelly/` | Tiền tố GitHub Container Registry |
 | `IMAGE_TAG` | Docker Compose | **Có** | `staging` hoặc git SHA | Phiên bản tag Docker image kéo từ GHCR |
 | `MARIADB_HOST` | Toàn bộ services | **Có** | `rds-endpoint.amazonaws.com` | Địa chỉ DNS AWS RDS MariaDB |

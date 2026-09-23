@@ -8,10 +8,10 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.minh.fakebook.comment.IntegrationTest;
 import com.minh.fakebook.comment.domain.PostCache;
 import com.minh.fakebook.comment.repository.PostCacheRepository;
+import com.minh.fakebook.comment.security.AuthoritiesConstants;
 import jakarta.persistence.EntityManager;
 import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
@@ -23,13 +23,14 @@ import org.springframework.http.MediaType;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
+import tools.jackson.databind.ObjectMapper;
 
 /**
  * Integration tests for the {@link PostCacheResource} REST controller.
  */
 @IntegrationTest
 @AutoConfigureMockMvc
-@WithMockUser
+@WithMockUser(authorities = AuthoritiesConstants.ADMIN)
 class PostCacheResourceIT {
 
     private static final UUID DEFAULT_AUTHOR_ID = UUID.randomUUID();

@@ -59,7 +59,7 @@ docker compose --env-file .env.staging -f docker-compose-staging.yml up -d --wai
 ### Kiểm tra từ dòng lệnh trong container:
 ```bash
 # Truy cập MySQL CLI vào database post_service
-docker exec -it fakebook-mariadb mariadb -uroot -e "SHOW DATABASES; SELECT COUNT(*) FROM postservice.posts;"
+docker exec -it fakebook-mariadb mariadb -uroot -e "SHOW DATABASES; SELECT COUNT(*) FROM post_service.posts;"
 ```
 
 ### Kiểm tra kết nối từ VM tới AWS RDS Staging:

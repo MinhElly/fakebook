@@ -56,14 +56,15 @@ fi
 # -----------------------------------------------------------------------------
 # STEP 3: CREATE POST VIA POSTSERVICE VIA GATEWAY
 # -----------------------------------------------------------------------------
-echo -n "3. Creating a new post via Gateway (/services/postservice/api/posts)... "
+echo -n "3. Creating a new post via Gateway (/services/postservice/api/posts/create)... "
 POST_PAYLOAD='{
   "content": "Automated E2E Smoke Test Post at '$(date +'%Y-%m-%d %H:%M:%S')'",
   "visibility": "PUBLIC",
-  "status": "ACTIVE"
+  "mediaIds": [],
+  "taggedUserIds": []
 }'
 
-POST_STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X POST "${BASE_URL}/services/postservice/api/posts" \
+POST_STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X POST "${BASE_URL}/services/postservice/api/posts/create" \
   -H "Authorization: Bearer ${ACCESS_TOKEN}" \
   -H "Content-Type: application/json" \
   -d "${POST_PAYLOAD}" || echo "000")
@@ -78,8 +79,8 @@ fi
 # -----------------------------------------------------------------------------
 # STEP 4: FETCH USER FEED VIA FEEDSERVICE VIA GATEWAY
 # -----------------------------------------------------------------------------
-echo -n "4. Verifying Feed delivery via Gateway (/services/feedservice/api/feeds)... "
-FEED_STATUS=$(curl -s -o /dev/null -w "%{http_code}" -H "Authorization: Bearer ${ACCESS_TOKEN}" "${BASE_URL}/services/feedservice/api/feeds" || echo "000")
+echo -n "4. Verifying Feed delivery via Gateway (/services/feedservice/api/feed/me)... "
+FEED_STATUS=$(curl -s -o /dev/null -w "%{http_code}" -H "Authorization: Bearer ${ACCESS_TOKEN}" "${BASE_URL}/services/feedservice/api/feed/me" || echo "000")
 
 if [ "$FEED_STATUS" -eq 200 ] || [ "$FEED_STATUS" -eq 201 ]; then
   echo "✅ SUCCESS (HTTP ${FEED_STATUS})"

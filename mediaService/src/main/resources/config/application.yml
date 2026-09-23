@@ -116,7 +116,7 @@ spring:
 
   docker:
     compose:
-      enabled: true
+      enabled: false
       lifecycle-management: start-only
       file: src/main/docker/mariadb.yml
   profiles:
@@ -246,6 +246,6 @@ jhipster:
 # application:
 
 cloudinary:
-  cloud-name: ${CLOUDINARY_CLOUD_NAME:demo}
-  api-key: ${CLOUDINARY_API_KEY:demo}
-  api-secret: ${CLOUDINARY_API_SECRET:demo}
+  cloud-name: ${CLOUDINARY_CLOUD_NAME:}
+  api-key: ${CLOUDINARY_API_KEY:}
+  api-secret: ${CLOUDINARY_API_SECRET:}

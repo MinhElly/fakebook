@@ -16,13 +16,13 @@ import java.util.Map;
 public class CloudinaryConfig {
     private static final Logger LOG = LoggerFactory.getLogger(CloudinaryConfig.class);
 
-    @Value("${cloudinary.cloud-name:demo}")
+    @Value("${cloudinary.cloud-name:}")
     private String cloudName;
 
-    @Value("${cloudinary.api-key:demo}")
+    @Value("${cloudinary.api-key:}")
     private String apiKey;
 
-    @Value("${cloudinary.api-secret:demo}")
+    @Value("${cloudinary.api-secret:}")
     private String apiSecret;
 
     /**

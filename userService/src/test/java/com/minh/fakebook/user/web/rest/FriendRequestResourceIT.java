@@ -13,6 +13,7 @@ import com.minh.fakebook.user.domain.FriendRequest;
 import com.minh.fakebook.user.domain.UserProfile;
 import com.minh.fakebook.user.domain.enumeration.FriendRequestStatus;
 import com.minh.fakebook.user.repository.FriendRequestRepository;
+import com.minh.fakebook.user.security.AuthoritiesConstants;
 import com.minh.fakebook.user.service.dto.FriendRequestDTO;
 import com.minh.fakebook.user.service.mapper.FriendRequestMapper;
 import jakarta.persistence.EntityManager;
@@ -34,7 +35,7 @@ import tools.jackson.databind.ObjectMapper;
  */
 @IntegrationTest
 @AutoConfigureMockMvc
-@WithMockUser
+@WithMockUser(authorities = AuthoritiesConstants.ADMIN)
 class FriendRequestResourceIT {
 
     private static final FriendRequestStatus DEFAULT_STATUS = FriendRequestStatus.PENDING;
