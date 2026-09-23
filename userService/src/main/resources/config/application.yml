@@ -111,7 +111,7 @@ spring:
           enabled: false
   docker:
     compose:
-      enabled: true
+      enabled: false
       lifecycle-management: start-only
       file: src/main/docker/mariadb.yml
   profiles:

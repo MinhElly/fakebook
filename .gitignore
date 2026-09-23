@@ -40,6 +40,7 @@ yarn-error.log*
 .env.*
 !.env*.example
 infrastructure/nginx/certs/
+infrastructure/nginx/nginx.conf
 *.pem
 *.key
 *.tmp

@@ -12,6 +12,7 @@ import com.minh.fakebook.user.IntegrationTest;
 import com.minh.fakebook.user.domain.Follow;
 import com.minh.fakebook.user.domain.UserProfile;
 import com.minh.fakebook.user.repository.FollowRepository;
+import com.minh.fakebook.user.security.AuthoritiesConstants;
 import com.minh.fakebook.user.service.dto.FollowDTO;
 import com.minh.fakebook.user.service.mapper.FollowMapper;
 import jakarta.persistence.EntityManager;
@@ -33,7 +34,7 @@ import tools.jackson.databind.ObjectMapper;
  */
 @IntegrationTest
 @AutoConfigureMockMvc
-@WithMockUser
+@WithMockUser(authorities = AuthoritiesConstants.ADMIN)
 class FollowResourceIT {
 
     private static final Instant DEFAULT_CREATED_AT = Instant.ofEpochMilli(0L);
