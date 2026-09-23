@@ -27,9 +27,7 @@ Tài liệu này đặc tả chi tiết từng microservice trong hệ thống F
 - **Trách nhiệm**: Quản lý hồ sơ người dùng (User Profiles), yêu cầu kết bạn (Friend Requests), quan hệ bạn bè 2 chiều (Friendships), theo dõi (Follows) và tính toán danh sách gợi ý bạn bè (Friend Suggestions dựa trên bạn chung).
 - **Framework / Runtime**: Spring Boot, Spring Data JPA / JDBC, OpenFeign, Spring Cache.
 - **Port mặc định**: `8082` (Consul discovery ID: `userservice`)
-- **Database**:
-  - Dev: MariaDB schema `userservice`
-  - Staging: MariaDB schema `user_service` (AWS RDS TLS)
+- **Database**: MariaDB schema `user_service` (Local port 3307 / Staging AWS RDS TLS)
 - **Entities**: `UserProfile`, `FriendRequest`, `Follow`, `Friendship`.
 - **Cache**: Redis Cache (`@Cacheable(value = "userProfiles")` trong `UserProfileService`, `FriendshipService`, `FollowService`).
 - **Kafka**:
@@ -56,9 +54,7 @@ Tài liệu này đặc tả chi tiết từng microservice trong hệ thống F
 - **Trách nhiệm**: Quản lý bài đăng của người dùng, liên kết hình ảnh/video đính kèm (`PostMedia`), và tương tác cảm xúc (`PostReaction`: LIKE, LOVE, WOW, SAD, ANGRY).
 - **Framework / Runtime**: Spring Boot, Spring Data JPA, OpenFeign, Spring Cloud Stream Kafka.
 - **Port mặc định**: `8083` (Consul discovery ID: `postservice`)
-- **Database**:
-  - Dev: MariaDB schema `postservice`
-  - Staging: MariaDB schema `post_service` (AWS RDS TLS)
+- **Database**: MariaDB schema `post_service` (Local port 3307 / Staging AWS RDS TLS)
 - **Entities**: `Post`, `PostMedia`, `PostReaction`.
 - **Cache**: Không trực tiếp sử dụng Redis (ủy quyền cho FeedService).
 - **Kafka**:
@@ -82,9 +78,7 @@ Tài liệu này đặc tả chi tiết từng microservice trong hệ thống F
 - **Trách nhiệm**: Quản lý bình luận trên bài viết (bao gồm cả phân cấp bình luận cha-con `parentId`), tương tác cảm xúc trên bình luận (`CommentReaction`). Đồng bộ metadata bài viết qua Kafka để kiểm tra tính hợp lệ trước khi comment.
 - **Framework / Runtime**: Spring Boot, Spring Data JPA, JdbcTemplate, OpenFeign, Spring Cloud Stream Kafka.
 - **Port mặc định**: `8085` (Consul discovery ID: `commentservice`)
-- **Database**:
-  - Dev: MariaDB schema `commentservice`
-  - Staging: MariaDB schema `comment_service` (AWS RDS TLS)
+- **Database**: MariaDB schema `comment_service` (Local port 3307 / Staging AWS RDS TLS)
 - **Entities**: `Comment`, `CommentReaction`, `PostCache` (read model).
 - **Cache**: Local read model bảng `post_cache` trong MariaDB.
 - **Kafka**:
@@ -106,9 +100,7 @@ Tài liệu này đặc tả chi tiết từng microservice trong hệ thống F
 - **Trách nhiệm**: Xử lý tải lên tài nguyên đa phương tiện (ảnh, video) lên dịch vụ đám mây Cloudinary, lưu trữ siêu dữ liệu (URL, kích thước, định dạng, mimetype, user upload). Thực hiện dọn dẹp file rác trên Cloudinary khi nhận event từ Kafka.
 - **Framework / Runtime**: Spring Boot, Spring Data JPA, Cloudinary SDK, Spring Cloud Stream Kafka.
 - **Port mặc định**: `8084` (Consul discovery ID: `mediaservice`)
-- **Database**:
-  - Dev: MariaDB schema `mediaservice`
-  - Staging: MariaDB schema `media_service` (AWS RDS TLS)
+- **Database**: MariaDB schema `media_service` (Local port 3307 / Staging AWS RDS TLS)
 - **Entities**: `Media`.
 - **Cache**: Không sử dụng.
 - **Kafka**:
@@ -130,9 +122,7 @@ Tài liệu này đặc tả chi tiết từng microservice trong hệ thống F
 - **Trách nhiệm**: Xây dựng và phân phối bảng tin cá nhân hóa (Timeline) cho người dùng. Triển khai mô hình **Fan-out on Write**: khi nhận event bài viết mới, tự động phân phối bài viết vào danh sách Feed của bạn bè và followers.
 - **Framework / Runtime**: Spring Boot, Spring Data JPA, Spring Data Redis, OpenFeign, Spring Cloud Stream Kafka.
 - **Port mặc định**: `8086` (Consul discovery ID: `feedservice`)
-- **Database**:
-  - Dev: MariaDB schema `feedservice`
-  - Staging: MariaDB schema `feed_service` (AWS RDS TLS)
+- **Database**: MariaDB schema `feed_service` (Local port 3307 / Staging AWS RDS TLS)
 - **Entities**: `FeedItem`.
 - **Cache / Storage**:
   - **Redis Sorted Sets (ZSet)**: Khóa `feed:user:{userId}`, member là `postId`, score là `createdAt (epoch millisecond)`. Tự động cắt tỉa giữ lại tối đa 500 bài viết mới nhất (`removeRange(key, 0, -501)`).
@@ -151,12 +141,10 @@ Tài liệu này đặc tả chi tiết từng microservice trong hệ thống F
 
 ## 7. Auth Service (`authService`)
 
-- **Trách nhiệm**: JHipster Microservice boilerplate. Trong kiến trúc hiện tại, **Keycloak IAM** đảm nhiệm toàn bộ vai trò Identity Provider. Dịch vụ này hiện duy trì kết nối database riêng (`authservice`), đăng ký Consul và sẵn sàng cho các nghiệp vụ mở rộng trong tương lai (Keycloak Admin API orchestration, custom credential flows).
+- **Trách nhiệm**: JHipster Microservice boilerplate. Trong kiến trúc hiện tại, **Keycloak IAM** đảm nhiệm toàn bộ vai trò Identity Provider. Dịch vụ này hiện duy trì kết nối database riêng (`auth_service`), đăng ký Consul và sẵn sàng cho các nghiệp vụ mở rộng trong tương lai (Keycloak Admin API orchestration, custom credential flows).
 - **Framework / Runtime**: Spring Boot, Spring Data JPA, MariaDB driver.
 - **Port mặc định**: `8081` (Consul discovery ID: `authservice`)
-- **Database**:
-  - Dev: MariaDB schema `authservice`
-  - Staging: MariaDB schema `auth_service` (AWS RDS TLS)
+- **Database**: MariaDB schema `auth_service` (Local port 3307 / Staging AWS RDS TLS)
 - **Main APIs**:
   - `/management/health`: Health endpoint.
 - **Authentication**: OAuth2 Resource Server.
