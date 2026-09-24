@@ -65,7 +65,7 @@ class MediaServiceKafkaResourceIT {
             .andExpect(request().asyncStarted())
             .andReturn();
         for (int i = 0; i < 100; i++) {
-            input.send(testMessage);
+            input.send(testMessage, "sse-topic");
             Thread.sleep(100);
             String content = mvcResult.getResponse().getContentAsString();
             if (content.contains("data:value-consume")) {

@@ -2,9 +2,19 @@ name: Fakebook CI/CD Pipeline
 
 on:
   push:
-    branches: [ main, master, staging, 'fix/*', 'feature/*' ]
+    branches:
+      - develop
+      - staging
+      - main
+      - master
   pull_request:
-    branches: [ main, master, staging ]
+    branches:
+      - develop
+      - staging
+      - main
+      - master
+
+  workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -14,9 +24,26 @@ env:
   REGISTRY: ghcr.io
 
 jobs:
+  # 0. Validate configuration files and Docker Compose templates
+  validate-config:
+    name: Validate Configuration & Compose
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Validate Local Dev Docker Compose
+        run: docker compose -f infrastructure/docker-compose.yml config --quiet
+
+      - name: Validate Staging Docker Compose Template
+        run: docker compose --env-file infrastructure/.env.staging.example -f infrastructure/docker-compose-staging.yml config --quiet
+
   # 1. Validate the frontend artifact deployed by Vercel
   build-frontend:
     name: Build Frontend for Vercel
+    needs: [validate-config]
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -42,9 +69,10 @@ jobs:
           VITE_KEYCLOAK_URL: https://api-staging.example.com
         run: npm run build
 
-  # 2. Backend Microservices Matrix Build & Push to GHCR
+  # 2. Verify every backend; publish only after protected-branch pushes
   build-backend-services:
-    name: Build & Push Image (${{ matrix.service }})
+    name: Verify / Publish (${{ matrix.service }})
+    needs: [validate-config]
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -87,55 +115,81 @@ jobs:
           distribution: 'temurin'
           cache: 'maven'
 
+      - name: Verify backend service
+        working-directory: ${{ matrix.path }}
+        run: |
+          chmod +x mvnw
+          ./mvnw -ntp clean verify
+
       - name: Log in to GitHub Container Registry (GHCR)
-        if: github.event_name != 'pull_request'
+        if: >-
+          github.event_name == 'push' &&
+          (github.ref == 'refs/heads/develop' ||
+          github.ref == 'refs/heads/staging' ||
+          github.ref == 'refs/heads/main' ||
+          github.ref == 'refs/heads/master')
         uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Lowercase Repository Owner Name
+      - name: Lowercase repository owner name
+        if: >-
+          github.event_name == 'push' &&
+          (github.ref == 'refs/heads/develop' ||
+          github.ref == 'refs/heads/staging' ||
+          github.ref == 'refs/heads/main' ||
+          github.ref == 'refs/heads/master')
         run: |
-          echo "IMAGE_PREFIX=${REGISTRY}/${GITHUB_REPOSITORY_OWNER,,}" >> $GITHUB_ENV
+          echo "IMAGE_PREFIX=${REGISTRY}/${GITHUB_REPOSITORY_OWNER,,}" >> "$GITHUB_ENV"
 
-      - name: Build & Push OCI Image via Maven Jib
+      - name: Build and push immutable OCI image
+        if: >-
+          github.event_name == 'push' &&
+          (github.ref == 'refs/heads/develop' ||
+          github.ref == 'refs/heads/staging' ||
+          github.ref == 'refs/heads/main' ||
+          github.ref == 'refs/heads/master')
+        working-directory: ${{ matrix.path }}
         run: |
-          cd ${{ matrix.path }}
-          chmod +x mvnw
-          
-          IMAGE_TAG="${IMAGE_PREFIX}/${{ matrix.image_name }}"
-          SHORT_SHA=$(echo ${{ github.sha }} | cut -c1-7)
-          
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
-            echo "PR detected: Running compile dry-run..."
-            ./mvnw clean compile -DskipTests
-          else
-            BRANCH_REF="${{ github.ref_name }}"
-            CLEAN_BRANCH=$(echo "${BRANCH_REF}" | sed 's/\//-/g')
-            EXTRA_TAGS="${CLEAN_BRANCH}"
-            if [ "${BRANCH_REF}" = "main" ] || [ "${BRANCH_REF}" = "master" ]; then
-              EXTRA_TAGS="latest,main"
-            fi
+          IMAGE_NAME="${IMAGE_PREFIX}/${{ matrix.image_name }}"
+          FULL_SHA="${GITHUB_SHA}"
 
-            echo "Push detected: Building and pushing images: ${IMAGE_TAG}:${SHORT_SHA}, ${IMAGE_TAG}:${EXTRA_TAGS}"
-            ./mvnw clean package jib:build -DskipTests \
-              -Djib.to.image="${IMAGE_TAG}:${SHORT_SHA}" \
-              -Djib.to.tags="${EXTRA_TAGS}" \
-              -Djib.to.auth.username="${{ github.actor }}" \
-              -Djib.to.auth.password="${{ secrets.GITHUB_TOKEN }}"
+          if [[ ! "${FULL_SHA}" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "Invalid Git commit SHA: ${FULL_SHA}"
+            exit 1
           fi
+
+          IMMUTABLE_TAG="sha-${FULL_SHA}"
+          BRANCH_REF="${GITHUB_REF_NAME}"
+          EXTRA_TAGS="${BRANCH_REF}"
+
+          if [ "${BRANCH_REF}" = "main" ] || [ "${BRANCH_REF}" = "master" ]; then
+            EXTRA_TAGS="latest,main"
+          fi
+
+          echo "Publishing immutable image: ${IMAGE_NAME}:${IMMUTABLE_TAG}"
+          echo "Publishing moving aliases: ${EXTRA_TAGS}"
+
+          ./mvnw -ntp package jib:build -DskipTests \
+            -Djib.to.image="${IMAGE_NAME}:${IMMUTABLE_TAG}" \
+            -Djib.to.tags="${EXTRA_TAGS}" \
+            -Djib.to.auth.username="${{ github.actor }}" \
+            -Djib.to.auth.password="${{ secrets.GITHUB_TOKEN }}"
 
   # 3. Pipeline Completion Summary
   pipeline-summary:
     name: CI/CD Pipeline Summary
-    needs: [build-frontend, build-backend-services]
+    needs: [validate-config, build-frontend, build-backend-services]
     runs-on: ubuntu-latest
     if: always()
     steps:
       - name: Check Status
         run: |
-          if [ "${{ needs.build-frontend.result }}" = "success" ] && [ "${{ needs.build-backend-services.result }}" = "success" ]; then
+          if [ "${{ needs.validate-config.result }}" = "success" ] && \
+             [ "${{ needs.build-frontend.result }}" = "success" ] && \
+             [ "${{ needs.build-backend-services.result }}" = "success" ]; then
             echo "🎉 CI/CD Pipeline Completed Successfully!"
           else
             echo "❌ CI/CD Pipeline Failed!"

@@ -22,6 +22,7 @@ import org.springframework.messaging.MessageHeaders;
 import org.springframework.messaging.support.GenericMessage;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.util.MimeTypeUtils;
@@ -31,6 +32,7 @@ import org.springframework.util.MimeTypeUtils;
 @WithMockUser
 @ImportAutoConfiguration(TestChannelBinderConfiguration.class)
 @ActiveProfiles({ "kafka" })
+@TestPropertySource(properties = "spring.cloud.stream.bindings.binding-out-0.destination=test-output")
 class CommentServiceKafkaResourceIT {
 
     @Autowired
@@ -45,7 +47,7 @@ class CommentServiceKafkaResourceIT {
     @Test
     void producesMessages() throws Exception {
         restMockMvc.perform(post("/api/comment-service-kafka/publish?message=value-produce").with(csrf())).andExpect(status().isOk());
-        assertThat(output.receive(1000, "binding-out-0").getPayload()).isEqualTo("value-produce".getBytes());
+        assertThat(output.receive(1000, "test-output").getPayload()).isEqualTo("value-produce".getBytes());
     }
 
     @Test
@@ -65,7 +67,7 @@ class CommentServiceKafkaResourceIT {
             .andExpect(request().asyncStarted())
             .andReturn();
         for (int i = 0; i < 100; i++) {
-            input.send(testMessage);
+            input.send(testMessage, "sse-topic");
             Thread.sleep(100);
             String content = mvcResult.getResponse().getContentAsString();
             if (content.contains("data:value-consume")) {

@@ -27,11 +27,11 @@ http {
     resolver 127.0.0.11 valid=30s;
 
     # =========================================================================
-    # 1. HTTP Server Block: Tự động Redirect HTTP sang HTTPS & Thử nghiệm Certbot
+    # 1. HTTP Server Block: Tự động Redirect HTTP sang HTTPS & Xác thực Certbot
     # =========================================================================
     server {
         listen 80;
-        server_name staging.fakebook.com *.nip.io localhost;
+        server_name ${PUBLIC_DOMAIN};
 
         # Chỗ cho Certbot kiểm tra xác thực tên miền khi cấp SSL
         location /.well-known/acme-challenge/ {
@@ -49,11 +49,11 @@ http {
     # =========================================================================
     server {
         listen 443 ssl;
-        server_name staging.fakebook.com *.nip.io localhost;
+        server_name ${PUBLIC_DOMAIN};
 
         # Cấu hình đường dẫn chứng chỉ SSL Let's Encrypt Certbot trên VPS
-        ssl_certificate     /etc/letsencrypt/live/staging.fakebook.com/fullchain.pem;
-        ssl_certificate_key /etc/letsencrypt/live/staging.fakebook.com/privkey.pem;
+        ssl_certificate     /etc/letsencrypt/live/${TLS_CERT_NAME}/fullchain.pem;
+        ssl_certificate_key /etc/letsencrypt/live/${TLS_CERT_NAME}/privkey.pem;
 
         ssl_protocols TLSv1.2 TLSv1.3;
         ssl_ciphers HIGH:!aNULL:!MD5;
@@ -71,7 +71,7 @@ http {
         proxy_set_header X-Forwarded-Port 443;
 
         # ---------------------------------------------------------------------
-        # ROUTE 1: Chuyển hướng tới Keycloak IAM (/realms, /resources, /admin)
+        # ROUTE 1: Chuyển hướng tới Keycloak IAM (/realms, /resources)
         # ---------------------------------------------------------------------
         location /realms/ {
             proxy_pass http://fakebook-keycloak:9080/realms/;
@@ -84,12 +84,35 @@ http {
             proxy_pass http://fakebook-keycloak:9080/resources/;
         }
 
+        # ---------------------------------------------------------------------
+        # ROUTE 1.1: Keycloak Admin Console (Bảo vệ: IP Allowlist / VPN / SSH Tunnel)
+        # Không mở public ra Internet; chỉ cho phép Localhost (SSH Tunnel), VPN, IP nội bộ
+        # ---------------------------------------------------------------------
         location /admin/ {
+            # 1. Localhost (cho SSH Tunnel: ssh -L 8443:localhost:443 hoặc Dynamic SOCKS5)
+            allow 127.0.0.1;
+            allow ::1;
+
+            # 2. Mạng nội bộ & VPN (RFC 1918 & Tailscale)
+            allow 10.0.0.0/8;
+            allow 172.16.0.0/12;
+            allow 192.168.0.0/16;
+            allow 100.64.0.0/10;
+
+            # 3. IP tĩnh admin bổ sung (tùy chọn qua biến môi trường KEYCLOAK_ADMIN_ALLOWLIST)
+            ${KEYCLOAK_ADMIN_ALLOWLIST}
+
+            # 4. Chặn toàn bộ IP công cộng còn lại
+            deny all;
+
             proxy_pass http://fakebook-keycloak:9080/admin/;
+            proxy_buffer_size 128k;
+            proxy_buffers 4 256k;
+            proxy_busy_buffers_size 256k;
         }
 
         # ---------------------------------------------------------------------
-        # ROUTE 2: Chuyển hướng tới Spring Cloud API Gateway (/api/...)
+        # ROUTE 2: Chuyển hướng tới Spring Cloud API Gateway (/services/ & /api/)
         # ---------------------------------------------------------------------
         location /services/ {
             proxy_pass http://fakebook-gateway:8080/services/;
@@ -103,6 +126,7 @@ http {
             proxy_set_header X-Forwarded-Host $host;
             proxy_set_header X-Forwarded-Port 443;
         }
+
         location /api/ {
             proxy_pass http://fakebook-gateway:8080/api/;
             proxy_http_version 1.1;
@@ -114,10 +138,7 @@ http {
         # ROUTE 3: Single Page Application / Frontend Root (/)
         # ---------------------------------------------------------------------
         location / {
-            proxy_pass http://fakebook-frontend:80/;
-            proxy_http_version 1.1;
-            proxy_set_header Upgrade $http_upgrade;
-            proxy_set_header Connection "upgrade";
+            return 302 ${FRONTEND_URL}$request_uri;
         }
     }
 }
