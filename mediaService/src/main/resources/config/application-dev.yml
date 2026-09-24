@@ -35,6 +35,9 @@ spring:
       - optional:file:../infrastructure/config/central-server-config/${spring.application.name}-dev.yml
       - optional:file:./infrastructure/config/central-server-config/application-dev.yml
       - optional:file:./infrastructure/config/central-server-config/${spring.application.name}-dev.yml
+      # Let local IDE/Maven runs use the same non-committed credentials as Docker Compose.
+      - optional:file:../infrastructure/.env[.properties]
+      - optional:file:./infrastructure/.env[.properties]
   devtools:
     restart:
       enabled: true
