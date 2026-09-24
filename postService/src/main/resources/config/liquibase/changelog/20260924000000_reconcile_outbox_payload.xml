@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+    <changeSet id="20260924000000-1" author="MinhElly">
+        <comment>
+            Reconcile payload after Hibernate ddl-auto update changed the outbox column back to VARCHAR(255).
+        </comment>
+        <preConditions onFail="HALT">
+            <tableExists tableName="outbox_record"/>
+            <columnExists tableName="outbox_record" columnName="payload"/>
+        </preConditions>
+        <modifyDataType tableName="outbox_record" columnName="payload" newDataType="LONGTEXT"/>
+        <addNotNullConstraint tableName="outbox_record" columnName="payload" columnDataType="LONGTEXT"/>
+    </changeSet>
+</databaseChangeLog>
