@@ -21,6 +21,8 @@ export interface Post {
   visibility: string;
   content: string;
   image: string | null;
+  mediaIds?: string[];
+  taggedUserIds?: string[];
   taggedUsers?: { id: string, name: string }[];
   likes: number;
   comments: number;
