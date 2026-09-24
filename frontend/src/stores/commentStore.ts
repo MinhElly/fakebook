@@ -3,22 +3,26 @@ import type { Comment } from "@/types";
 
 export interface CommentState {
   comments: Comment[];
-  createComment: (postId: number, content: string, parentId?: number | null) => void;
-  updateComment: (id: number, content: string) => void;
-  deleteComment: (id: number) => void;
-  toggleLike: (id: number) => void;
-  getPostComments: (postId: number) => Comment[];
-  getReplies: (parentId: number) => Comment[];
+  createComment: (postId: string, content: string, parentId?: string | null) => Promise<string | null>;
+  updateComment: (id: string, content: string) => Promise<void>;
+  deleteComment: (id: string) => Promise<void>;
+  toggleLike: (id: string) => Promise<void>;
+  getPostComments: (postId: string) => Comment[];
+  getReplies: (parentId: string) => Comment[];
+  fetchComments: (postId: string) => Promise<void>;
+  fetchedPosts: Set<string>;
 }
 
 export const CommentContext = createContext<CommentState>({
   comments: [],
-  createComment: () => {},
-  updateComment: () => {},
-  deleteComment: () => {},
-  toggleLike: () => {},
+  createComment: async () => null,
+  updateComment: async () => {},
+  deleteComment: async () => {},
+  toggleLike: async () => {},
   getPostComments: () => [],
   getReplies: () => [],
+  fetchComments: async () => {},
+  fetchedPosts: new Set(),
 });
 
 export function useCommentStore() {

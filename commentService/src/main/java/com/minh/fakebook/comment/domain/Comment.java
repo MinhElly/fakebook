@@ -50,6 +50,17 @@ public class Comment implements Serializable {
     @JsonIgnoreProperties(value = { "parentComment" }, allowSetters = true)
     private Comment parentComment;
 
+    @Column(name = "created_at")
+    private java.time.Instant createdAt = java.time.Instant.now();
+
+    public java.time.Instant getCreatedAt() {
+        return createdAt;
+    }
+
+    public void setCreatedAt(java.time.Instant createdAt) {
+        this.createdAt = createdAt;
+    }
+
     // jhipster-needle-entity-add-field - JHipster will add fields here
 
     public UUID getId() {
