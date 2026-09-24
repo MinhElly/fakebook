@@ -76,13 +76,15 @@ export interface FriendRequest {
 }
 
 export interface Comment {
-  id: number;
-  postId: number;
-  parentId: number | null;
+  id: string;
+  postId: string;
+  parentId: string | null;
+  authorId: string;
   user: string;
   avatar: string;
   content: string;
   time: string;
+  timestamp: number;
   likes: number;
   liked: boolean;
 }

@@ -1,12 +1,14 @@
 import { useState, useRef } from "react";
 import { useNavigate } from "react-router";
-import api from "@/services/api";
+import api from "@/services/apis";
 import { usePostStore } from "@/stores/postStore";
 import { useUserStore } from "@/stores/userStore";
 import { useCommentStore } from "@/stores/commentStore";
 import { useOutsideClick } from "@/hooks/useOutsideClick";
 import CreatePostModal from "./CreatePostModal";
 import CommentSection from "./CommentSection";
+import PostDetailModal from "./PostDetailModal";
+import { getTimeAgo } from "@/utils/timeUtils";
 import MediaGrid from "./MediaGrid";
 import type { Post as PostType } from "@/types";
 import { useAuth } from "@/providers/AuthProvider";
@@ -15,6 +17,7 @@ import { Emoji, EmojiStyle } from "emoji-picker-react";
 
 interface Props {
   post: PostType;
+  isModal?: boolean;
 }
 
 const REACTIONS = [
@@ -26,18 +29,19 @@ const REACTIONS = [
   { key: "angry", unified: "1f621", label: "Phẫn nộ", color: "text-orange-500" },
 ];
 
-export default function Post({ post }: Props) {
+export default function Post({ post, isModal = false }: Props) {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { profile } = useUserStore();
   const { deletePost, setToastMessage } = usePostStore();
-  const { getPostComments } = useCommentStore();
+  const { comments: commentStoreComments, fetchedPosts: commentStoreFetchedPosts } = useCommentStore();
 
-  const [showComments, setShowComments] = useState(false);
+  const [showComments, setShowComments] = useState(isModal);
   const [showMenu, setShowMenu] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showReactionPicker, setShowReactionPicker] = useState(false);
+  const [showDetailModal, setShowDetailModal] = useState(false);
 
   const [reactionsData, setReactionsData] = useState<Record<string, { name: string, type: string, timestamp?: number }>>(() => {
     const saved = localStorage.getItem(`post_reactions_map_${post.id}`);
@@ -76,7 +80,14 @@ export default function Post({ post }: Props) {
     displayContent = displayContent.replace(bgMatch[0], "").trim();
   }
 
-  const commentCount = getPostComments(post.id).length;
+  let commentCount = post.comments;
+  if (commentStoreFetchedPosts.has(post.id)) {
+    commentCount = commentStoreComments.filter(c => c.postId === post.id).length;
+  } else {
+    // If not fetched but we somehow have some comments (e.g. newly created locally), show the max
+    const localCount = commentStoreComments.filter(c => c.postId === post.id).length;
+    commentCount = Math.max(post.comments, localCount);
+  }
   
   // Calculate computed values
   const myReaction = user?.id ? reactionsData[user.id]?.type : null;
@@ -231,22 +242,6 @@ export default function Post({ post }: Props) {
   }
 
   // Time formatter
-  const getTimeAgo = (dateString: string) => {
-    if (!dateString) return "Vừa xong";
-    const date = new Date(dateString);
-    if (isNaN(date.getTime())) return dateString;
-    const seconds = Math.floor((new Date().getTime() - date.getTime()) / 1000);
-    
-    if (seconds < 60) return "Vừa xong";
-    const minutes = Math.floor(seconds / 60);
-    if (minutes < 60) return `${minutes} phút`;
-    const hours = Math.floor(minutes / 60);
-    if (hours < 24) return `${hours} giờ`;
-    const days = Math.floor(hours / 24);
-    if (days < 7) return `${days} ngày`;
-    
-    return date.toLocaleDateString("vi-VN", { day: "numeric", month: "long" });
-  };
 
   // Icon helper
   const getPrivacyIcon = (visibility: string) => {
@@ -260,9 +255,12 @@ export default function Post({ post }: Props) {
   const renderFacebookText = (text: string) => {
     if (!text) return text;
     try {
+      // @ts-ignore
       if (typeof Intl !== 'undefined' && Intl.Segmenter) {
+        // @ts-ignore
         const segmenter = new Intl.Segmenter('en', { granularity: 'grapheme' });
-        const segments = Array.from(segmenter.segment(text)).map(s => s.segment);
+        // @ts-ignore
+        const segments = Array.from(segmenter.segment(text)).map((s: any) => s.segment);
         return segments.map((char, i) => {
           const isEmoji = /\p{Emoji_Presentation}|\p{Extended_Pictographic}/u.test(char);
           if (isEmoji) {
@@ -286,7 +284,7 @@ export default function Post({ post }: Props) {
 
   return (
     <>
-      <div className="bg-white rounded-xl shadow-sm border border-[#E4E6EB] mb-4">
+      <div className={`bg-white rounded-xl shadow-sm border border-[#E4E6EB] ${isModal ? "" : "mb-4"}`}>
         <div className="flex flex-col">
           <div className="flex items-center gap-2 px-4 pt-3">
             <img
@@ -428,9 +426,12 @@ export default function Post({ post }: Props) {
               )}
             </div>
             <div className="flex gap-3">
-              {commentCount > 0 && (
-                <button onClick={() => setShowComments(p => !p)} className="hover:underline">
-                  {commentCount} bình luận
+              {(!isModal && (post.comments > 0 || commentCount > 0)) && (
+                <button 
+                  onClick={() => setShowDetailModal(true)} 
+                  className="hover:underline"
+                >
+                  {commentCount > 0 ? commentCount : post.comments} bình luận
                 </button>
               )}
               {post.shares > 0 && (
@@ -491,7 +492,7 @@ export default function Post({ post }: Props) {
             </div>
 
             <button
-              onClick={() => setShowComments(p => !p)}
+              onClick={() => isModal ? setShowComments(p => !p) : setShowDetailModal(true)}
               className="flex-1 flex items-center justify-center gap-2 py-1.5 hover:bg-[#F0F2F5] rounded-md transition-colors text-sm font-semibold text-[#65676B]"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" strokeLinejoin="round" strokeLinecap="round"/></svg>
@@ -504,8 +505,12 @@ export default function Post({ post }: Props) {
           </div>
         </div>
 
-        <CommentSection postId={post.id} initialVisible={showComments} />
+        <CommentSection postId={post.id} initialVisible={showComments} isModal={isModal} />
       </div>
+
+      {!isModal && showDetailModal && (
+        <PostDetailModal post={post} onClose={() => setShowDetailModal(false)} />
+      )}
 
       {showEditModal && (
         <CreatePostModal onClose={() => setShowEditModal(false)} editPost={post} />
