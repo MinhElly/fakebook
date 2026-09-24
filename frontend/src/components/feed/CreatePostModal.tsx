@@ -124,7 +124,7 @@ export default function CreatePostModal({ onClose, editPost }: Props) {
     textareaRef.current?.focus();
   }, []);
 
-  function handleSubmit() {
+  async function handleSubmit() {
     if (!canSubmit) return;
 
     // Nối lên mã màu nền vào đầu văn bản trước khi gửi xuống Server
@@ -140,12 +140,16 @@ export default function CreatePostModal({ onClose, editPost }: Props) {
       finalContent = `[LOC:` + location.trim() + `]\n` + finalContent;
     }
 
-    if (isEdit) {
-      updatePost(editPost!.id, finalContent, imageFile || imageUrl, visibility, taggedUserIds);
-    } else {
-      addPost(finalContent, imageFile || imageUrl, visibility, taggedUserIds);
+    try {
+      if (isEdit) {
+        await updatePost(editPost!.id, finalContent, imageFile || imageUrl, visibility, taggedUserIds);
+      } else {
+        await addPost(finalContent, imageFile || imageUrl, visibility, taggedUserIds);
+      }
+      onClose();
+    } catch {
+      // The provider keeps the modal state consistent and shows the error toast.
     }
-    onClose();
   }
 
     function handleCurrentLocation() {

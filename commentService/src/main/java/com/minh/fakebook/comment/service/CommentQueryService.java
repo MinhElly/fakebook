@@ -21,7 +21,6 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.security.access.AccessDeniedException;
 import com.minh.fakebook.comment.domain.PostCache;
-import com.minh.fakebook.comment.repository.PostCacheRepository;
 import com.minh.fakebook.comment.client.UserServiceClient;
 import com.minh.fakebook.comment.security.AuthoritiesConstants;
 
@@ -41,20 +40,20 @@ public class CommentQueryService extends QueryService<Comment> {
 
     private final CommentMapper commentMapper;
 
-    private final PostCacheRepository postCacheRepository;
-
     private final UserServiceClient userFeignClient;
+
+    private final PostCacheResolver postCacheResolver;
 
     public CommentQueryService(
         CommentRepository commentRepository,
         CommentMapper commentMapper,
-        PostCacheRepository postCacheRepository,
-        UserServiceClient userFeignClient
+        UserServiceClient userFeignClient,
+        PostCacheResolver postCacheResolver
     ) {
         this.commentRepository = commentRepository;
         this.commentMapper = commentMapper;
-        this.postCacheRepository = postCacheRepository;
         this.userFeignClient = userFeignClient;
+        this.postCacheResolver = postCacheResolver;
     }
 
     /**
@@ -129,7 +128,7 @@ public class CommentQueryService extends QueryService<Comment> {
         }
 
         UUID targetPostId = criteria.getPostId().getEquals();
-        PostCache postCache = postCacheRepository.findById(targetPostId).orElseThrow(() -> new IllegalArgumentException("Post not found in cache"));
+        PostCache postCache = postCacheResolver.resolve(targetPostId);
 
         UUID currentUserId = null;
         if (auth instanceof JwtAuthenticationToken jwtAuth) {

@@ -3,8 +3,6 @@ import { PostContext } from "@/stores/postStore";
 import type { Post } from "@/types";
 import api from "@/services/apis";
 import { useAuth } from "@/providers/AuthProvider";
-import keycloak from "@/services/keycloak";
-import { getMyFriends } from "@/services/friendsService";
 import { getPersonalizedFeed } from "@/services/feedService";
 
 export default function PostProvider({ children }: { children: React.ReactNode }) {
@@ -15,7 +13,6 @@ export default function PostProvider({ children }: { children: React.ReactNode }
   const [isUploading, setIsUploading] = useState(false);
   const [pendingPost, setPendingPost] = useState<any>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
-  const [friendIds, setFriendIds] = useState<Set<string>>(new Set());
   const { status, user } = useAuth();
 
   const PAGE_SIZE = 5;
@@ -30,27 +27,37 @@ export default function PostProvider({ children }: { children: React.ReactNode }
     if (loading && !isForceRefresh) return;
     setLoading(true);
     try {
-      let currentFriendIds = friendIds;
-      if (currentFriendIds.size === 0 && user?.id) {
+      let postsData: any[] = [];
+      let fetchedCount = 0;
+
+      // 1. Gọi feedService lấy danh sách bài viết trên timeline của user
+      const feedItems = await getPersonalizedFeed(pageNum, PAGE_SIZE);
+
+      if (feedItems && feedItems.length > 0) {
+        fetchedCount = feedItems.length;
+        const postIds = feedItems.map((item) => item.postId);
+        // Hydrate bài viết chi tiết từ postService
+        const postRes = await api.get(
+          `/services/postservice/api/posts?id.in=${postIds.join(",")}`
+        );
+
+        // Sắp xếp bài viết theo đúng thứ tự thời gian của feedService
+        const postMap = new Map<string, any>((postRes.data || []).map((p: any) => [p.id, p]));
+        postsData = postIds.map((id) => postMap.get(id)).filter(Boolean);
+      } else if (pageNum === 0) {
+        // Fallback: Khi user mới chưa có bạn bè / feed rỗng, lấy bài viết PUBLIC mới nhất
         try {
-          const friends = await getMyFriends();
-          const ids = new Set<string>();
-          friends.forEach(f => {
-            if (f.user?.id && f.user.id !== user.id) ids.add(f.user.id);
-            if (f.friend?.id && f.friend.id !== user.id) ids.add(f.friend.id);
-          });
-          setFriendIds(ids);
-          currentFriendIds = ids;
+          const publicRes = await api.get(
+            `/services/postservice/api/posts?visibility.equals=PUBLIC&sort=createdAt,desc&size=${PAGE_SIZE}&page=0`
+          );
+          postsData = publicRes.data || [];
+          fetchedCount = postsData.length;
         } catch (e) {
-          console.warn("Lỗi tải danh sách bạn bè:", e);
+          console.warn("Lỗi khi tải bài viết public fallback:", e);
         }
       }
 
-      const response = await api.get(
-        `/services/postservice/api/posts?sort=createdAt,desc&size=${PAGE_SIZE}&page=${pageNum}`
-      );
-
-      let mappedPosts = response.data.map((dto: any) => ({
+      const mappedPosts = postsData.map((dto: any) => ({
         id: dto.id,
         authorId: dto.authorId,
         user: dto.authorId,
@@ -67,19 +74,9 @@ export default function PostProvider({ children }: { children: React.ReactNode }
         liked: false,
       }));
 
-      // Áp dụng Phân quyền (Privacy)
-      const isAdmin = keycloak.hasRealmRole("ROLE_ADMIN");
-      mappedPosts = mappedPosts.filter((post: any) => {
-        if (isAdmin) return true;
-        if (post.authorId === user?.id) return true;
-        if (post.visibility === "PUBLIC") return true;
-        if (post.visibility === "FRIENDS" && currentFriendIds.has(post.authorId)) return true;
-        return false;
-      });
-
       // 1. Fetch user profiles
-      const authorIdsSet = new Set<string>(response.data.map((dto: any) => dto.authorId));
-      response.data.forEach((dto: any) => {
+      const authorIdsSet = new Set<string>(postsData.map((dto: any) => dto.authorId));
+      postsData.forEach((dto: any) => {
         if (dto.taggedUserIds) {
           dto.taggedUserIds.forEach((id: string) => authorIdsSet.add(id));
         }
@@ -87,9 +84,8 @@ export default function PostProvider({ children }: { children: React.ReactNode }
       const authorIds = Array.from(authorIdsSet);
       if (authorIds.length > 0) {
         try {
-          const idQuery = authorIds.map(id => `id.in=${id}`).join("&");
           const profileRes = await api.get(
-            `/services/userservice/api/user-profiles/public?${idQuery}`,
+            `/services/userservice/api/user-profiles/public?id.in=${authorIds.join(",")}`,
             { timeout: 3000 }
           );
           const profileMap: Record<string, any> = {};
@@ -125,15 +121,14 @@ export default function PostProvider({ children }: { children: React.ReactNode }
       // 2. Fetch media URLs
       const allMediaIds = new Set<string>();
       mappedPosts.forEach((p: any) => {
-        if (p.mediaIds && p.mediaIds.length > 0) allMediaIds.add(p.mediaIds[0]);
+        (p.mediaIds || []).forEach((id: string) => allMediaIds.add(id));
         if (p.avatarMediaId) allMediaIds.add(p.avatarMediaId);
       });
 
       if (allMediaIds.size > 0) {
         try {
-          const mediaIdQuery = Array.from(allMediaIds).map(id => `id.in=${id}`).join("&");
           const mediaRes = await api.get(
-            `/services/mediaservice/api/media?${mediaIdQuery}`,
+            `/services/mediaservice/api/media?id.in=${Array.from(allMediaIds).join(",")}`,
             { timeout: 3000 }
           );
           const mediaMap: Record<string, string> = {};
@@ -142,11 +137,11 @@ export default function PostProvider({ children }: { children: React.ReactNode }
           });
 
           mappedPosts.forEach((post: any) => {
-            if (post.mediaIds && post.mediaIds.length > 0 && mediaMap[post.mediaIds[0]]) {
-              post.image = mediaMap[post.mediaIds[0]];
-            } else {
-              post.image = null;
-            }
+            // Faker post data can reference media records that do not exist in
+            // MediaService. Keep only IDs that were actually resolved so the
+            // browser does not request a guaranteed 404 for every feed load.
+            post.mediaIds = (post.mediaIds || []).filter((id: string) => Boolean(mediaMap[id]));
+            post.image = post.mediaIds.length > 0 ? mediaMap[post.mediaIds[0]] : null;
             if (post.avatarMediaId && mediaMap[post.avatarMediaId]) {
               post.avatar = mediaMap[post.avatarMediaId];
             } else {
@@ -157,6 +152,7 @@ export default function PostProvider({ children }: { children: React.ReactNode }
           console.warn("MediaService tắt hoặc không phản hồi.");
           mappedPosts.forEach((post: any) => {
             post.image = null;
+            post.mediaIds = [];
             post.avatar = "/default-avatar.svg";
           });
         }
@@ -195,7 +191,7 @@ export default function PostProvider({ children }: { children: React.ReactNode }
         });
       }
 
-      setHasMore(response.data.length === PAGE_SIZE);
+      setHasMore(fetchedCount === PAGE_SIZE);
       setPage(pageNum);
     } catch (error) {
       console.error("Lỗi khi tải feed:", error);

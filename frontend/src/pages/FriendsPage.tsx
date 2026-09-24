@@ -24,6 +24,7 @@ import {
   type UserSummary,
 } from "@/services/friendsService";
 import { getMyFollowingList, getMyFollowerList, type FollowDTO } from "@/services/followService";
+import type { FriendUser } from "@/types";
 
 export default function FriendsPage() {
   const navigate = useNavigate();
