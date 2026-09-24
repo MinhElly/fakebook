@@ -113,6 +113,7 @@ export default function CreatePostModal({ onClose, editPost }: Props) {
   const [showTagFriends, setShowTagFriends] = useState(false);
   const [friendsList, setFriendsList] = useState<FriendshipItem[]>([]);
   const [taggedUserIds, setTaggedUserIds] = useState<string[]>(editPost?.taggedUserIds || []);
+  const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
     if (showTagFriends && friendsList.length === 0) {
@@ -125,7 +126,8 @@ export default function CreatePostModal({ onClose, editPost }: Props) {
   }, []);
 
   async function handleSubmit() {
-    if (!canSubmit) return;
+    if (!canSubmit || isLoading) return;
+    setIsLoading(true);
 
     // Nối lên mã màu nền vào đầu văn bản trước khi gửi xuống Server
     let finalContent = content.trim();
@@ -149,6 +151,8 @@ export default function CreatePostModal({ onClose, editPost }: Props) {
       onClose();
     } catch {
       // The provider keeps the modal state consistent and shows the error toast.
+    } finally {
+      setIsLoading(false);
     }
   }
 
@@ -750,13 +754,13 @@ export default function CreatePostModal({ onClose, editPost }: Props) {
           <div className="px-4 pb-4">
             <button
               onClick={handleSubmit}
-              disabled={!canSubmit}
-              className={`w-full h-10 rounded-lg font-bold text-sm transition-colors ${canSubmit
+              disabled={!canSubmit || isLoading}
+              className={`w-full h-10 rounded-lg font-bold text-sm transition-colors ${canSubmit && !isLoading
                   ? "bg-[#1877F2] hover:bg-[#166FE5] text-white"
                   : "bg-[#E4E6EB] text-[#BCC0C4] cursor-not-allowed"
                 }`}
             >
-              {isEdit ? "Lưu" : "Đăng"}
+              {isLoading ? (isEdit ? "Đang lưu..." : "Đang đăng...") : (isEdit ? "Lưu" : "Đăng")}
             </button>
           </div>
         </div>
