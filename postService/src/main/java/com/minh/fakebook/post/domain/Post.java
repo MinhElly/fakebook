@@ -36,7 +36,7 @@ public class Post implements Serializable {
     private UUID authorId;
 
     @Lob
-    @Column(name = "content")
+    @Column(name = "content", columnDefinition = "longtext")
     private String content;
 
     @NotNull
