@@ -25,7 +25,6 @@ import org.springframework.security.oauth2.server.resource.authentication.JwtAut
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
-import com.minh.fakebook.media.domain.enumeration.MediaPurpose;
 
 /**
  * Service Implementation for managing {@link com.minh.fakebook.media.domain.Media}.
@@ -217,7 +216,7 @@ public class MediaService {
      * @param file the multipart file to upload
      * @return the persisted MediaDTO
      */
-     public MediaDTO uploadMedia(MultipartFile file, MediaPurpose purpose) {
+    public MediaDTO uploadMedia(MultipartFile file, MediaPurpose purpose) {
         try {
             // 1. Extract user authentication and get current user ID
             Authentication auth = SecurityContextHolder.getContext().getAuthentication();

@@ -206,14 +206,15 @@ export default function Post({ post, isModal = false }: Props) {
   };
 
   function pickReaction(key: string) {
-    if (!user?.id) return;
+    const userId = user?.id;
+    if (!userId) return;
     
     setReactionsData(prev => {
       const next = { ...prev };
       if (myReaction === key) {
-        delete next[user.id]; // Unlike
+        delete next[userId]; // Unlike
       } else {
-        next[user.id] = { name: profile.name, type: key, timestamp: Date.now() }; // Change or Add reaction
+        next[userId] = { name: profile.name, type: key, timestamp: Date.now() }; // Change or Add reaction
       }
       localStorage.setItem(`post_reactions_map_${post.id}`, JSON.stringify(next));
       return next;
@@ -260,7 +261,7 @@ export default function Post({ post, isModal = false }: Props) {
         // @ts-ignore
         const segmenter = new Intl.Segmenter('en', { granularity: 'grapheme' });
         // @ts-ignore
-        const segments = Array.from(segmenter.segment(text)).map((s: any) => s.segment);
+        const segments = Array.from(segmenter.segment(text), (segment: any) => segment.segment) as string[];
         return segments.map((char, i) => {
           const isEmoji = /\p{Emoji_Presentation}|\p{Extended_Pictographic}/u.test(char);
           if (isEmoji) {

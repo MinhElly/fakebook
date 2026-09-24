@@ -29,6 +29,14 @@ class AudienceValidatorTest {
     }
 
     @Test
+    void testMissingAudience() {
+        Jwt badJwt = mock(Jwt.class);
+        when(badJwt.getAudience()).thenReturn(null);
+
+        assertThat(validator.validate(badJwt).hasErrors()).isTrue();
+    }
+
+    @Test
     @SuppressWarnings("unchecked")
     void testValidAudience() {
         Map<String, Object> claims = new HashMap<>();
