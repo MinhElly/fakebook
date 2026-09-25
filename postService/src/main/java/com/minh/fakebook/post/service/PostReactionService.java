@@ -12,6 +12,8 @@ import com.minh.fakebook.post.security.AuthoritiesConstants;
 import com.minh.fakebook.post.service.dto.PostReactionDTO;
 import com.minh.fakebook.post.service.dto.PostReactionSummaryDTO;
 import com.minh.fakebook.post.service.dto.PostReactorDTO;
+import com.minh.fakebook.post.service.event.EventEnvelope;
+import com.minh.fakebook.post.service.event.PostReactionChangedEvent;
 import com.minh.fakebook.post.service.mapper.PostReactionMapper;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -25,6 +27,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+
+import io.namastack.outbox.Outbox;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
@@ -49,17 +53,20 @@ public class PostReactionService {
     private final PostReactionMapper postReactionMapper;
     private final PostRepository postRepository;
     private final UserServiceClient userServiceClient;
+    private final Outbox outbox;
 
     public PostReactionService(
         PostReactionRepository postReactionRepository,
         PostReactionMapper postReactionMapper,
         PostRepository postRepository,
-        UserServiceClient userServiceClient
+        UserServiceClient userServiceClient,
+        Outbox outbox
     ) {
         this.postReactionRepository = postReactionRepository;
         this.postReactionMapper = postReactionMapper;
         this.postRepository = postRepository;
         this.userServiceClient = userServiceClient;
+        this.outbox = outbox;
     }
 
     /**
@@ -138,12 +145,15 @@ public class PostReactionService {
 
         Optional<PostReaction> existing = postReactionRepository.findByPostIdAndUserId(postId, currentUserId);
 
+        boolean changed = false;
+
         if (existing.isPresent()) {
             PostReaction reaction = existing.orElseThrow();
             if (reaction.getReactionType() != requestedType) {
                 reaction.setReactionType(requestedType);
                 reaction.setUpdatedAt(Instant.now());
                 postReactionRepository.saveAndFlush(reaction);
+                changed = true;
             }
         } else {
             PostReaction reaction = new PostReaction();
@@ -152,6 +162,10 @@ public class PostReactionService {
             reaction.setCreatedAt(Instant.now());
             reaction.setPost(post);
             postReactionRepository.saveAndFlush(reaction);
+            changed = true;
+        }
+        if (changed) {
+            publishReactionChanged(postId, "SET");
         }
 
         return getSummary(postId, currentUserId);
@@ -161,9 +175,13 @@ public class PostReactionService {
         UUID currentUserId = requireCurrentUserId();
         Post post = findPost(postId);
         checkCanInteract(post, currentUserId);
+        Optional<PostReaction> existing = postReactionRepository.findByPostIdAndUserId(postId, currentUserId);
 
-        postReactionRepository.findByPostIdAndUserId(postId, currentUserId).ifPresent(postReactionRepository::delete);
-        postReactionRepository.flush();
+        if (existing.isPresent()) {
+            postReactionRepository.delete(existing.orElseThrow());
+            postReactionRepository.flush();
+            publishReactionChanged(postId, "REMOVE");
+        }
 
         return getSummary(postId, currentUserId);
     }
@@ -291,5 +309,16 @@ public class PostReactionService {
             return true;
         }
         return post.getVisibility() == PostVisibility.FRIENDS && friendIds.contains(post.getAuthorId());
+    }
+    private void publishReactionChanged(UUID postId, String action) {
+        Instant occurredAt = Instant.now();
+        EventEnvelope<PostReactionChangedEvent> envelope = new EventEnvelope<>(
+            UUID.randomUUID(),
+            "POST_REACTION_CHANGED",
+            1,
+            occurredAt,
+            new PostReactionChangedEvent(postId, action, occurredAt)
+        );
+        outbox.schedule(envelope, "post-reaction-" + postId, Map.of("destination", "post-reaction-events"));
     }
 }

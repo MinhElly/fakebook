@@ -1,10 +1,11 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { PostContext } from "@/stores/postStore";
 import type { Post } from "@/types";
 import api from "@/services/apis";
 import { useAuth } from "@/providers/AuthProvider";
 import { getPersonalizedFeed } from "@/services/feedService";
 import { fetchReactionSummaries } from "@/services/reactionService";
+import { connectRealtime, type RealtimeEvent } from "@/services/realtimeService";
 
 export default function PostProvider({ children }: { children: React.ReactNode }) {
   const [posts, setPosts] = useState<Post[]>([]);
@@ -19,6 +20,20 @@ export default function PostProvider({ children }: { children: React.ReactNode }
   const PAGE_SIZE = 5;
   const postIdsKey = useMemo(() => posts.map(post => post.id).slice(0, 50).join(","), [posts]);
 
+  const refreshReactionPostIds = useCallback(async (postIds: string[]) => {
+    const uniquePostIds = [...new Set(postIds)].filter(Boolean).slice(0, 50);
+    if (uniquePostIds.length === 0) return;
+
+    const summaries = await fetchReactionSummaries(uniquePostIds);
+    const summaryMap = new Map(summaries.map(summary => [summary.postId, summary]));
+    setPosts(previous =>
+      previous.map(post => ({
+        ...post,
+        reactionSummary: summaryMap.get(post.id) ?? post.reactionSummary,
+      })),
+    );
+  }, []);
+
   useEffect(() => {
     if (status === "authenticated") {
       fetchPosts(0, true);
@@ -32,20 +47,13 @@ export default function PostProvider({ children }: { children: React.ReactNode }
       if (document.visibilityState !== "visible") return;
 
       try {
-        const summaries = await fetchReactionSummaries(postIdsKey.split(","));
-        const summaryMap = new Map(summaries.map(summary => [summary.postId, summary]));
-        setPosts(previous =>
-          previous.map(post => ({
-            ...post,
-            reactionSummary: summaryMap.get(post.id) ?? post.reactionSummary,
-          })),
-        );
+        await refreshReactionPostIds(postIdsKey.split(","));
       } catch (error) {
         console.warn("Không refresh được reactions", error);
       }
     }
 
-    const intervalId = window.setInterval(() => void refreshReactions(), 5000);
+    const intervalId = window.setInterval(() => void refreshReactions(), 60000);
     const handleFocus = () => void refreshReactions();
     window.addEventListener("focus", handleFocus);
 
@@ -53,7 +61,59 @@ export default function PostProvider({ children }: { children: React.ReactNode }
       window.clearInterval(intervalId);
       window.removeEventListener("focus", handleFocus);
     };
-  }, [status, postIdsKey]);
+  }, [status, postIdsKey, refreshReactionPostIds]);
+
+  useEffect(() => {
+    if (status !== "authenticated" || !postIdsKey) return;
+
+    const controller = new AbortController();
+    const visiblePostIds = new Set(postIdsKey.split(","));
+    const pendingPostIds = new Set<string>();
+    let reconnectTimer: number | undefined;
+    let refreshTimer: number | undefined;
+
+    const flushReactionChanges = async () => {
+      const changedPostIds = [...pendingPostIds];
+      pendingPostIds.clear();
+      if (changedPostIds.length === 0 || controller.signal.aborted) return;
+
+      try {
+        await refreshReactionPostIds(changedPostIds);
+      } catch (error) {
+        console.warn("Could not refresh realtime reactions", error);
+      }
+    };
+
+    const handleRealtimeEvent = (event: RealtimeEvent) => {
+      if (!visiblePostIds.has(event.postId)) return;
+
+      pendingPostIds.add(event.postId);
+      if (refreshTimer !== undefined) window.clearTimeout(refreshTimer);
+      refreshTimer = window.setTimeout(() => void flushReactionChanges(), 300);
+    };
+
+    const startRealtime = async () => {
+      try {
+        await connectRealtime(controller.signal, handleRealtimeEvent);
+      } catch (error) {
+        if (!controller.signal.aborted) {
+          console.warn("Realtime connection interrupted; retrying", error);
+        }
+      } finally {
+        if (!controller.signal.aborted) {
+          reconnectTimer = window.setTimeout(() => void startRealtime(), 3000);
+        }
+      }
+    };
+
+    void startRealtime();
+
+    return () => {
+      controller.abort();
+      if (reconnectTimer !== undefined) window.clearTimeout(reconnectTimer);
+      if (refreshTimer !== undefined) window.clearTimeout(refreshTimer);
+    };
+  }, [status, postIdsKey, refreshReactionPostIds]);
 
   async function fetchPosts(pageNum: number, isForceRefresh = false) {
     if (loading && !isForceRefresh) return;
