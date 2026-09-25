@@ -1,9 +1,10 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { PostContext } from "@/stores/postStore";
 import type { Post } from "@/types";
 import api from "@/services/apis";
 import { useAuth } from "@/providers/AuthProvider";
 import { getPersonalizedFeed } from "@/services/feedService";
+import { fetchReactionSummaries } from "@/services/reactionService";
 
 export default function PostProvider({ children }: { children: React.ReactNode }) {
   const [posts, setPosts] = useState<Post[]>([]);
@@ -16,12 +17,43 @@ export default function PostProvider({ children }: { children: React.ReactNode }
   const { status, user } = useAuth();
 
   const PAGE_SIZE = 5;
+  const postIdsKey = useMemo(() => posts.map(post => post.id).slice(0, 50).join(","), [posts]);
 
   useEffect(() => {
     if (status === "authenticated") {
       fetchPosts(0, true);
     }
   }, [status]);
+
+  useEffect(() => {
+    if (status !== "authenticated" || !postIdsKey) return;
+
+    async function refreshReactions() {
+      if (document.visibilityState !== "visible") return;
+
+      try {
+        const summaries = await fetchReactionSummaries(postIdsKey.split(","));
+        const summaryMap = new Map(summaries.map(summary => [summary.postId, summary]));
+        setPosts(previous =>
+          previous.map(post => ({
+            ...post,
+            reactionSummary: summaryMap.get(post.id) ?? post.reactionSummary,
+          })),
+        );
+      } catch (error) {
+        console.warn("Không refresh được reactions", error);
+      }
+    }
+
+    const intervalId = window.setInterval(() => void refreshReactions(), 5000);
+    const handleFocus = () => void refreshReactions();
+    window.addEventListener("focus", handleFocus);
+
+    return () => {
+      window.clearInterval(intervalId);
+      window.removeEventListener("focus", handleFocus);
+    };
+  }, [status, postIdsKey]);
 
   async function fetchPosts(pageNum: number, isForceRefresh = false) {
     if (loading && !isForceRefresh) return;
@@ -180,6 +212,17 @@ export default function PostProvider({ children }: { children: React.ReactNode }
         });
       } catch (e) {
         console.warn("CommentService tắt hoặc không phản hồi.");
+      }
+
+      try {
+        const postIds = mappedPosts.map((post: Post) => post.id).slice(0, 50);
+        const summaries = await fetchReactionSummaries(postIds);
+        const summaryMap = new Map(summaries.map(summary => [summary.postId, summary]));
+        mappedPosts.forEach((post: Post) => {
+          post.reactionSummary = summaryMap.get(post.id);
+        });
+      } catch (e) {
+        console.warn("Không tải được reaction summaries", e);
       }
 
       if (pageNum === 0) {
