@@ -1,11 +1,11 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { PostContext } from "@/stores/postStore";
 import type { Post } from "@/types";
 import api from "@/services/apis";
 import { useAuth } from "@/providers/AuthProvider";
 import { getPersonalizedFeed } from "@/services/feedService";
 import { fetchReactionSummaries } from "@/services/reactionService";
-import { connectRealtime, type RealtimeEvent } from "@/services/realtimeService";
+import { useRealtime } from "@/providers/RealtimeProvider";
 
 export default function PostProvider({ children }: { children: React.ReactNode }) {
   const [posts, setPosts] = useState<Post[]>([]);
@@ -16,9 +16,15 @@ export default function PostProvider({ children }: { children: React.ReactNode }
   const [pendingPost, setPendingPost] = useState<any>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const { status, user } = useAuth();
+  const { subscribe } = useRealtime();
+  const visiblePostIdsRef = useRef(new Set<string>());
 
   const PAGE_SIZE = 5;
   const postIdsKey = useMemo(() => posts.map(post => post.id).slice(0, 50).join(","), [posts]);
+
+  useEffect(() => {
+    visiblePostIdsRef.current = new Set(postIdsKey ? postIdsKey.split(",") : []);
+  }, [postIdsKey]);
 
   const refreshReactionPostIds = useCallback(async (postIds: string[]) => {
     const uniquePostIds = [...new Set(postIds)].filter(Boolean).slice(0, 50);
@@ -64,18 +70,15 @@ export default function PostProvider({ children }: { children: React.ReactNode }
   }, [status, postIdsKey, refreshReactionPostIds]);
 
   useEffect(() => {
-    if (status !== "authenticated" || !postIdsKey) return;
+    if (status !== "authenticated") return;
 
-    const controller = new AbortController();
-    const visiblePostIds = new Set(postIdsKey.split(","));
     const pendingPostIds = new Set<string>();
-    let reconnectTimer: number | undefined;
     let refreshTimer: number | undefined;
 
     const flushReactionChanges = async () => {
       const changedPostIds = [...pendingPostIds];
       pendingPostIds.clear();
-      if (changedPostIds.length === 0 || controller.signal.aborted) return;
+      if (changedPostIds.length === 0) return;
 
       try {
         await refreshReactionPostIds(changedPostIds);
@@ -84,36 +87,24 @@ export default function PostProvider({ children }: { children: React.ReactNode }
       }
     };
 
-    const handleRealtimeEvent = (event: RealtimeEvent) => {
-      if (!visiblePostIds.has(event.postId)) return;
+    const unsubscribe = subscribe(event => {
+      if (
+        event.eventType !== "POST_REACTION_CHANGED" ||
+        !visiblePostIdsRef.current.has(event.postId)
+      ) {
+        return;
+      }
 
       pendingPostIds.add(event.postId);
       if (refreshTimer !== undefined) window.clearTimeout(refreshTimer);
       refreshTimer = window.setTimeout(() => void flushReactionChanges(), 300);
-    };
-
-    const startRealtime = async () => {
-      try {
-        await connectRealtime(controller.signal, handleRealtimeEvent);
-      } catch (error) {
-        if (!controller.signal.aborted) {
-          console.warn("Realtime connection interrupted; retrying", error);
-        }
-      } finally {
-        if (!controller.signal.aborted) {
-          reconnectTimer = window.setTimeout(() => void startRealtime(), 3000);
-        }
-      }
-    };
-
-    void startRealtime();
+    });
 
     return () => {
-      controller.abort();
-      if (reconnectTimer !== undefined) window.clearTimeout(reconnectTimer);
+      unsubscribe();
       if (refreshTimer !== undefined) window.clearTimeout(refreshTimer);
     };
-  }, [status, postIdsKey, refreshReactionPostIds]);
+  }, [status, refreshReactionPostIds, subscribe]);
 
   async function fetchPosts(pageNum: number, isForceRefresh = false) {
     if (loading && !isForceRefresh) return;

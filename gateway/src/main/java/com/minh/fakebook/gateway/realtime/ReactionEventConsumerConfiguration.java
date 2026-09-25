@@ -37,6 +37,9 @@ public class ReactionEventConsumerConfiguration {
                         envelope.eventId(),
                         envelope.eventType(),
                         postId,
+                        null,
+                        null,
+                        null,
                         envelope.timestamp() != null ? envelope.timestamp() : Instant.now()
                     )
                 );
