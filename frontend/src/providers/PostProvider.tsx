@@ -1,9 +1,11 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { PostContext } from "@/stores/postStore";
 import type { Post } from "@/types";
 import api from "@/services/apis";
 import { useAuth } from "@/providers/AuthProvider";
 import { getPersonalizedFeed } from "@/services/feedService";
+import { fetchReactionSummaries } from "@/services/reactionService";
+import { useRealtime } from "@/providers/RealtimeProvider";
 
 export default function PostProvider({ children }: { children: React.ReactNode }) {
   const [posts, setPosts] = useState<Post[]>([]);
@@ -14,14 +16,95 @@ export default function PostProvider({ children }: { children: React.ReactNode }
   const [pendingPost, setPendingPost] = useState<any>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const { status, user } = useAuth();
+  const { subscribe } = useRealtime();
+  const visiblePostIdsRef = useRef(new Set<string>());
 
   const PAGE_SIZE = 5;
+  const postIdsKey = useMemo(() => posts.map(post => post.id).slice(0, 50).join(","), [posts]);
+
+  useEffect(() => {
+    visiblePostIdsRef.current = new Set(postIdsKey ? postIdsKey.split(",") : []);
+  }, [postIdsKey]);
+
+  const refreshReactionPostIds = useCallback(async (postIds: string[]) => {
+    const uniquePostIds = [...new Set(postIds)].filter(Boolean).slice(0, 50);
+    if (uniquePostIds.length === 0) return;
+
+    const summaries = await fetchReactionSummaries(uniquePostIds);
+    const summaryMap = new Map(summaries.map(summary => [summary.postId, summary]));
+    setPosts(previous =>
+      previous.map(post => ({
+        ...post,
+        reactionSummary: summaryMap.get(post.id) ?? post.reactionSummary,
+      })),
+    );
+  }, []);
 
   useEffect(() => {
     if (status === "authenticated") {
       fetchPosts(0, true);
     }
   }, [status]);
+
+  useEffect(() => {
+    if (status !== "authenticated" || !postIdsKey) return;
+
+    async function refreshReactions() {
+      if (document.visibilityState !== "visible") return;
+
+      try {
+        await refreshReactionPostIds(postIdsKey.split(","));
+      } catch (error) {
+        console.warn("Không refresh được reactions", error);
+      }
+    }
+
+    const intervalId = window.setInterval(() => void refreshReactions(), 60000);
+    const handleFocus = () => void refreshReactions();
+    window.addEventListener("focus", handleFocus);
+
+    return () => {
+      window.clearInterval(intervalId);
+      window.removeEventListener("focus", handleFocus);
+    };
+  }, [status, postIdsKey, refreshReactionPostIds]);
+
+  useEffect(() => {
+    if (status !== "authenticated") return;
+
+    const pendingPostIds = new Set<string>();
+    let refreshTimer: number | undefined;
+
+    const flushReactionChanges = async () => {
+      const changedPostIds = [...pendingPostIds];
+      pendingPostIds.clear();
+      if (changedPostIds.length === 0) return;
+
+      try {
+        await refreshReactionPostIds(changedPostIds);
+      } catch (error) {
+        console.warn("Could not refresh realtime reactions", error);
+      }
+    };
+
+    const unsubscribe = subscribe(event => {
+      if (
+        event.eventType !== "POST_REACTION_CHANGED" ||
+        !visiblePostIdsRef.current.has(event.postId)
+      ) {
+        return;
+      }
+
+      pendingPostIds.add(event.postId);
+      if (refreshTimer !== undefined) window.clearTimeout(refreshTimer);
+      refreshTimer = window.setTimeout(() => void flushReactionChanges(), 300);
+    });
+
+    return () => {
+      unsubscribe();
+      if (refreshTimer !== undefined) window.clearTimeout(refreshTimer);
+    };
+  }, [status, refreshReactionPostIds, subscribe]);
 
   async function fetchPosts(pageNum: number, isForceRefresh = false) {
     if (loading && !isForceRefresh) return;
@@ -31,10 +114,18 @@ export default function PostProvider({ children }: { children: React.ReactNode }
       let fetchedCount = 0;
 
       // 1. Gọi feedService lấy danh sách bài viết trên timeline của user
-      const feedItems = await getPersonalizedFeed(pageNum, PAGE_SIZE);
+      // Always combine personalized items with globally visible PUBLIC posts.
+      // This keeps feed semantics stable when the personalized feed changes
+      // between empty and non-empty.
+      const [feedItems, publicRes] = await Promise.all([
+        getPersonalizedFeed(pageNum, PAGE_SIZE),
+        api.get(
+          `/services/postservice/api/posts?visibility.equals=PUBLIC&sort=createdAt,desc&size=${PAGE_SIZE}&page=${pageNum}`
+        ),
+      ]);
+      const personalizedPosts: any[] = [];
 
       if (feedItems && feedItems.length > 0) {
-        fetchedCount = feedItems.length;
         const postIds = feedItems.map((item) => item.postId);
         // Hydrate bài viết chi tiết từ postService
         const postRes = await api.get(
@@ -43,19 +134,19 @@ export default function PostProvider({ children }: { children: React.ReactNode }
 
         // Sắp xếp bài viết theo đúng thứ tự thời gian của feedService
         const postMap = new Map<string, any>((postRes.data || []).map((p: any) => [p.id, p]));
-        postsData = postIds.map((id) => postMap.get(id)).filter(Boolean);
-      } else if (pageNum === 0) {
-        // Fallback: Khi user mới chưa có bạn bè / feed rỗng, lấy bài viết PUBLIC mới nhất
-        try {
-          const publicRes = await api.get(
-            `/services/postservice/api/posts?visibility.equals=PUBLIC&sort=createdAt,desc&size=${PAGE_SIZE}&page=0`
-          );
-          postsData = publicRes.data || [];
-          fetchedCount = postsData.length;
-        } catch (e) {
-          console.warn("Lỗi khi tải bài viết public fallback:", e);
-        }
+        personalizedPosts.push(...postIds.map((id) => postMap.get(id)).filter(Boolean));
       }
+
+      const publicPosts = publicRes.data || [];
+      const postsById = new Map<string, any>();
+      [...personalizedPosts, ...publicPosts].forEach((post: any) => postsById.set(post.id, post));
+      postsData = [...postsById.values()]
+        .sort(
+          (left: any, right: any) =>
+            new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime()
+        )
+        .slice(0, PAGE_SIZE);
+      fetchedCount = Math.max(feedItems.length, publicPosts.length);
 
       const mappedPosts = postsData.map((dto: any) => ({
         id: dto.id,
@@ -180,6 +271,17 @@ export default function PostProvider({ children }: { children: React.ReactNode }
         });
       } catch (e) {
         console.warn("CommentService tắt hoặc không phản hồi.");
+      }
+
+      try {
+        const postIds = mappedPosts.map((post: Post) => post.id).slice(0, 50);
+        const summaries = await fetchReactionSummaries(postIds);
+        const summaryMap = new Map(summaries.map(summary => [summary.postId, summary]));
+        mappedPosts.forEach((post: Post) => {
+          post.reactionSummary = summaryMap.get(post.id);
+        });
+      } catch (e) {
+        console.warn("Không tải được reaction summaries", e);
       }
 
       if (pageNum === 0) {

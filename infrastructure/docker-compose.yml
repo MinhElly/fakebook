@@ -75,6 +75,24 @@ services:
         condition: service_healthy
     restart: 'no'
 
+  keycloak-internal-client-config:
+    image: quay.io/keycloak/keycloak:26.7.2-1
+    container_name: fakebook-keycloak-internal-client-config
+    entrypoint: ['/bin/sh', '/opt/keycloak-config/configure-internal-client.sh']
+    environment:
+      KEYCLOAK_INTERNAL_URL: http://keycloak:9080
+      KEYCLOAK_REALM: jhipster
+      KEYCLOAK_SYNC_ADMIN_USERNAME: ${KEYCLOAK_BOOTSTRAP_ADMIN_USERNAME:-admin}
+      KEYCLOAK_SYNC_ADMIN_PASSWORD: ${KEYCLOAK_BOOTSTRAP_ADMIN_PASSWORD:-admin}
+      FAKEBOOK_OIDC_INTERNAL_CLIENT_ID: ${FAKEBOOK_OIDC_INTERNAL_CLIENT_ID:-internal}
+      FAKEBOOK_OIDC_INTERNAL_CLIENT_SECRET: ${FAKEBOOK_OIDC_INTERNAL_CLIENT_SECRET:-internal}
+    volumes:
+      - ./keycloak/configure-internal-client.sh:/opt/keycloak-config/configure-internal-client.sh:ro
+    depends_on:
+      keycloak:
+        condition: service_healthy
+    restart: 'no'
+
   consul:
     image: hashicorp/consul:2.0.3
     container_name: fakebook-consul

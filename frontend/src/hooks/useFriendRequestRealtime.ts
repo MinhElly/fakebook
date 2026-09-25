@@ -1,89 +1,115 @@
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+
+import { useRealtime } from "@/providers/RealtimeProvider";
 import {
+  acceptFriendRequest,
   getCurrentUserProfile,
   getFriendRequests,
-  acceptFriendRequest,
   rejectFriendRequest,
   type FriendRequestItem,
 } from "@/services/friendsService";
 
-export function useFriendRequestRealtime(enabled: boolean, pollIntervalMs = 5000) {
+export function useFriendRequestRealtime(enabled: boolean) {
+  const { subscribe, subscribeConnection } = useRealtime();
   const [activeToastRequest, setActiveToastRequest] = useState<FriendRequestItem | null>(null);
-  const seenRequestIds = useRef<Set<string>>(new Set());
-  const isFirstFetch = useRef<boolean>(true);
+  const seenRequestIds = useRef(new Set<string>());
+  const isFirstFetch = useRef(true);
   const myUserIdRef = useRef<string | null>(null);
+  const activeRef = useRef(false);
+  const checkingRef = useRef(false);
+  const checkQueuedRef = useRef(false);
 
   const checkIncomingRequests = useCallback(async () => {
+    if (!activeRef.current) return;
+    if (checkingRef.current) {
+      checkQueuedRef.current = true;
+      return;
+    }
+
+    checkingRef.current = true;
     try {
-      if (!myUserIdRef.current) {
-        const user = await getCurrentUserProfile();
-        if (user && user.id) {
+      do {
+        checkQueuedRef.current = false;
+
+        if (!myUserIdRef.current) {
+          const user = await getCurrentUserProfile();
+          if (!activeRef.current || !user?.id) return;
           myUserIdRef.current = user.id;
-        } else {
-          return;
         }
-      }
 
-      const requests = await getFriendRequests(myUserIdRef.current);
+        const requests = await getFriendRequests(myUserIdRef.current);
+        if (!activeRef.current) return;
 
-      if (isFirstFetch.current) {
-        // Lần đầu tải: Đánh dấu tất cả request hiện tại là đã thấy để tránh bật toast dồn dập
-        requests.forEach((r) => seenRequestIds.current.add(r.id));
-        isFirstFetch.current = false;
-        return;
-      }
+        if (isFirstFetch.current) {
+          requests.forEach(request => seenRequestIds.current.add(request.id));
+          isFirstFetch.current = false;
+          continue;
+        }
 
-      // Tìm lời mời mới xuất hiện chưa nằm trong seenRequestIds
-      const newRequest = requests.find((r) => !seenRequestIds.current.has(r.id));
-      if (newRequest) {
-        seenRequestIds.current.add(newRequest.id);
-        setActiveToastRequest(newRequest);
-      }
-    } catch (err) {
-      console.warn("Polling friend requests background error:", err);
+        const newRequest = requests.find(request => !seenRequestIds.current.has(request.id));
+        if (newRequest) {
+          seenRequestIds.current.add(newRequest.id);
+          setActiveToastRequest(newRequest);
+        }
+      } while (checkQueuedRef.current && activeRef.current);
+    } catch (error) {
+      console.warn("Friend request realtime reconciliation failed", error);
+    } finally {
+      checkingRef.current = false;
     }
   }, []);
 
   useEffect(() => {
+    activeRef.current = enabled;
     if (!enabled) {
       myUserIdRef.current = null;
       seenRequestIds.current.clear();
       isFirstFetch.current = true;
+      checkQueuedRef.current = false;
       setActiveToastRequest(null);
       return;
     }
 
-    checkIncomingRequests();
-    const interval = setInterval(checkIncomingRequests, pollIntervalMs);
-    return () => clearInterval(interval);
-  }, [enabled, checkIncomingRequests, pollIntervalMs]);
+    void checkIncomingRequests();
 
-  const handleAcceptToast = async (req: FriendRequestItem) => {
+    const unsubscribeEvents = subscribe(event => {
+      if (event.eventType === "FRIEND_REQUEST_CREATED") {
+        void checkIncomingRequests();
+      }
+    });
+    const unsubscribeConnection = subscribeConnection(() => {
+      void checkIncomingRequests();
+    });
+
+    return () => {
+      activeRef.current = false;
+      unsubscribeEvents();
+      unsubscribeConnection();
+    };
+  }, [checkIncomingRequests, enabled, subscribe, subscribeConnection]);
+
+  const handleAcceptToast = async (request: FriendRequestItem) => {
     try {
-      await acceptFriendRequest(req);
+      await acceptFriendRequest(request);
       setActiveToastRequest(null);
-    } catch (err) {
-      console.error("Lỗi khi chấp nhận lời mời từ toast:", err);
+    } catch (error) {
+      console.error("Could not accept friend request", error);
     }
   };
 
-  const handleRejectToast = async (req: FriendRequestItem) => {
+  const handleRejectToast = async (request: FriendRequestItem) => {
     try {
-      await rejectFriendRequest(req.id);
+      await rejectFriendRequest(request.id);
       setActiveToastRequest(null);
-    } catch (err) {
-      console.error("Lỗi khi xóa lời mời từ toast:", err);
+    } catch (error) {
+      console.error("Could not reject friend request", error);
     }
-  };
-
-  const handleCloseToast = () => {
-    setActiveToastRequest(null);
   };
 
   return {
     activeToastRequest,
     handleAcceptToast,
     handleRejectToast,
-    handleCloseToast,
+    handleCloseToast: () => setActiveToastRequest(null),
   };
 }
