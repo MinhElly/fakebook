@@ -12,6 +12,9 @@ spring:
         friendshipEventsOut-out-0:
           destination: friendship-events-topic
           content-type: application/json
+        friendRequestEventsOut-out-0:
+          destination: friend-request-events
+          content-type: application/json
         mediaCleanupOut-out-0:
           destination: media-cleanup-topic
           content-type: application/json

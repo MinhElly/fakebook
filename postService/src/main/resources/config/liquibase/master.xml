@@ -24,4 +24,5 @@
     <include file="config/liquibase/changelog/20260915000000_added_outbox_record.xml" relativeToChangelogFile="false"/>
     <include file="config/liquibase/changelog/20260916000000_alter_outbox_payload.xml" relativeToChangelogFile="false"/>
     <include file="config/liquibase/changelog/20260924000000_reconcile_outbox_payload.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20260925000000_add_post_reaction_unique.xml" relativeToChangelogFile="false"/>
 </databaseChangeLog>

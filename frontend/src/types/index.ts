@@ -1,3 +1,5 @@
+import type { ReactionSummary } from "@/services/reactionService";
+
 export interface User {
   name: string;
   avatar: string;
@@ -28,6 +30,7 @@ export interface Post {
   comments: number;
   shares: number;
   liked: boolean;
+  reactionSummary?: ReactionSummary;
 }
 
 export interface Message {

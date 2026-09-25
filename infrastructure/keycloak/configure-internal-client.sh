@@ -41,8 +41,34 @@
   )"
 
   if [ -z "$client_uuid" ]; then
-    echo "Internal client '$client_id' was not found in realm '$realm'."
-    exit 1
+    "$kcadm" create clients \
+      --config "$config_file" \
+      -r "$realm" \
+      -s "clientId=$client_id" \
+      -s "enabled=true" \
+      -s "protocol=openid-connect" \
+      -s "clientAuthenticatorType=client-secret" \
+      -s "publicClient=false" \
+      -s "serviceAccountsEnabled=true" \
+      -s "standardFlowEnabled=false" \
+      -s "directAccessGrantsEnabled=false" \
+      -s "secret=$client_secret" >/dev/null
+
+    client_uuid="$(
+      "$kcadm" get clients \
+        --config "$config_file" \
+        -r "$realm" \
+        -q "clientId=$client_id" \
+        --fields id \
+        --format csv \
+        --noquotes |
+      head -n 1
+    )"
+
+    if [ -z "$client_uuid" ]; then
+      echo "Internal client '$client_id' could not be created in realm '$realm'." >&2
+      exit 1
+    fi
   fi
 
   "$kcadm" update "clients/$client_uuid" \

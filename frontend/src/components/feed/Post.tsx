@@ -1,8 +1,6 @@
-import { useState, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router";
-import api from "@/services/apis";
 import { usePostStore } from "@/stores/postStore";
-import { useUserStore } from "@/stores/userStore";
 import { useCommentStore } from "@/stores/commentStore";
 import { useOutsideClick } from "@/hooks/useOutsideClick";
 import CreatePostModal from "./CreatePostModal";
@@ -14,6 +12,14 @@ import type { Post as PostType } from "@/types";
 import { useAuth } from "@/providers/AuthProvider";
 import keycloak from "@/services/keycloak";
 import { Emoji, EmojiStyle } from "emoji-picker-react";
+import ReactorsModal from "./ReactorsModal";
+import {
+  emptyReactionSummary,
+  removePostReaction,
+  setPostReaction,
+  type ReactionSummary,
+  type ReactionType,
+} from "@/services/reactionService";
 
 interface Props {
   post: PostType;
@@ -32,7 +38,6 @@ const REACTIONS = [
 export default function Post({ post, isModal = false }: Props) {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { profile } = useUserStore();
   const { deletePost, setToastMessage } = usePostStore();
   const { comments: commentStoreComments, fetchedPosts: commentStoreFetchedPosts } = useCommentStore();
 
@@ -42,19 +47,19 @@ export default function Post({ post, isModal = false }: Props) {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showReactionPicker, setShowReactionPicker] = useState(false);
   const [showDetailModal, setShowDetailModal] = useState(false);
+  const [showReactors, setShowReactors] = useState(false);
 
-  const [reactionsData, setReactionsData] = useState<Record<string, { name: string, type: string, timestamp?: number }>>(() => {
-    const saved = localStorage.getItem(`post_reactions_map_${post.id}`);
-    if (saved) {
-      try { return JSON.parse(saved); } catch (e) {}
+  const [reactionSummary, setReactionSummary] = useState<ReactionSummary>(
+    post.reactionSummary ?? emptyReactionSummary(post.id),
+  );
+
+  const reactionMutationPending = useRef(false);
+
+  useEffect(() => {
+    if (post.reactionSummary && !reactionMutationPending.current) {
+      setReactionSummary(post.reactionSummary);
     }
-    // Backward compatibility for old singular likes
-    const oldReaction = localStorage.getItem(`post_reaction_${post.id}`);
-    if (oldReaction && user?.id) {
-      return { [user.id]: { name: profile.name, type: oldReaction, timestamp: Date.now() } };
-    }
-    return {};
-  });
+  }, [post.reactionSummary]);
 
   const menuRef = useRef<HTMLDivElement>(null);
   const reactionTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -89,35 +94,15 @@ export default function Post({ post, isModal = false }: Props) {
     commentCount = Math.max(post.comments, localCount);
   }
   
-  // Calculate computed values
-  const myReaction = user?.id ? reactionsData[user.id]?.type : null;
+  // Calculate computed values from the server-backed summary.
+  const myReaction = reactionSummary.myReaction?.toLowerCase() ?? null;
   const currentReaction = REACTIONS.find(r => r.key === myReaction);
-  const totalLikes = Math.max(post.likes || 0, Object.keys(reactionsData).length);
-  
-  const reactionStats: Record<string, { count: number, earliest: number }> = {};
-  Object.values(reactionsData).forEach(r => {
-    if (!reactionStats[r.type]) {
-      reactionStats[r.type] = { count: 0, earliest: r.timestamp || Date.now() };
-    }
-    reactionStats[r.type].count++;
-    if ((r.timestamp || Date.now()) < reactionStats[r.type].earliest) {
-      reactionStats[r.type].earliest = r.timestamp || Date.now();
-    }
-  });
-
-  const topReactions = Object.keys(reactionStats)
-    .sort((a, b) => {
-      const countDiff = reactionStats[b].count - reactionStats[a].count;
-      if (countDiff !== 0) return countDiff;
-      return reactionStats[a].earliest - reactionStats[b].earliest;
-    })
-    .slice(0, 3);
-
-  const allReactors = Object.values(reactionsData)
-    .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))
-    .map(r => r.name);
-  const displayReactors = allReactors.slice(0, 10);
-  const remainingCount = allReactors.length - 10;
+  const totalLikes = reactionSummary.totalCount;
+  const topReactions = Object.entries(reactionSummary.counts)
+    .filter(([, count]) => count > 0)
+    .sort(([, countA], [, countB]) => countB - countA)
+    .slice(0, 3)
+    .map(([type]) => type.toLowerCase());
 
   function handleAuthorClick() {
     if (post.authorId === user?.id) {
@@ -205,22 +190,50 @@ export default function Post({ post, isModal = false }: Props) {
     );
   };
 
-  function pickReaction(key: string) {
-    const userId = user?.id;
-    if (!userId) return;
-    
-    setReactionsData(prev => {
-      const next = { ...prev };
-      if (myReaction === key) {
-        delete next[userId]; // Unlike
-      } else {
-        next[userId] = { name: profile.name, type: key, timestamp: Date.now() }; // Change or Add reaction
+  async function pickReaction(key: string) {
+    if (!user?.id || reactionMutationPending.current) return;
+    reactionMutationPending.current = true;
+
+    const requestedType = key.toUpperCase() as ReactionType;
+    const previous = reactionSummary;
+    const counts = { ...reactionSummary.counts };
+    const isRemoving = reactionSummary.myReaction === requestedType;
+
+    if (isRemoving) {
+      counts[requestedType] = Math.max(0, counts[requestedType] - 1);
+      setReactionSummary({
+        ...reactionSummary,
+        totalCount: Math.max(0, reactionSummary.totalCount - 1),
+        counts,
+        myReaction: null,
+      });
+    } else {
+      if (reactionSummary.myReaction) {
+        counts[reactionSummary.myReaction] = Math.max(0, counts[reactionSummary.myReaction] - 1);
       }
-      localStorage.setItem(`post_reactions_map_${post.id}`, JSON.stringify(next));
-      return next;
-    });
-    
+      counts[requestedType] += 1;
+      setReactionSummary({
+        ...reactionSummary,
+        totalCount: reactionSummary.myReaction ? reactionSummary.totalCount : reactionSummary.totalCount + 1,
+        counts,
+        myReaction: requestedType,
+      });
+    }
+
     setShowReactionPicker(false);
+
+    try {
+      const authoritative = isRemoving
+        ? await removePostReaction(post.id)
+        : await setPostReaction(post.id, requestedType);
+      setReactionSummary(authoritative);
+    } catch (error) {
+      setReactionSummary(previous);
+      setToastMessage("Không thể cập nhật cảm xúc. Vui lòng thử lại.");
+      console.error("Không cập nhật được reaction", error);
+    } finally {
+      reactionMutationPending.current = false;
+    }
   }
 
   const onReactionMouseLeave = () => {
@@ -236,9 +249,9 @@ export default function Post({ post, isModal = false }: Props) {
     if (reactionTimer.current) clearTimeout(reactionTimer.current);
 
     if (myReaction) {
-      pickReaction(myReaction); // Will delete it
+      void pickReaction(myReaction); // Will delete it
     } else {
-      pickReaction("like"); // Will add it
+      void pickReaction("like"); // Will add it
     }
   }
 
@@ -390,7 +403,10 @@ export default function Post({ post, isModal = false }: Props) {
 
         <div className="px-4 pt-1">
           <div className="flex items-center justify-between text-[#65676B] text-sm pb-2 border-b border-[#E4E6EB]">
-            <div className="flex items-center gap-1 relative group/reactors cursor-pointer">
+            <div
+              className="flex items-center gap-1 relative group/reactors cursor-pointer"
+              onClick={() => totalLikes > 0 && setShowReactors(true)}
+            >
               {totalLikes > 0 && (
                 <>
                     <span className="flex items-center -ml-0.5">
@@ -412,17 +428,6 @@ export default function Post({ post, isModal = false }: Props) {
                       )}
                     </span>
                     <span className="hover:underline ml-1.5">{totalLikes}</span>
-                    
-                    {displayReactors.length > 0 && (
-                      <div className="absolute bottom-full left-0 mb-1 hidden group-hover/reactors:flex flex-col z-50 bg-black/80 text-white text-[12px] px-3 py-2 rounded-lg shadow-lg whitespace-nowrap text-left leading-tight">
-                        {displayReactors.map((name, i) => (
-                          <span key={i} className="py-0.5 font-medium">{name}</span>
-                        ))}
-                        {remainingCount > 0 && (
-                          <span className="py-0.5 italic text-gray-300 font-medium">và {remainingCount} người khác...</span>
-                        )}
-                      </div>
-                    )}
                 </>
               )}
             </div>
@@ -552,6 +557,8 @@ export default function Post({ post, isModal = false }: Props) {
           </div>
         </div>
       )}
+
+      {showReactors && <ReactorsModal postId={post.id} onClose={() => setShowReactors(false)} />}
     </>
   );
 }
