@@ -123,10 +123,18 @@ export default function PostProvider({ children }: { children: React.ReactNode }
       let fetchedCount = 0;
 
       // 1. Gọi feedService lấy danh sách bài viết trên timeline của user
-      const feedItems = await getPersonalizedFeed(pageNum, PAGE_SIZE);
+      // Always combine personalized items with globally visible PUBLIC posts.
+      // This keeps feed semantics stable when the personalized feed changes
+      // between empty and non-empty.
+      const [feedItems, publicRes] = await Promise.all([
+        getPersonalizedFeed(pageNum, PAGE_SIZE),
+        api.get(
+          `/services/postservice/api/posts?visibility.equals=PUBLIC&sort=createdAt,desc&size=${PAGE_SIZE}&page=${pageNum}`
+        ),
+      ]);
+      const personalizedPosts: any[] = [];
 
       if (feedItems && feedItems.length > 0) {
-        fetchedCount = feedItems.length;
         const postIds = feedItems.map((item) => item.postId);
         // Hydrate bài viết chi tiết từ postService
         const postRes = await api.get(
@@ -135,19 +143,19 @@ export default function PostProvider({ children }: { children: React.ReactNode }
 
         // Sắp xếp bài viết theo đúng thứ tự thời gian của feedService
         const postMap = new Map<string, any>((postRes.data || []).map((p: any) => [p.id, p]));
-        postsData = postIds.map((id) => postMap.get(id)).filter(Boolean);
-      } else if (pageNum === 0) {
-        // Fallback: Khi user mới chưa có bạn bè / feed rỗng, lấy bài viết PUBLIC mới nhất
-        try {
-          const publicRes = await api.get(
-            `/services/postservice/api/posts?visibility.equals=PUBLIC&sort=createdAt,desc&size=${PAGE_SIZE}&page=0`
-          );
-          postsData = publicRes.data || [];
-          fetchedCount = postsData.length;
-        } catch (e) {
-          console.warn("Lỗi khi tải bài viết public fallback:", e);
-        }
+        personalizedPosts.push(...postIds.map((id) => postMap.get(id)).filter(Boolean));
       }
+
+      const publicPosts = publicRes.data || [];
+      const postsById = new Map<string, any>();
+      [...personalizedPosts, ...publicPosts].forEach((post: any) => postsById.set(post.id, post));
+      postsData = [...postsById.values()]
+        .sort(
+          (left: any, right: any) =>
+            new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime()
+        )
+        .slice(0, PAGE_SIZE);
+      fetchedCount = Math.max(feedItems.length, publicPosts.length);
 
       const mappedPosts = postsData.map((dto: any) => ({
         id: dto.id,
