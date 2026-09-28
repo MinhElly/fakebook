@@ -126,6 +126,16 @@ export default function CreatePostModal({ onClose, editPost }: Props) {
     textareaRef.current?.focus();
   }, []);
 
+  // Tự động mở rộng chiều cao của ô nhập văn bản theo nội dung
+  useEffect(() => {
+    if (textareaRef.current) {
+      // Đặt lại height về 'auto' để scrollHeight tính toán đúng khi xoá bớt text
+      textareaRef.current.style.height = "auto";
+      // Đặt height bằng với độ dài nội dung thực tế (cộng thêm vài pixel đệm)
+      textareaRef.current.style.height = textareaRef.current.scrollHeight + "px";
+    }
+  }, [content, bgGradient]);
+
   async function handleSubmit() {
     if (!canSubmit || isSubmittingRef.current) return;
     isSubmittingRef.current = true;
@@ -245,7 +255,7 @@ export default function CreatePostModal({ onClose, editPost }: Props) {
         <div className="absolute inset-0 bg-black/50" onClick={onClose} />
 
         {/* Modal */}
-        <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-[520px] mx-4">
+        <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-[520px] mx-4 flex flex-col max-h-[90vh]">
           {/* Header */}
           <div className="flex items-center justify-between px-4 py-3 border-b border-[#E4E6EB]">
             <div className="w-9" />
@@ -262,8 +272,10 @@ export default function CreatePostModal({ onClose, editPost }: Props) {
             </button>
           </div>
 
-          {/* Author */}
-          <div className="flex items-center gap-3 px-4 pt-3 pb-1">
+          {/* Vùng chứa nội dung có thể cuộn */}
+          <div className="flex-1 overflow-y-auto custom-scrollbar">
+            {/* Author */}
+            <div className="flex items-center gap-3 px-4 pt-3 pb-1">
             <img src={profile.avatar} alt="me" className="w-10 h-10 rounded-full object-cover" />
             <div>
               <p className="font-semibold text-[#1C1E21] text-sm">
@@ -316,8 +328,9 @@ export default function CreatePostModal({ onClose, editPost }: Props) {
               onChange={(e) => setContent(e.target.value)}
               placeholder={`${profile.name ? profile.name.trim().split(" ").pop() : ""} ơi, bạn đang nghĩ gì thế?`}
               rows={bgGradient ? 4 : 3}
-              className={`w-full resize-none outline-none text-[#1C1E21] placeholder-[#65676B] leading-relaxed transition-all ${bgGradient
-                ? "bg-transparent text-white placeholder-white/70 text-3xl font-bold text-center py-20 px-6" : "bg-transparent text-base p-2"
+              style={bgGradient ? {} : { minHeight: "72px" }}
+              className={`w-full resize-none outline-none text-[#1C1E21] placeholder-[#65676B] leading-relaxed ${bgGradient
+                ? "bg-transparent text-white placeholder-white/70 text-3xl font-bold text-center py-20 px-6 max-h-[300px] overflow-y-auto custom-scrollbar transition-all" : "bg-transparent text-base p-2 overflow-hidden"
                 }`}
             />
           </div>
@@ -598,6 +611,8 @@ export default function CreatePostModal({ onClose, editPost }: Props) {
               )}
             </div>
           )}
+          
+          </div> {/* Kết thúc Vùng chứa nội dung có thể cuộn */}
 
           {/* Toolbar */}
           <div
