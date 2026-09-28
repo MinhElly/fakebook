@@ -16,6 +16,19 @@ spring:
       port: ${REDIS_PORT:6379}
   liquibase:
     contexts: prod
+  security:
+    oauth2:
+      client:
+        provider:
+          oidc:
+            issuer-uri: ${FAKEBOOK_OIDC_ISSUER_URI:}
+        registration:
+          internal:
+            provider: oidc
+            client-id: ${FAKEBOOK_OIDC_CLIENT_ID}
+            client-secret: ${FAKEBOOK_OIDC_CLIENT_SECRET}
+            authorization-grant-type: client_credentials
+            scope: openid
 
 jhipster:
   cache:

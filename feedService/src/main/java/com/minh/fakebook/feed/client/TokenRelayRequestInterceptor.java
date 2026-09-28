@@ -32,22 +32,21 @@ public class TokenRelayRequestInterceptor implements RequestInterceptor {
             template.header("Authorization", "Bearer " + tokenValue);
             return;
         }
-        try{
-            OAuth2AuthorizeRequest authorizeRequest = OAuth2AuthorizeRequest.withClientRegistrationId("oidc")
-                .principal("feed-service-internal")
+        try {
+            OAuth2AuthorizeRequest authorizeRequest = OAuth2AuthorizeRequest.withClientRegistrationId("internal")
+                .principal("feed-service")
                 .build();
             OAuth2AuthorizedClient authorizedClient = authorizedClientManager.authorize(authorizeRequest);
-            if(authorizedClient != null && authorizedClient.getAccessToken() != null){
-                String serviceToken = authorizedClient.getAccessToken().getTokenValue();
-                template.header("Authorization", "Bearer " + serviceToken);
-                LOG.debug("Attached Client Credentials M2M token for internal Feign request.");
-                return;
-            }else {
-                LOG.warn("Could not acquire M2M token for internal Feign request.");
+            if (authorizedClient == null || authorizedClient.getAccessToken() == null) {
+                throw new IllegalStateException("Could not acquire M2M token for internal Feign request");
             }
-            
-        }catch(Exception ex){
-            LOG.error("Error while acquiring M2M token for internal Feign request.", ex.getMessage());
+
+            String serviceToken = authorizedClient.getAccessToken().getTokenValue();
+            template.header("Authorization", "Bearer " + serviceToken);
+            LOG.debug("Attached Client Credentials M2M token for internal Feign request.");
+        } catch (Exception ex) {
+            LOG.error("Error while acquiring M2M token for internal Feign request", ex);
+            throw new IllegalStateException("Could not acquire service token for User Service", ex);
         }
     }
 }

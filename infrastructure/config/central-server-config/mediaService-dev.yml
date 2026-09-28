@@ -13,7 +13,7 @@ spring:
     username: ${FAKEBOOK_DB_USERNAME:root}
     password: ${FAKEBOOK_DB_PASSWORD:}
   liquibase:
-    contexts: dev, faker
+    contexts: dev
 
 cloudinary:
   cloud-name: ${CLOUDINARY_CLOUD_NAME:}

@@ -13,4 +13,4 @@ spring:
     username: ${FAKEBOOK_DB_USERNAME:root}
     password: ${FAKEBOOK_DB_PASSWORD:}
   liquibase:
-    contexts: dev, faker
+    contexts: dev

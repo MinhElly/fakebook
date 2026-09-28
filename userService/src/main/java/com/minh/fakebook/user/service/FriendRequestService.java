@@ -8,6 +8,7 @@ import com.minh.fakebook.user.repository.FriendRequestRepository;
 import com.minh.fakebook.user.repository.FriendshipRepository;
 import com.minh.fakebook.user.repository.UserProfileRepository;
 import com.minh.fakebook.user.service.dto.FriendRequestDTO;
+import com.minh.fakebook.user.service.dto.events.FriendRequestCreatedEvent;
 import com.minh.fakebook.user.service.dto.events.FriendshipUpdatedEvent;
 import com.minh.fakebook.user.service.mapper.FriendRequestMapper;
 
@@ -25,6 +26,7 @@ import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.cache.annotation.Caching;
 import org.springframework.cloud.stream.function.StreamBridge;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -50,17 +52,21 @@ public class FriendRequestService {
 
     private final StreamBridge streamBridge;
 
+    private final ApplicationEventPublisher applicationEventPublisher;
+
     public FriendRequestService(
             FriendRequestRepository friendRequestRepository,
             FriendshipRepository friendshipRepository,
             FriendRequestMapper friendRequestMapper,
             UserProfileRepository userProfileRepository,
-            StreamBridge streamBridge) {
+            StreamBridge streamBridge,
+            ApplicationEventPublisher applicationEventPublisher) {
         this.friendRequestRepository = friendRequestRepository;
         this.friendshipRepository = friendshipRepository;
         this.friendRequestMapper = friendRequestMapper;
         this.userProfileRepository = userProfileRepository;
         this.streamBridge = streamBridge;
+        this.applicationEventPublisher = applicationEventPublisher;
     }
 
     /**
@@ -177,6 +183,9 @@ public class FriendRequestService {
         friendRequest.setStatus(FriendRequestStatus.PENDING);
         friendRequest.setCreatedAt(Instant.now());
         friendRequest = friendRequestRepository.save(friendRequest);
+        applicationEventPublisher.publishEvent(
+            FriendRequestCreatedEvent.create(friendRequest.getId(), senderId, targetUserId)
+        );
         return friendRequestMapper.toDto(friendRequest);  
     }
     @Transactional
@@ -291,4 +300,3 @@ public class FriendRequestService {
 
 
 }
- 

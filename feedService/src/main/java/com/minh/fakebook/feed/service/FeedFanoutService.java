@@ -44,23 +44,7 @@ public class FeedFanoutService {
     @Transactional
     public void processPostCreated(PostCreatedEvent event) {
         LOG.debug("Processing fan-out for postId: {}, visibility: {}", event.id(), event.visibility());
-        Set<UUID> targetUserIds = new LinkedHashSet<>();
-
-        if ("PRIVATE".equalsIgnoreCase(event.visibility())) {
-            targetUserIds.add(event.authorId());
-        } else {
-            List<UUID> friendIds = userServiceClient.getUserFriendsList(event.authorId());
-            if (friendIds != null && !friendIds.isEmpty()) {
-                targetUserIds.addAll(friendIds);
-            }
-        }
-        if ("PUBLIC".equalsIgnoreCase(event.visibility())) {
-            List<UUID> followerIds = userServiceClient.getUserFollowersList(event.authorId());
-            if (followerIds != null && !followerIds.isEmpty()) {
-                targetUserIds.addAll(followerIds);
-            }
-            targetUserIds.add(event.authorId());
-        }
+        Set<UUID> targetUserIds = resolveTargetUserIds(event.authorId(), event.visibility());
 
         if (targetUserIds.isEmpty()) {
             return;
@@ -88,28 +72,85 @@ public class FeedFanoutService {
     public void processPostDeleted(UUID postId) {
         LOG.debug("Removing feed items for deleted postId: {}", postId);
         List<FeedItem> items = feedItemRepository.findByPostId(postId);
-        for (FeedItem item : items) {
-            redisTemplate.opsForZSet().remove(feedKey(item.getUserId()), postId.toString());
-        }
+        Set<UUID> recipientIds = new LinkedHashSet<>();
+        items.forEach(item -> recipientIds.add(item.getUserId()));
         feedItemRepository.deleteByPostId(postId);
+        removeFromRedisAfterCommit(recipientIds, postId);
         LOG.info("Successfully deleted DB and Redis feed items for post {}", postId);
     }
 
-        /**
+    /**
      * Processing post update events.
      */
     @Transactional
     public void processPostUpdated(PostUpdatedEvent event) {
         LOG.debug("Processing post update for postId: {}, visibility: {}", event.id(), event.visibility());
-        
-        // Nếu bài viết đổi thành PRIVATE hoặc INACTIVE -> Xóa khỏi feed bạn bè
-        if ("PRIVATE".equalsIgnoreCase(event.visibility()) || "INACTIVE".equalsIgnoreCase(event.status())) {
+
+        if ("INACTIVE".equalsIgnoreCase(event.status())) {
             processPostDeleted(event.id());
+            return;
         }
+
+        Set<UUID> targetUserIds = resolveTargetUserIds(event.authorId(), event.visibility());
+        List<FeedItem> existingItems = feedItemRepository.findByPostId(event.id());
+        Set<UUID> previousRecipientIds = new LinkedHashSet<>();
+        existingItems.forEach(item -> previousRecipientIds.add(item.getUserId()));
+
+        feedItemRepository.deleteByPostId(event.id());
+        Instant updatedAt = event.updatedAt() != null ? event.updatedAt() : Instant.now();
+        for (UUID recipientId : targetUserIds) {
+            feedItemRepository.insertIgnore(
+                UUID.randomUUID().toString(),
+                recipientId.toString(),
+                event.id().toString(),
+                updatedAt
+            );
+        }
+
+        replaceRedisAfterCommit(previousRecipientIds, targetUserIds, event.id(), updatedAt);
+    }
+
+    private Set<UUID> resolveTargetUserIds(UUID authorId, String visibility) {
+        Set<UUID> targetUserIds = new LinkedHashSet<>();
+        targetUserIds.add(authorId);
+
+        if (!"PRIVATE".equalsIgnoreCase(visibility)) {
+            List<UUID> friendIds = userServiceClient.getUserFriendsList(authorId);
+            if (friendIds != null) {
+                targetUserIds.addAll(friendIds);
+            }
+        }
+        if ("PUBLIC".equalsIgnoreCase(visibility)) {
+            List<UUID> followerIds = userServiceClient.getUserFollowersList(authorId);
+            if (followerIds != null) {
+                targetUserIds.addAll(followerIds);
+            }
+        }
+
+        return targetUserIds;
     }
 
     private void updateRedisAfterCommit(Set<UUID> recipientIds, UUID postId, Instant createdAt) {
-        Runnable update = () -> updateRedis(recipientIds, postId, createdAt);
+        runAfterCommit(() -> updateRedis(recipientIds, postId, createdAt));
+    }
+
+    private void removeFromRedisAfterCommit(Set<UUID> recipientIds, UUID postId) {
+        runAfterCommit(() -> removeFromRedis(recipientIds, postId));
+    }
+
+    private void replaceRedisAfterCommit(
+        Set<UUID> previousRecipientIds,
+        Set<UUID> targetRecipientIds,
+        UUID postId,
+        Instant updatedAt
+    ) {
+        runAfterCommit(() -> {
+            removeFromRedis(previousRecipientIds, postId);
+            updateRedis(targetRecipientIds, postId, updatedAt);
+        });
+    }
+
+    private void runAfterCommit(Runnable update) {
         if (TransactionSynchronizationManager.isSynchronizationActive()) {
             TransactionSynchronizationManager.registerSynchronization(
                 new TransactionSynchronization() {
@@ -121,6 +162,12 @@ public class FeedFanoutService {
             );
         } else {
             update.run();
+        }
+    }
+
+    private void removeFromRedis(Set<UUID> recipientIds, UUID postId) {
+        for (UUID recipientId : recipientIds) {
+            redisTemplate.opsForZSet().remove(feedKey(recipientId), postId.toString());
         }
     }
 

@@ -12,7 +12,7 @@ export default function MainLayout() {
     handleAcceptToast,
     handleRejectToast,
     handleCloseToast,
-  } = useFriendRequestRealtime(status === "authenticated", 4000); // Polling 4s background
+  } = useFriendRequestRealtime(status === "authenticated");
 
   if (status === "initializing") {
     return <SplashScreen />;

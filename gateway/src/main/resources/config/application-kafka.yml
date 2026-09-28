@@ -1,7 +1,7 @@
 spring:
   cloud:
     function:
-      definition: kafkaConsumer;kafkaProducer
+      definition: kafkaConsumer;kafkaProducer;reactionEventConsumer;friendRequestEventConsumer
     stream:
       kafka:
         binder:
@@ -19,3 +19,17 @@ spring:
         kafkaProducer-out-0:
           content-type: text/plain
           group: gateway
+        reactionEventConsumer-in-0:
+          destination: post-reaction-events
+          content-type: application/json
+          consumer:
+            max-attempts: 3
+            back-off-initial-interval: 1000
+            back-off-multiplier: 2.0
+        friendRequestEventConsumer-in-0:
+          destination: friend-request-events
+          content-type: application/json
+          consumer:
+            max-attempts: 3
+            back-off-initial-interval: 1000
+            back-off-multiplier: 2.0

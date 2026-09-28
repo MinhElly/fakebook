@@ -13,4 +13,17 @@ spring:
     username: ${FAKEBOOK_DB_USERNAME:root}
     password: ${FAKEBOOK_DB_PASSWORD:}
   liquibase:
-    contexts: dev, faker
+    contexts: dev
+  security:
+    oauth2:
+      client:
+        provider:
+          oidc:
+            issuer-uri: ${FAKEBOOK_OIDC_ISSUER_URI:http://localhost:9080/realms/jhipster}
+        registration:
+          internal:
+            provider: oidc
+            client-id: ${FAKEBOOK_OIDC_INTERNAL_CLIENT_ID:internal}
+            client-secret: ${FAKEBOOK_OIDC_INTERNAL_CLIENT_SECRET:internal}
+            authorization-grant-type: client_credentials
+            scope: openid

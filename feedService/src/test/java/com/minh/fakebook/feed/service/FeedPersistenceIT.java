@@ -16,6 +16,7 @@ import com.minh.fakebook.feed.client.UserServiceClient;
 import com.minh.fakebook.feed.domain.FeedItem;
 import com.minh.fakebook.feed.repository.FeedItemRepository;
 import com.minh.fakebook.feed.service.event.PostCreatedEvent;
+import com.minh.fakebook.feed.service.event.PostUpdatedEvent;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
@@ -96,6 +97,23 @@ class FeedPersistenceIT {
 
         assertThatCode(() -> feedFanoutService.processPostCreated(event)).doesNotThrowAnyException();
         assertThat(feedItemRepository.findByPostId(postId)).hasSize(1);
+        verify(userServiceClient, never()).getUserFriendsList(authorId);
+        verify(userServiceClient, never()).getUserFollowersList(authorId);
+    }
+
+    @Test
+    void friendsEventPersistsForAuthorAndFriendsButNotFollowers() {
+        UUID authorId = UUID.randomUUID();
+        UUID friendId = UUID.randomUUID();
+        UUID postId = UUID.randomUUID();
+        when(userServiceClient.getUserFriendsList(authorId)).thenReturn(List.of(friendId));
+
+        feedFanoutService.processPostCreated(postCreatedEvent(postId, authorId, "FRIENDS"));
+
+        assertThat(feedItemRepository.findByPostId(postId))
+            .extracting(FeedItem::getUserId)
+            .containsExactlyInAnyOrder(authorId, friendId);
+        verify(userServiceClient, never()).getUserFollowersList(authorId);
     }
 
     @Test
@@ -122,6 +140,31 @@ class FeedPersistenceIT {
 
         assertThat(feedItemRepository.findByPostId(postId)).isEmpty();
         verify(zSetOperations).remove("feed:user:" + userId, postId.toString());
+    }
+
+    @Test
+    void updateToPrivateKeepsOnlyTheAuthorInTheFeed() {
+        UUID authorId = UUID.randomUUID();
+        UUID friendId = UUID.randomUUID();
+        UUID postId = UUID.randomUUID();
+        feedItemRepository.saveAllAndFlush(
+            List.of(
+                new FeedItem().userId(authorId).postId(postId).createdAt(CREATED_AT),
+                new FeedItem().userId(friendId).postId(postId).createdAt(CREATED_AT)
+            )
+        );
+
+        feedFanoutService.processPostUpdated(
+            new PostUpdatedEvent(postId, authorId, "content", "PRIVATE", "ACTIVE", CREATED_AT.plusSeconds(60))
+        );
+
+        assertThat(feedItemRepository.findByPostId(postId))
+            .extracting(FeedItem::getUserId)
+            .containsExactly(authorId);
+        verify(userServiceClient, never()).getUserFriendsList(authorId);
+        verify(userServiceClient, never()).getUserFollowersList(authorId);
+        verify(zSetOperations).remove("feed:user:" + friendId, postId.toString());
+        verify(zSetOperations).add("feed:user:" + authorId, postId.toString(), CREATED_AT.plusSeconds(60).toEpochMilli());
     }
 
     @Test
