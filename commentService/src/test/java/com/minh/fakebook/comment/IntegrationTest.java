@@ -9,6 +9,7 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 import org.springframework.boot.test.context.SpringBootTest;
+import com.minh.fakebook.comment.config.RedisTestContainer;
 
 /**
  * Base composite annotation for integration tests.
@@ -22,6 +23,7 @@ import org.springframework.boot.test.context.SpringBootTest;
         TestSecurityConfiguration.class,
         JacksonHibernateConfiguration.class,
         DatabaseTestcontainer.class,
+        RedisTestContainer.class,
     }
 )
 public @interface IntegrationTest {}
