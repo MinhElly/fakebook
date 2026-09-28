@@ -1,7 +1,7 @@
 spring:
   cloud:
     function:
-      definition: processPostEvent;kafkaConsumer;kafkaProducer
+      definition: processPostEvent;processFriendshipEvent;kafkaConsumer;kafkaProducer
     stream:
       kafka:
         binder:
@@ -14,11 +14,24 @@ spring:
               enable-dlq: true
               dlq-name: post-events-feed-dlt
               auto-commit-offset: false
+          processFriendshipEvent-in-0:
+            consumer:
+              enable-dlq: true
+              dlq-name: friendship-events-feed-dlt
+              auto-commit-offset: false
       bindings:
         processPostEvent-in-0:
           destination: post-events
           content-type: text/plain
           group: feed-service-post-sync
+          consumer:
+            max-attempts: 3
+            back-off-initial-interval: 1000
+            back-off-multiplier: 2.0
+        processFriendshipEvent-in-0:
+          destination: friendship-events-topic
+          content-type: application/json
+          group: feed-service-friendship-sync
           consumer:
             max-attempts: 3
             back-off-initial-interval: 1000
