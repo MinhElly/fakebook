@@ -5,15 +5,17 @@ import { getCommentsByPostId, createComment as apiCreateComment, updateComment a
 import { useAuth } from "@/providers/AuthProvider";
 import { useUserStore } from "@/stores/userStore";
 import { getTimeAgo } from "@/utils/timeUtils";
-
+import { useRealtime } from "@/providers/RealtimeProvider";
+import { useEffect, useRef } from "react";
 export default function CommentProvider({ children }: { children: React.ReactNode }) {
   const [comments, setComments] = useState<Comment[]>([]);
   const [fetchedPosts, setFetchedPosts] = useState<Set<string>>(new Set());
-  const { user } = useAuth();
+  const { user, status } = useAuth();
   const { profile } = useUserStore();
+  const { subscribe } = useRealtime();
 
-  const fetchComments = useCallback(async (postId: string) => {
-    if (fetchedPosts.has(postId)) return;
+  const fetchComments = useCallback(async (postId: string, force = false) => {
+    if (!force && fetchedPosts.has(postId)) return;
     try {
       const dtos = await getCommentsByPostId(postId);
       
@@ -62,6 +64,51 @@ export default function CommentProvider({ children }: { children: React.ReactNod
       console.error(e);
     }
   }, [fetchedPosts]);
+
+  // Dùng Ref để gọi hàm mới nhất mà không phải re-subscribe
+  const fetchCommentsRef = useRef(fetchComments);
+  useEffect(() => {
+    fetchCommentsRef.current = fetchComments;
+  }, [fetchComments]);
+
+  useEffect(() => {
+    if (status !== "authenticated") return;
+
+    const pendingPostIds = new Set<string>();
+    let refreshTimer: number | undefined;
+
+    const flushCommentChanges = () => {
+      const changedPostIds = [...pendingPostIds];
+      pendingPostIds.clear();
+      if (changedPostIds.length === 0) return;
+
+      changedPostIds.forEach(postId => {
+        // Buộc cho phép tải lại bằng cách xóa cờ đã tải
+        setFetchedPosts(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(postId);
+          return newSet;
+        });
+        
+        fetchCommentsRef.current(postId, true);
+      });
+    };
+
+    const unsubscribe = subscribe(event => {
+      if (event.eventType !== "COMMENT_CHANGED") {
+        return;
+      }
+      
+      pendingPostIds.add(event.postId);
+      if (refreshTimer !== undefined) window.clearTimeout(refreshTimer);
+      refreshTimer = window.setTimeout(() => void flushCommentChanges(), 300);
+    });
+
+    return () => {
+      unsubscribe();
+      if (refreshTimer !== undefined) window.clearTimeout(refreshTimer);
+    };
+  }, [status, subscribe]);
 
   async function createComment(postId: string, content: string, parentId: string | null = null) {
     const dto = await apiCreateComment(postId, content, parentId);

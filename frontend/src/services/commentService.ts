@@ -18,7 +18,7 @@ export interface CommentDTO {
 
 export async function getCommentsByPostId(postId: string): Promise<CommentDTO[]> {
   try {
-    const response = await api.get<CommentDTO[]>(`/services/commentservice/api/comments?postId.equals=${postId}&size=100`);
+    const response = await api.get<CommentDTO[]>(`/services/commentservice/api/comments?postId.equals=${postId}&size=100&_t=${Date.now()}`);
     return response.data || [];
   } catch (error) {
     console.warn("Failed to fetch comments:", error);
