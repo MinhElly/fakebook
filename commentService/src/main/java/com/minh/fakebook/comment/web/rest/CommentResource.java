@@ -31,8 +31,11 @@ import com.minh.fakebook.comment.security.AuthoritiesConstants;
 import com.minh.fakebook.comment.security.SecurityUtils;
 import com.minh.fakebook.comment.service.CommentQueryService;
 import com.minh.fakebook.comment.service.CommentService;
+import com.minh.fakebook.comment.service.CommentSummaryService;
 import com.minh.fakebook.comment.service.criteria.CommentCriteria;
 import com.minh.fakebook.comment.service.dto.CommentDTO;
+import com.minh.fakebook.comment.service.dto.CommentSummaryDTO;
+import com.minh.fakebook.comment.service.dto.CommentSummaryRequest;
 import com.minh.fakebook.comment.service.dto.CreateCommentRequestDTO;
 import com.minh.fakebook.comment.service.dto.ReplyCommentRequestDTO;
 import com.minh.fakebook.comment.service.dto.UpdateCommentRequestDTO;
@@ -64,11 +67,14 @@ public class CommentResource {
 
     private final CommentQueryService commentQueryService;
 
+    private final CommentSummaryService commentSummaryService;
+
     public CommentResource(CommentService commentService, CommentRepository commentRepository,
-            CommentQueryService commentQueryService) {
+            CommentQueryService commentQueryService, CommentSummaryService commentSummaryService) {
         this.commentService = commentService;
         this.commentRepository = commentRepository;
         this.commentQueryService = commentQueryService;
+        this.commentSummaryService = commentSummaryService;
     }
 
     @PostMapping("/create")
@@ -153,6 +159,14 @@ public class CommentResource {
     public ResponseEntity<Long> countComments(CommentCriteria criteria) {
         LOG.debug("REST request to count Comments by criteria: {}", criteria);
         return ResponseEntity.ok().body(commentQueryService.countByCriteria(criteria));
+    }
+
+    @PostMapping("/summaries")
+    public ResponseEntity<List<CommentSummaryDTO>> getCommentSummaries(
+        @Valid @RequestBody CommentSummaryRequest request
+    ) {
+        LOG.debug("REST request to get Comment summaries for posts: {}", request.postIds());
+        return ResponseEntity.ok(commentSummaryService.getSummaries(request.postIds()));
     }
 
     /**
