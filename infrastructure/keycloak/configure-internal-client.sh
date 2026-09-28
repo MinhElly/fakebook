@@ -7,6 +7,7 @@
   admin_password="${KEYCLOAK_SYNC_ADMIN_PASSWORD:?KEYCLOAK_SYNC_ADMIN_PASSWORD is required}"
   client_id="${FAKEBOOK_OIDC_INTERNAL_CLIENT_ID:?FAKEBOOK_OIDC_INTERNAL_CLIENT_ID is required}"
   client_secret="${FAKEBOOK_OIDC_INTERNAL_CLIENT_SECRET:?FAKEBOOK_OIDC_INTERNAL_CLIENT_SECRET is required}"
+  internal_role="${FAKEBOOK_OIDC_INTERNAL_ROLE:-ROLE_INTERNAL}"
 
   kcadm="/opt/keycloak/bin/kcadm.sh"
   config_file="/tmp/kcadm.config"
@@ -79,6 +80,51 @@
     -s "serviceAccountsEnabled=true" \
     -s "standardFlowEnabled=false" \
     -s "directAccessGrantsEnabled=false" \
+    -s "fullScopeAllowed=true" \
     -s "secret=$client_secret"
 
-  echo "Internal OAuth client synchronized."
+  if ! "$kcadm" get "roles/$internal_role" \
+    --config "$config_file" \
+    -r "$realm" >/dev/null 2>&1; then
+    "$kcadm" create roles \
+      --config "$config_file" \
+      -r "$realm" \
+      -s "name=$internal_role" \
+      -s "description=Internal service-to-service access" >/dev/null
+  fi
+
+  service_account_user_id="$(
+    "$kcadm" get "clients/$client_uuid/service-account-user" \
+      --config "$config_file" \
+      -r "$realm" \
+      --fields id \
+      --format csv \
+      --noquotes |
+    head -n 1
+  )"
+
+  if [ -z "$service_account_user_id" ]; then
+    echo "Service account for internal client '$client_id' could not be resolved." >&2
+    exit 1
+  fi
+
+  assigned_role="$(
+    "$kcadm" get "users/$service_account_user_id/role-mappings/realm" \
+      --config "$config_file" \
+      -r "$realm" \
+      --fields name \
+      --format csv \
+      --noquotes |
+    tr -d '\r' |
+    grep -Fx "$internal_role" || true
+  )"
+
+  if [ -z "$assigned_role" ]; then
+    "$kcadm" add-roles \
+      --config "$config_file" \
+      -r "$realm" \
+      --uid "$service_account_user_id" \
+      --rolename "$internal_role"
+  fi
+
+  echo "Internal OAuth client and role synchronized."

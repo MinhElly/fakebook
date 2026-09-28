@@ -100,6 +100,16 @@ class SecurityUtilsUnitTest {
     }
 
     @Test
+    void testExtractAuthorityFromClaims_KeycloakRealmRoles() {
+        Map<String, Object> claims = new HashMap<>();
+        claims.put("realm_access", Map.of("roles", List.of(AuthoritiesConstants.INTERNAL, "offline_access")));
+
+        List<GrantedAuthority> authorities = SecurityUtils.extractAuthorityFromClaims(claims);
+
+        assertThat(authorities).containsExactly(new SimpleGrantedAuthority(AuthoritiesConstants.INTERNAL));
+    }
+
+    @Test
     void testIsAuthenticated() {
         SecurityContext securityContext = SecurityContextHolder.createEmptyContext();
         securityContext.setAuthentication(new UsernamePasswordAuthenticationToken("admin", "admin"));

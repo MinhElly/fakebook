@@ -12,6 +12,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.minh.fakebook.feed.IntegrationTest;
+import com.minh.fakebook.feed.client.dto.FeedPostReferenceDTO;
 import com.minh.fakebook.feed.client.UserServiceClient;
 import com.minh.fakebook.feed.domain.FeedItem;
 import com.minh.fakebook.feed.repository.FeedItemRepository;
@@ -36,6 +37,9 @@ class FeedPersistenceIT {
 
     @Autowired
     private FeedFanoutService feedFanoutService;
+
+    @Autowired
+    private FriendshipFeedProjectionService friendshipFeedProjectionService;
 
     @Autowired
     private FeedItemRepository feedItemRepository;
@@ -77,6 +81,11 @@ class FeedPersistenceIT {
         List<FeedItem> rows = feedItemRepository.findByPostId(postId);
         assertThat(rows).extracting(FeedItem::getUserId).containsExactlyInAnyOrder(authorId, friendId, followerId);
         assertThat(rows).hasSize(3);
+        assertThat(rows)
+            .allSatisfy(item -> {
+                assertThat(item.getAuthorId()).isEqualTo(authorId);
+                assertThat(item.getVisibility()).isEqualTo("PUBLIC");
+            });
     }
 
     @Test
@@ -113,6 +122,11 @@ class FeedPersistenceIT {
         assertThat(feedItemRepository.findByPostId(postId))
             .extracting(FeedItem::getUserId)
             .containsExactlyInAnyOrder(authorId, friendId);
+        assertThat(feedItemRepository.findByPostId(postId))
+            .allSatisfy(item -> {
+                assertThat(item.getAuthorId()).isEqualTo(authorId);
+                assertThat(item.getVisibility()).isEqualTo("FRIENDS");
+            });
         verify(userServiceClient, never()).getUserFollowersList(authorId);
     }
 
@@ -161,6 +175,11 @@ class FeedPersistenceIT {
         assertThat(feedItemRepository.findByPostId(postId))
             .extracting(FeedItem::getUserId)
             .containsExactly(authorId);
+        assertThat(feedItemRepository.findByPostId(postId))
+            .allSatisfy(item -> {
+                assertThat(item.getAuthorId()).isEqualTo(authorId);
+                assertThat(item.getVisibility()).isEqualTo("PRIVATE");
+            });
         verify(userServiceClient, never()).getUserFriendsList(authorId);
         verify(userServiceClient, never()).getUserFollowersList(authorId);
         verify(zSetOperations).remove("feed:user:" + friendId, postId.toString());
@@ -182,6 +201,91 @@ class FeedPersistenceIT {
         var page = feedItemRepository.findByUserIdOrderByCreatedAtDescPostIdDesc(userId, PageRequest.of(0, 20));
 
         assertThat(page.getContent()).extracting(FeedItem::getPostId).containsExactly(higherPostId, lowerPostId);
+    }
+
+    @Test
+    void findsAndDeletesOnlyFriendsItemsByRecipientAndAuthor() {
+        UUID recipientId = UUID.randomUUID();
+        UUID authorId = UUID.randomUUID();
+        UUID friendsPostId = UUID.randomUUID();
+        UUID publicPostId = UUID.randomUUID();
+        feedItemRepository.saveAllAndFlush(
+            List.of(
+                new FeedItem()
+                    .userId(recipientId)
+                    .postId(friendsPostId)
+                    .authorId(authorId)
+                    .visibility("FRIENDS")
+                    .createdAt(CREATED_AT),
+                new FeedItem()
+                    .userId(recipientId)
+                    .postId(publicPostId)
+                    .authorId(authorId)
+                    .visibility("PUBLIC")
+                    .createdAt(CREATED_AT.plusSeconds(1))
+            )
+        );
+
+        assertThat(feedItemRepository.findByUserIdAndAuthorIdAndVisibility(recipientId, authorId, "FRIENDS"))
+            .extracting(FeedItem::getPostId)
+            .containsExactly(friendsPostId);
+
+        feedItemRepository.deleteByUserIdAndAuthorIdAndVisibility(recipientId, authorId, "FRIENDS");
+        feedItemRepository.flush();
+
+        assertThat(feedItemRepository.findByPostId(friendsPostId)).isEmpty();
+        assertThat(feedItemRepository.findByPostId(publicPostId)).hasSize(1);
+    }
+
+    @Test
+    void friendshipBackfillPersistsMetadataAndIsIdempotent() {
+        UUID recipientId = UUID.randomUUID();
+        UUID authorId = UUID.randomUUID();
+        UUID postId = UUID.randomUUID();
+        var post = new FeedPostReferenceDTO(postId, authorId, "FRIENDS", CREATED_AT);
+
+        friendshipFeedProjectionService.backfill(recipientId, authorId, List.of(post));
+        friendshipFeedProjectionService.backfill(recipientId, authorId, List.of(post));
+
+        assertThat(feedItemRepository.findByUserIdAndAuthorIdAndVisibility(recipientId, authorId, "FRIENDS"))
+            .singleElement()
+            .satisfies(item -> {
+                assertThat(item.getPostId()).isEqualTo(postId);
+                assertThat(item.getCreatedAt()).isEqualTo(CREATED_AT);
+            });
+        verify(zSetOperations, org.mockito.Mockito.times(2))
+            .add("feed:user:" + recipientId, postId.toString(), CREATED_AT.toEpochMilli());
+    }
+
+    @Test
+    void unfriendingRemovesOnlyFriendsProjectionFromMariaDbAndRedis() {
+        UUID recipientId = UUID.randomUUID();
+        UUID authorId = UUID.randomUUID();
+        UUID friendsPostId = UUID.randomUUID();
+        UUID publicPostId = UUID.randomUUID();
+        feedItemRepository.saveAllAndFlush(
+            List.of(
+                new FeedItem()
+                    .userId(recipientId)
+                    .postId(friendsPostId)
+                    .authorId(authorId)
+                    .visibility("FRIENDS")
+                    .createdAt(CREATED_AT),
+                new FeedItem()
+                    .userId(recipientId)
+                    .postId(publicPostId)
+                    .authorId(authorId)
+                    .visibility("PUBLIC")
+                    .createdAt(CREATED_AT.plusSeconds(1))
+            )
+        );
+
+        friendshipFeedProjectionService.removeFriendsPosts(recipientId, authorId);
+
+        assertThat(feedItemRepository.findByPostId(friendsPostId)).isEmpty();
+        assertThat(feedItemRepository.findByPostId(publicPostId)).hasSize(1);
+        verify(zSetOperations).remove("feed:user:" + recipientId, friendsPostId.toString());
+        verify(zSetOperations, never()).remove("feed:user:" + recipientId, publicPostId.toString());
     }
 
     private PostCreatedEvent postCreatedEvent(UUID postId, UUID authorId, String visibility) {

@@ -14,6 +14,8 @@ management:
       endpoint: http://${ZIPKIN_HOST:zipkin}:${ZIPKIN_PORT:9411}/api/v2/spans
 
 spring:
+  kafka:
+    bootstrap-servers: ${KAFKA_HOST:kafka}:${KAFKA_PORT:29092}
   docker:
     compose:
       enabled: false

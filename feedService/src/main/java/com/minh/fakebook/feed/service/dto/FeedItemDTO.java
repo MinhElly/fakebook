@@ -23,6 +23,10 @@ public class FeedItemDTO implements Serializable {
     @NotNull
     private Instant createdAt;
 
+    private UUID authorId;
+
+    private String visibility;
+
     public UUID getId() {
         return id;
     }
@@ -55,6 +59,22 @@ public class FeedItemDTO implements Serializable {
         this.createdAt = createdAt;
     }
 
+    public UUID getAuthorId() {
+        return authorId;
+    }
+
+    public void setAuthorId(UUID authorId) {
+        this.authorId = authorId;
+    }
+
+    public String getVisibility() {
+        return visibility;
+    }
+
+    public void setVisibility(String visibility) {
+        this.visibility = visibility;
+    }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) {
@@ -84,6 +104,8 @@ public class FeedItemDTO implements Serializable {
             ", userId='" + getUserId() + "'" +
             ", postId='" + getPostId() + "'" +
             ", createdAt='" + getCreatedAt() + "'" +
+            ", authorId='" + getAuthorId() + "'" +
+            ", visibility='" + getVisibility() + "'" +
             "}";
     }
 }
