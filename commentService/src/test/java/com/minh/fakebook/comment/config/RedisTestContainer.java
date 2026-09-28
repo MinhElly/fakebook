@@ -11,22 +11,22 @@ import org.testcontainers.utility.DockerImageName;
 @TestConfiguration(proxyBeanMethods = false)
 public class RedisTestContainer {
 
-    private static final GenericContainer<?> REDIS_CONTAINER = new GenericContainer<>(DockerImageName.parse("redis:7.2.4"))
+    private static final GenericContainer REDIS_CONTAINER = new GenericContainer("redis:8.10.1")
         .withExposedPorts(6379)
         .withLogConsumer(new Slf4jLogConsumer(LoggerFactory.getLogger(RedisTestContainer.class)))
         .withReuse(true);
 
     @Bean
-    public GenericContainer<?> redisContainer() {
+    GenericContainer redisContainer() {
         return REDIS_CONTAINER;
     }
 
     @Bean
-    public DynamicPropertyRegistrar redisProperties(GenericContainer<?> redisContainer) {
+    DynamicPropertyRegistrar redisProperties(GenericContainer redisContainer) {
         return registry ->
             registry.add(
                 "jhipster.cache.redis.server",
-                () -> "redis://" + redisContainer.getHost() + ":" + redisContainer.getMappedPort(6379)
+                () -> "redis://" + redisContainer.getContainerIpAddress() + ":" + redisContainer.getMappedPort(6379)
             );
     }
 }
