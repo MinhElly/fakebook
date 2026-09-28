@@ -114,6 +114,7 @@ export default function CreatePostModal({ onClose, editPost }: Props) {
   const [friendsList, setFriendsList] = useState<FriendshipItem[]>([]);
   const [taggedUserIds, setTaggedUserIds] = useState<string[]>(editPost?.taggedUserIds || []);
   const [isLoading, setIsLoading] = useState(false);
+  const isSubmittingRef = useRef(false);
 
   useEffect(() => {
     if (showTagFriends && friendsList.length === 0) {
@@ -126,7 +127,8 @@ export default function CreatePostModal({ onClose, editPost }: Props) {
   }, []);
 
   async function handleSubmit() {
-    if (!canSubmit || isLoading) return;
+    if (!canSubmit || isSubmittingRef.current) return;
+    isSubmittingRef.current = true;
     setIsLoading(true);
 
     // Nối lên mã màu nền vào đầu văn bản trước khi gửi xuống Server
@@ -142,17 +144,17 @@ export default function CreatePostModal({ onClose, editPost }: Props) {
       finalContent = `[LOC:` + location.trim() + `]\n` + finalContent;
     }
 
+    // Tắt cửa sổ đăng bài ngay lập tức
+    onClose();
+
     try {
       if (isEdit) {
         await updatePost(editPost!.id, finalContent, imageFile || imageUrl, visibility, taggedUserIds);
       } else {
         await addPost(finalContent, imageFile || imageUrl, visibility, taggedUserIds);
       }
-      onClose();
-    } catch {
-      // The provider keeps the modal state consistent and shows the error toast.
-    } finally {
-      setIsLoading(false);
+    } catch (error) {
+      console.error(error);
     }
   }
 
