@@ -43,6 +43,13 @@ public class FeedItem implements Serializable {
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
 
+    @JdbcTypeCode(SqlTypes.VARCHAR)
+    @Column(name = "author_id", length = 36)
+    private UUID authorId;
+
+    @Column(name = "visibility", length = 20)
+    private String visibility;
+
     // jhipster-needle-entity-add-field - JHipster will add fields here
 
     public UUID getId() {
@@ -97,6 +104,32 @@ public class FeedItem implements Serializable {
         this.createdAt = createdAt;
     }
 
+    public UUID getAuthorId() {
+        return this.authorId;
+    }
+
+    public FeedItem authorId(UUID authorId) {
+        this.setAuthorId(authorId);
+        return this;
+    }
+
+    public void setAuthorId(UUID authorId) {
+        this.authorId = authorId;
+    }
+
+    public String getVisibility() {
+        return this.visibility;
+    }
+
+    public FeedItem visibility(String visibility) {
+        this.setVisibility(visibility);
+        return this;
+    }
+
+    public void setVisibility(String visibility) {
+        this.visibility = visibility;
+    }
+
     // jhipster-needle-entity-add-getters-setters - JHipster will add getters and setters here
 
     @Override
@@ -124,6 +157,8 @@ public class FeedItem implements Serializable {
             ", userId='" + getUserId() + "'" +
             ", postId='" + getPostId() + "'" +
             ", createdAt='" + getCreatedAt() + "'" +
+            ", authorId='" + getAuthorId() + "'" +
+            ", visibility='" + getVisibility() + "'" +
             "}";
     }
 }

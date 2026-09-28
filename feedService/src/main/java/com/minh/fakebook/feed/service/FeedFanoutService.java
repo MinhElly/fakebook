@@ -56,6 +56,8 @@ public class FeedFanoutService {
                 UUID.randomUUID().toString(),
                 recipientId.toString(),
                 event.id().toString(),
+                event.authorId().toString(),
+                event.visibility(),
                 createdAt
             );
         }
@@ -103,6 +105,8 @@ public class FeedFanoutService {
                 UUID.randomUUID().toString(),
                 recipientId.toString(),
                 event.id().toString(),
+                event.authorId().toString(),
+                event.visibility(),
                 updatedAt
             );
         }
