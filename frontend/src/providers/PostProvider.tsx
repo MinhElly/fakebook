@@ -298,7 +298,16 @@ export default function PostProvider({ children }: { children: React.ReactNode }
       }
 
       if (pageNum === 0) {
-        setPosts(mappedPosts);
+        if (isForceRefresh) {
+          // Khi đăng bài mới hoặc có polling, ta append các bài mới lên ĐẦU mảng cũ
+          // thay vì ghi đè làm mất các bài cũ người dùng đã cuộn xuống tải.
+          setPosts((prev) => {
+            const newPosts = mappedPosts.filter((m: any) => !prev.some(p => p.id === m.id));
+            return [...newPosts, ...prev];
+          });
+        } else {
+          setPosts(mappedPosts);
+        }
       } else {
         setPosts((prev) => {
           const newPosts = mappedPosts.filter((m: any) => !prev.some(p => p.id === m.id));
