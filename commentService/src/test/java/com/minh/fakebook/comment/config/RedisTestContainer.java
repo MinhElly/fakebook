@@ -2,11 +2,10 @@ package com.minh.fakebook.comment.config;
 
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.context.annotation.Bean;
-import org.springframework.test.context.DynamicPropertyRegistrar;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
-import org.testcontainers.utility.DockerImageName;
 
 @TestConfiguration(proxyBeanMethods = false)
 public class RedisTestContainer {
@@ -16,17 +15,12 @@ public class RedisTestContainer {
         .withLogConsumer(new Slf4jLogConsumer(LoggerFactory.getLogger(RedisTestContainer.class)))
         .withReuse(true);
 
-    @Bean
-    GenericContainer redisContainer() {
-        return REDIS_CONTAINER;
+    static {
+        REDIS_CONTAINER.start();
     }
 
-    @Bean
-    DynamicPropertyRegistrar redisProperties(GenericContainer redisContainer) {
-        return registry ->
-            registry.add(
-                "jhipster.cache.redis.server",
-                () -> "redis://" + redisContainer.getContainerIpAddress() + ":" + redisContainer.getMappedPort(6379)
-            );
+    @DynamicPropertySource
+    static void redisProperties(DynamicPropertyRegistry registry) {
+        registry.add("jhipster.cache.redis.server", () -> "redis://" + REDIS_CONTAINER.getContainerIpAddress() + ":" + REDIS_CONTAINER.getMappedPort(6379));
     }
 }
