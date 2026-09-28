@@ -2,8 +2,8 @@ package com.minh.fakebook.comment.config;
 
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.context.annotation.Bean;
+import org.springframework.test.context.DynamicPropertyRegistrar;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.utility.DockerImageName;
@@ -17,8 +17,16 @@ public class RedisTestContainer {
         .withReuse(true);
 
     @Bean
-    @ServiceConnection(name = "redis")
-    GenericContainer<?> redisContainer() {
+    public GenericContainer<?> redisContainer() {
         return REDIS_CONTAINER;
+    }
+
+    @Bean
+    public DynamicPropertyRegistrar redisProperties(GenericContainer<?> redisContainer) {
+        return registry ->
+            registry.add(
+                "jhipster.cache.redis.server",
+                () -> "redis://" + redisContainer.getHost() + ":" + redisContainer.getMappedPort(6379)
+            );
     }
 }
