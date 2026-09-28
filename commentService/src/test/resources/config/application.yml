@@ -75,9 +75,6 @@ jhipster:
       server: redis://${spring.data.redis.host}:${spring.data.redis.port}
   mail:
     from: commentService@localhost.com
-
-  mail:
-    from: commentService@localhost.com
     base-url: http://127.0.0.1:8080
   logging:
     # To test json console appender

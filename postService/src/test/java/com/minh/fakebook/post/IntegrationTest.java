@@ -9,7 +9,7 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 import org.springframework.boot.test.context.SpringBootTest;
-com.minh.fakebook.post.config.RedisTestContainer;
+import com.minh.fakebook.post.config.RedisTestContainer;
 
 /**
  * Base composite annotation for integration tests.
