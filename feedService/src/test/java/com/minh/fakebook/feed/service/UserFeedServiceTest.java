@@ -2,6 +2,9 @@ package com.minh.fakebook.feed.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anySet;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -14,9 +17,11 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.PageImpl;
@@ -68,6 +73,7 @@ class UserFeedServiceTest {
 
         assertThat(result.getContent()).extracting(FeedItemDTO::getPostId).containsExactly(firstPostId, secondPostId);
         assertThat(result.getTotalElements()).isEqualTo(2);
+        verify(feedItemRepository, never()).findByUserIdOrderByCreatedAtDescPostIdDesc(userId, PageRequest.of(0, 500));
     }
 
     @Test
@@ -79,11 +85,24 @@ class UserFeedServiceTest {
         when(zSetOperations.reverseRange("feed:user:" + userId, 10, 19)).thenReturn(Set.of());
         when(feedItemRepository.findByUserIdOrderByCreatedAtDescPostIdDesc(userId, pageable))
             .thenReturn(new PageImpl<>(List.of(item), pageable, 11));
+        when(feedItemRepository.findByUserIdOrderByCreatedAtDescPostIdDesc(userId, PageRequest.of(0, 500)))
+            .thenReturn(new PageImpl<>(List.of(item), PageRequest.of(0, 500), 11));
 
         var result = userFeedService.getUserFeed(userId, pageable);
 
         assertThat(result.getContent()).extracting(FeedItemDTO::getPostId).containsExactly(item.getPostId());
         assertThat(result.getTotalElements()).isEqualTo(11);
+
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<Set<ZSetOperations.TypedTuple<String>>> tuplesCaptor = ArgumentCaptor.forClass(Set.class);
+        verify(zSetOperations).add(eq("feed:user:" + userId), tuplesCaptor.capture());
+        assertThat(tuplesCaptor.getValue())
+            .singleElement()
+            .satisfies(tuple -> {
+                assertThat(tuple.getValue()).isEqualTo(item.getPostId().toString());
+                assertThat(tuple.getScore()).isEqualTo((double) item.getCreatedAt().toEpochMilli());
+            });
+        verify(zSetOperations).removeRange("feed:user:" + userId, 0, -501);
     }
 
     @Test
@@ -99,6 +118,47 @@ class UserFeedServiceTest {
         var result = userFeedService.getUserFeed(userId, pageable);
 
         assertThat(result.getContent()).extracting(FeedItemDTO::getPostId).containsExactly(item.getPostId());
+        verify(feedItemRepository, never()).findByUserIdOrderByCreatedAtDescPostIdDesc(userId, PageRequest.of(0, 500));
+        verify(zSetOperations, never()).add(eq("feed:user:" + userId), anySet());
+    }
+
+    @Test
+    void doesNotWarmWhenRequestedPageIsBeyondAPopulatedCache() {
+        UUID userId = UUID.randomUUID();
+        var pageable = PageRequest.of(1, 20);
+        String redisKey = "feed:user:" + userId;
+        FeedItem item = feedItem(userId, UUID.randomUUID(), Instant.parse("2026-09-22T10:00:00Z"));
+
+        when(zSetOperations.reverseRange(redisKey, 20, 39)).thenReturn(Set.of());
+        when(zSetOperations.zCard(redisKey)).thenReturn(5L);
+        when(feedItemRepository.findByUserIdOrderByCreatedAtDescPostIdDesc(userId, pageable))
+            .thenReturn(new PageImpl<>(List.of(item), pageable, 21));
+
+        var result = userFeedService.getUserFeed(userId, pageable);
+
+        assertThat(result.getContent()).extracting(FeedItemDTO::getPostId).containsExactly(item.getPostId());
+        verify(feedItemRepository, never()).findByUserIdOrderByCreatedAtDescPostIdDesc(userId, PageRequest.of(0, 500));
+        verify(zSetOperations, never()).add(eq(redisKey), anySet());
+    }
+
+    @Test
+    void returnsMariaDbPageWhenCacheWarmWriteFails() {
+        UUID userId = UUID.randomUUID();
+        var pageable = PageRequest.of(0, 20);
+        String redisKey = "feed:user:" + userId;
+        FeedItem item = feedItem(userId, UUID.randomUUID(), Instant.parse("2026-09-22T10:00:00Z"));
+
+        when(zSetOperations.reverseRange(redisKey, 0, 19)).thenReturn(Set.of());
+        when(feedItemRepository.findByUserIdOrderByCreatedAtDescPostIdDesc(userId, pageable))
+            .thenReturn(new PageImpl<>(List.of(item), pageable, 1));
+        when(feedItemRepository.findByUserIdOrderByCreatedAtDescPostIdDesc(userId, PageRequest.of(0, 500)))
+            .thenReturn(new PageImpl<>(List.of(item), PageRequest.of(0, 500), 1));
+        when(zSetOperations.add(eq(redisKey), anySet())).thenThrow(new IllegalStateException("Redis unavailable"));
+
+        var result = Assertions.assertDoesNotThrow(() -> userFeedService.getUserFeed(userId, pageable));
+
+        assertThat(result.getContent()).extracting(FeedItemDTO::getPostId).containsExactly(item.getPostId());
+        verify(zSetOperations, never()).removeRange(redisKey, 0, -501);
     }
 
     @Test
