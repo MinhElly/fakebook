@@ -19,11 +19,12 @@ import org.springframework.core.env.Environment;
 import tech.jhipster.config.DefaultProfileUtil;
 import tech.jhipster.config.JHipsterConstants;
 import org.springframework.cloud.openfeign.EnableFeignClients;
-
+import org.springframework.scheduling.annotation.EnableScheduling;
 
 @SpringBootApplication()
 @EnableConfigurationProperties({ LiquibaseProperties.class, ApplicationProperties.class })
 @EnableFeignClients
+@EnableScheduling
 public class CommentServiceApp {
 
     private static final Logger LOG = LoggerFactory.getLogger(CommentServiceApp.class);

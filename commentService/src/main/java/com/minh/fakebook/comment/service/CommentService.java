@@ -18,6 +18,11 @@ import com.minh.fakebook.comment.service.dto.ReplyCommentRequestDTO;
 import com.minh.fakebook.comment.service.mapper.CommentMapper;
 import com.minh.fakebook.comment.client.UserServiceClient;
 import com.minh.fakebook.comment.domain.PostCache;
+import io.namastack.outbox.Outbox;
+import com.minh.fakebook.comment.service.event.EventEnvelope;
+import com.minh.fakebook.comment.service.event.CommentChangedEvent;
+import java.time.Instant;
+import java.util.Map;
 
 /**
  * Service Implementation for managing {@link com.minh.fakebook.comment.domain.Comment}.
@@ -36,17 +41,22 @@ public class CommentService {
 
     private final PostCacheResolver postCacheResolver;
 
+        private final Outbox outbox;
+
     public CommentService(
             CommentRepository commentRepository,
             CommentMapper commentMapper,
             UserServiceClient userFeignClient,
-            PostCacheResolver postCacheResolver
+            PostCacheResolver postCacheResolver,
+            Outbox outbox
     ) {
         this.commentRepository = commentRepository;
         this.commentMapper = commentMapper;
         this.userFeignClient = userFeignClient;
         this.postCacheResolver = postCacheResolver;
+        this.outbox = outbox;
     }
+
 
     /**
      * Create a new comment with Row-Level Security check.
@@ -84,8 +94,10 @@ public class CommentService {
         comment.setStatus(CommentStatus.ACTIVE);
 
         comment = commentRepository.save(comment);
+        publishCommentChangedEvent(comment.getPostId(), "CREATED");
         return commentMapper.toDto(comment);
     }
+
 
     /**
      * Updates the content of an existing comment.
@@ -105,9 +117,12 @@ public class CommentService {
                     throw new AccessDeniedException("You can only edit your own comments.");
                 }
                 comment.setContent(content);
-                return commentMapper.toDto(commentRepository.save(comment));
+                comment = commentRepository.save(comment);
+                publishCommentChangedEvent(comment.getPostId(), "UPDATED");
+                return commentMapper.toDto(comment);
             });
         }
+
 
     /**
      * Save a comment.
@@ -188,8 +203,10 @@ public class CommentService {
             }
             comment.setStatus(CommentStatus.DELETED);
             commentRepository.save(comment);
+            publishCommentChangedEvent(comment.getPostId(), "DELETED");
         });
     }
+
 
     /**
     * Creates a reply to an existing comment.
@@ -217,7 +234,22 @@ public class CommentService {
             reply.setContent(request.content());
             reply.setStatus(CommentStatus.ACTIVE);
             reply.setParentComment(parent);
-
-            return commentMapper.toDto(commentRepository.save(reply));
+            
+            reply = commentRepository.save(reply);
+            publishCommentChangedEvent(reply.getPostId(), "CREATED");
+            return commentMapper.toDto(reply);
         }
+
+    private void publishCommentChangedEvent(UUID postId, String action) {
+        Instant occurredAt = Instant.now();
+        EventEnvelope<CommentChangedEvent> envelope = new EventEnvelope<>(
+            UUID.randomUUID(),
+            "COMMENT_CHANGED",
+            1,
+            occurredAt,
+            new CommentChangedEvent(postId, action, occurredAt)
+        );
+        outbox.schedule(envelope, "comment-changed-" + postId, Map.of("destination", "comment-events"));
+    }
+
 }

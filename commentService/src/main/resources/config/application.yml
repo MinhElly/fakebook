@@ -100,6 +100,12 @@ management:
 spring:
   application:
     name: commentService
+  kafka:
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      properties:
+        spring.json.add.type.headers: false
   cloud:
     consul:
       discovery:
@@ -239,3 +245,24 @@ jhipster:
 # ===================================================================
 
 # application:
+
+namastack:
+  outbox:
+    enabled: true
+    polling-interval: 2000
+    batch-size: 10
+    processing:
+      stop-on-first-failure: true
+      delete-completed-records: false
+    multicaster:
+      enabled: true
+      publish-after-save: true
+    jdbc:
+      schema-initialization:
+        enabled: false
+    retry:
+      policy: exponential
+      max-retries: 5
+    kafka:
+      enabled: true
+      default-topic: comment-events
