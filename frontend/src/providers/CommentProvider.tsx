@@ -3,12 +3,14 @@ import { CommentContext } from "@/stores/commentStore";
 import type { Comment } from "@/types";
 import { getCommentsByPostId, createComment as apiCreateComment, updateComment as apiUpdateComment, deleteComment as apiDeleteComment } from "@/services/commentService";
 import { useAuth } from "@/providers/AuthProvider";
+import { useUserStore } from "@/stores/userStore";
 import { getTimeAgo } from "@/utils/timeUtils";
 
 export default function CommentProvider({ children }: { children: React.ReactNode }) {
   const [comments, setComments] = useState<Comment[]>([]);
   const [fetchedPosts, setFetchedPosts] = useState<Set<string>>(new Set());
   const { user } = useAuth();
+  const { profile } = useUserStore();
 
   const fetchComments = useCallback(async (postId: string) => {
     if (fetchedPosts.has(postId)) return;
@@ -69,8 +71,8 @@ export default function CommentProvider({ children }: { children: React.ReactNod
         postId: dto.postId,
         parentId: dto.parentComment?.id || null,
         authorId: dto.authorId || user?.id || "",
-        user: user?.firstName || user?.username || "Bạn",
-        avatar: "/default-avatar.svg",
+        user: profile?.name || user?.firstName || user?.username || "Bạn",
+        avatar: profile?.avatar || "/default-avatar.svg",
         content: dto.content,
         time: dto.createdAt ? getTimeAgo(dto.createdAt) : "Vừa xong",
         timestamp: dto.createdAt ? new Date(dto.createdAt).getTime() : Date.now(),
