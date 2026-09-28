@@ -2,8 +2,6 @@ package com.minh.fakebook.comment.config;
 
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.test.context.DynamicPropertyRegistry;
-import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 
@@ -17,10 +15,6 @@ public class RedisTestContainer {
 
     static {
         REDIS_CONTAINER.start();
-    }
-
-    @DynamicPropertySource
-    static void redisProperties(DynamicPropertyRegistry registry) {
-        registry.add("jhipster.cache.redis.server", () -> "redis://" + REDIS_CONTAINER.getContainerIpAddress() + ":" + REDIS_CONTAINER.getMappedPort(6379));
+        System.setProperty("jhipster.cache.redis.server", "redis://" + REDIS_CONTAINER.getContainerIpAddress() + ":" + REDIS_CONTAINER.getMappedPort(6379));
     }
 }
