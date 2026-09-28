@@ -45,6 +45,7 @@ public class SecurityConfiguration {
                     .requestMatchers("/api/authenticate").permitAll()
                     .requestMatchers("/api/auth-info").permitAll()
                     .requestMatchers("/api/admin/**").hasAuthority(AuthoritiesConstants.ADMIN)
+                    .requestMatchers("/api/internal/**").hasAuthority(AuthoritiesConstants.INTERNAL)
                     .requestMatchers(HttpMethod.GET, "/api/posts/**").permitAll() // guest view public posts (GET)
                     .requestMatchers(HttpMethod.GET, "/api/post-reactions/**").permitAll() //guest view public post reactions (GET)
                     .requestMatchers("/api/**").authenticated()
