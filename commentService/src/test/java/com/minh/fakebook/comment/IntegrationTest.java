@@ -16,14 +16,14 @@ import com.minh.fakebook.comment.config.RedisTestContainer;
  */
 @Target(ElementType.TYPE)
 @Retention(RetentionPolicy.RUNTIME)
+@org.springframework.test.context.ContextConfiguration(initializers = RedisTestContainer.class)
 @SpringBootTest(
     classes = {
         CommentServiceApp.class,
         AsyncSyncConfiguration.class,
         TestSecurityConfiguration.class,
         JacksonHibernateConfiguration.class,
-        DatabaseTestcontainer.class,
-        RedisTestContainer.class,
+        DatabaseTestcontainer.class
     }
 )
 public @interface IntegrationTest {}
