@@ -8,6 +8,7 @@ spring:
           replicationFactor: 1
           auto-create-topics: true
           brokers: localhost:9092
+          enable-observation: true
       bindings:
         mediaCleanupOut-out-0:
           destination: media-cleanup-topic

@@ -8,6 +8,7 @@ spring:
           replicationFactor: 1
           auto-create-topics: true
           brokers: localhost:9092
+          enable-observation: true
         bindings:
           processPostEvent-in-0:
             consumer:
