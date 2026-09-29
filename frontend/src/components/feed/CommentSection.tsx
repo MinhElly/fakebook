@@ -321,7 +321,7 @@ export default function CommentSection({ postId, initialVisible = false, isModal
   const [showAll, setShowAll] = useState(isModal);
   // Track comments created in this specific feed component instance
   const [localCommentIds, setLocalCommentIds] = useState<Set<number | string>>(new Set());
-  const [filter, setFilter] = useState<"relevant" | "all" | "newest">("all");
+  const [filter, setFilter] = useState<"relevant" | "all" | "newest">("newest");
   const [showFilterDropdown, setShowFilterDropdown] = useState(false);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const filterRef = useRef<HTMLDivElement>(null);
@@ -364,14 +364,15 @@ export default function CommentSection({ postId, initialVisible = false, isModal
   };
 
   const filteredComments = (() => {
-    if (!isModal) {
-      // Feed mode: only show locally created comments
-      return topComments.filter(c => localCommentIds.has(c.id));
-    }
     let result = [...topComments];
     // Default sort oldest-first
     result.sort((a, b) => a.timestamp - b.timestamp);
-    
+
+    if (!isModal) {
+      // Feed mode: only show locally created comments (the ones user just typed here)
+      return result.filter(c => localCommentIds.has(c.id));
+    }
+
     switch (filter) {
       case "relevant":
         // Hide emoji-only comments unless it's mine
@@ -391,7 +392,7 @@ export default function CommentSection({ postId, initialVisible = false, isModal
   })();
 
   const PREVIEW_COUNT = 2;
-  const displayed = (showAll || !isModal) ? filteredComments : filteredComments.slice(-PREVIEW_COUNT);
+  const displayed = isModal ? (showAll ? filteredComments : filteredComments.slice(-PREVIEW_COUNT)) : filteredComments;
 
   const FILTER_LABELS: Record<string, string> = {
     relevant: "Phù hợp nhất",

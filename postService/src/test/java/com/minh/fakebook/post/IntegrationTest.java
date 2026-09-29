@@ -9,19 +9,21 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 import org.springframework.boot.test.context.SpringBootTest;
+import com.minh.fakebook.post.config.RedisTestContainer;
 
 /**
  * Base composite annotation for integration tests.
  */
 @Target(ElementType.TYPE)
 @Retention(RetentionPolicy.RUNTIME)
+@org.springframework.test.context.ContextConfiguration(initializers = RedisTestContainer.class)
 @SpringBootTest(
     classes = {
         PostServiceApp.class,
         AsyncSyncConfiguration.class,
         TestSecurityConfiguration.class,
         JacksonHibernateConfiguration.class,
-        DatabaseTestcontainer.class,
+        DatabaseTestcontainer.class
     }
 )
 public @interface IntegrationTest {}

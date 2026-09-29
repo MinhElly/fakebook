@@ -101,8 +101,21 @@ export default function PostProvider({ children }: { children: React.ReactNode }
       refreshTimer = window.setTimeout(() => void flushReactionChanges(), 300);
     });
 
+    const unsubscribeComment = subscribe(event => {
+      if (event.eventType === "COMMENT_CHANGED" && visiblePostIdsRef.current.has(event.postId)) {
+        // Tăng/giảm bộ đếm (hoặc gọi API lấy count mới). Ở đây ta gọi hàm đơn giản là tăng 1 (nếu tạo) hoặc fetch lại count
+        api.get(`/services/commentservice/api/comments/count?postId.equals=${event.postId}`)
+          .then(res => {
+            const count = res.data as number;
+            setPosts(prev => prev.map(p => p.id === event.postId ? { ...p, comments: count } : p));
+          })
+          .catch(() => {});
+      }
+    });
+
     return () => {
       unsubscribe();
+      unsubscribeComment();
       if (refreshTimer !== undefined) window.clearTimeout(refreshTimer);
     };
   }, [status, refreshReactionPostIds, subscribe]);
@@ -284,7 +297,16 @@ export default function PostProvider({ children }: { children: React.ReactNode }
       }
 
       if (pageNum === 0) {
-        setPosts(mappedPosts);
+        if (isForceRefresh) {
+          // Khi đăng bài mới hoặc có polling, ta append các bài mới lên ĐẦU mảng cũ
+          // thay vì ghi đè làm mất các bài cũ người dùng đã cuộn xuống tải.
+          setPosts((prev) => {
+            const newPosts = mappedPosts.filter((m: any) => !prev.some(p => p.id === m.id));
+            return [...newPosts, ...prev];
+          });
+        } else {
+          setPosts(mappedPosts);
+        }
       } else {
         setPosts((prev) => {
           const newPosts = mappedPosts.filter((m: any) => !prev.some(p => p.id === m.id));

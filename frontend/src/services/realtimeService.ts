@@ -20,7 +20,12 @@ export interface FriendRequestCreatedEvent extends RealtimeEventBase {
   recipientId: string;
 }
 
-export type RealtimeEvent = PostReactionChangedEvent | FriendRequestCreatedEvent;
+export interface CommentChangedEvent extends RealtimeEventBase {
+  eventType: "COMMENT_CHANGED";
+  postId: string;
+}
+
+export type RealtimeEvent = PostReactionChangedEvent | FriendRequestCreatedEvent | CommentChangedEvent;
 
 class RetryableRealtimeError extends Error {}
 class RetryableAuthenticationError extends RetryableRealtimeError {}
