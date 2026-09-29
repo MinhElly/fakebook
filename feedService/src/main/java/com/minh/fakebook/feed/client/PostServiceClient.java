@@ -7,7 +7,11 @@ import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 
-@FeignClient(name = "postservice", configuration = TokenRelayRequestInterceptor.class)
+@FeignClient(
+    name = "postservice",
+    configuration = TokenRelayRequestInterceptor.class,
+    fallbackFactory = PostServiceFallback.class
+)
 public interface PostServiceClient {
     @GetMapping("/api/internal/feed-posts")
     List<FeedPostReferenceDTO> getRecentFriendsPosts(
