@@ -1,15 +1,14 @@
 package com.minh.fakebook.comment.client;
 
+import java.util.UUID;
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 
-import java.util.UUID;
-
 /**
  * Feign Client to communicate with userService.
  */
-@FeignClient(name = "userservice", configuration = TokenRelayRequestInterceptor.class, fallback = UserServiceFallback.class)
+@FeignClient(name = "userservice", configuration = TokenRelayRequestInterceptor.class, fallbackFactory = UserServiceFallback.class)
 public interface UserServiceClient {
 
     /**

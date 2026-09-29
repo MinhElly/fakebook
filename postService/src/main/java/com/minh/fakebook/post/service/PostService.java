@@ -1,6 +1,7 @@
 package com.minh.fakebook.post.service;
 
 import com.minh.fakebook.post.client.UserServiceClient;
+import com.minh.fakebook.post.client.DownstreamServiceUnavailableException;
 import com.minh.fakebook.post.domain.Post;
 import com.minh.fakebook.post.domain.PostMedia;
 import com.minh.fakebook.post.domain.enumeration.PostStatus;
@@ -358,8 +359,10 @@ public class PostService {
                         if (!authorId.equals(mediaInfo.ownerId()) || !"ACTIVE".equals(mediaInfo.status()) || !"POST".equals(mediaInfo.purpose())) {
                             throw new RuntimeException("Error: Invalid media permissions or status.");
                         }
-                    } catch (Exception e) {
-                        throw new IllegalArgumentException("Error: Media validation failed for ID " + mediaId);
+                    } catch (DownstreamServiceUnavailableException exception) {
+                        throw exception;
+                    } catch (Exception exception) {
+                        throw new IllegalArgumentException("Error: Media validation failed for ID " + mediaId, exception);
                     }
 
                     PostMedia postMedia = new PostMedia();
