@@ -5,6 +5,7 @@ import api from "@/services/apis";
 import { useAuth } from "@/providers/AuthProvider";
 import { getPersonalizedFeed } from "@/services/feedService";
 import { fetchReactionSummaries } from "@/services/reactionService";
+import { fetchCommentSummaries } from "@/services/commentService";
 import { useRealtime } from "@/providers/RealtimeProvider";
 
 export default function PostProvider({ children }: { children: React.ReactNode }) {
@@ -253,24 +254,22 @@ export default function PostProvider({ children }: { children: React.ReactNode }
         });
       }
 
-      // 3. Fetch comment counts (batch, parallel)
+      // 3. Fetch comment summaries in one bounded request
       try {
-        const countPromises = mappedPosts.map((post: any) =>
-          api.get(
-            `/services/commentservice/api/comments/count?postId.equals=${post.id}`,
-            { timeout: 3000 }
-          )
-            .then(res => ({ postId: post.id, count: res.data as number }))
-            .catch(() => ({ postId: post.id, count: 0 }))
-        );
-        const counts = await Promise.all(countPromises);
-        const countMap: Record<string, number> = {};
-        counts.forEach(c => { countMap[c.postId] = c.count; });
-        mappedPosts.forEach((post: any) => {
-          post.comments = countMap[post.id] || 0;
+        const postIds = mappedPosts.map((post: Post) => post.id).slice(0, 50);
+        const summaries = await fetchCommentSummaries(postIds);
+        const summaryMap = new Map(summaries.map(summary => [summary.postId, summary]));
+        mappedPosts.forEach((post: Post) => {
+          const summary = summaryMap.get(post.id);
+          post.comments = summary?.commentCount ?? 0;
+          post.previewComment = summary?.previewComment ?? null;
         });
       } catch (e) {
         console.warn("CommentService tắt hoặc không phản hồi.");
+        mappedPosts.forEach((post: Post) => {
+          post.comments = 0;
+          post.previewComment = null;
+        });
       }
 
       try {
