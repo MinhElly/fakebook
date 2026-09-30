@@ -1,7 +1,7 @@
 spring:
   cloud:
     function:
-      definition: kafkaConsumer;kafkaProducer
+      definition: kafkaConsumer
     stream:
       kafka:
         binder:
@@ -21,8 +21,5 @@ spring:
           group: post-service
         kafkaConsumer-in-0:
           destination: sse-topic
-          content-type: text/plain
-          group: post-service
-        kafkaProducer-out-0:
           content-type: text/plain
           group: post-service

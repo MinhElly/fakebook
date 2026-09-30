@@ -8,6 +8,8 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 import com.minh.fakebook.post.IntegrationTest;
+import io.micrometer.tracing.Tracer;
+import io.micrometer.tracing.brave.bridge.BraveTracer;
 import java.util.HashMap;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
@@ -17,6 +19,7 @@ import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.cloud.stream.binder.test.InputDestination;
 import org.springframework.cloud.stream.binder.test.OutputDestination;
 import org.springframework.cloud.stream.binder.test.TestChannelBinderConfiguration;
+import org.springframework.core.env.Environment;
 import org.springframework.messaging.Message;
 import org.springframework.messaging.MessageHeaders;
 import org.springframework.messaging.support.GenericMessage;
@@ -26,6 +29,8 @@ import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.util.MimeTypeUtils;
+import zipkin2.reporter.BytesMessageSender;
+import zipkin2.reporter.brave.AsyncZipkinSpanHandler;
 
 @IntegrationTest
 @AutoConfigureMockMvc
@@ -44,6 +49,18 @@ class PostServiceKafkaResourceIT {
     @Autowired
     private OutputDestination output;
 
+    @Autowired
+    private Environment environment;
+
+    @Autowired
+    private Tracer tracer;
+
+    @Autowired
+    private BytesMessageSender zipkinSender;
+
+    @Autowired
+    private AsyncZipkinSpanHandler zipkinSpanHandler;
+
     @Test
     void producesMessages() throws Exception {
         restMockMvc.perform(post("/api/post-service-kafka/publish?message=value-produce").with(csrf())).andExpect(status().isOk());
@@ -51,8 +68,17 @@ class PostServiceKafkaResourceIT {
     }
 
     @Test
-    void producesPooledMessages() throws Exception {
-        assertThat(output.receive(1500, "kafkaProducer-out-0").getPayload()).isEqualTo("kafka_producer".getBytes());
+    void doesNotAutoBindGeneratedSupplier() {
+        assertThat(environment.getProperty("spring.cloud.function.definition")).doesNotContain("kafkaProducer");
+        assertThat(environment.getProperty("spring.cloud.stream.bindings.kafkaProducer-out-0.content-type"))
+            .isNull();
+    }
+
+    @Test
+    void configuresZipkinTracing() {
+        assertThat(tracer).isInstanceOf(BraveTracer.class);
+        assertThat(zipkinSender).isNotNull();
+        assertThat(zipkinSpanHandler).isNotNull();
     }
 
     @Test

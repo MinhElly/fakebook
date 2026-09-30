@@ -1,7 +1,7 @@
 spring:
   cloud:
     function:
-      definition: processPostEvent;processFriendshipEvent;kafkaConsumer;kafkaProducer
+      definition: processPostEvent;processFriendshipEvent;kafkaConsumer
     stream:
       kafka:
         binder:
@@ -42,8 +42,5 @@ spring:
           group: feed-service
         kafkaConsumer-in-0:
           destination: sse-topic
-          content-type: text/plain
-          group: feed-service
-        kafkaProducer-out-0:
           content-type: text/plain
           group: feed-service

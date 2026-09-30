@@ -4,9 +4,10 @@ logging:
     tech.jhipster: DEBUG
 
 management:
-  zipkin:
-    tracing:
-      endpoint: http://localhost:${ZIPKIN_PORT:9411}/api/v2/spans
+  tracing:
+    export:
+      zipkin:
+        endpoint: http://localhost:${ZIPKIN_PORT:9411}/api/v2/spans
 
 spring:
   cloud:

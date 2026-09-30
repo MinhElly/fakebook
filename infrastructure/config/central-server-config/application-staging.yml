@@ -4,11 +4,11 @@ logging:
     tech.jhipster: INFO
 management:
   tracing:
+    export:
+      zipkin:
+        endpoint: http://${ZIPKIN_HOST:zipkin}:${ZIPKIN_PORT:9411}/api/v2/spans
     sampling:
       probability: 0.1
-  zipkin:
-    tracing:
-      endpoint: http://${ZIPKIN_HOST:zipkin}:${ZIPKIN_PORT:9411}/api/v2/spans
 
 spring:
   kafka:
