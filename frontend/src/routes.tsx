@@ -7,6 +7,7 @@ import UserProfilePage from "@/pages/UserProfilePage";
 import SearchPage from "@/pages/SearchPage";
 import LoginPage from "@/pages/LoginPage";
 import RegisterPage from "@/pages/RegisterPage";
+import SavedPage from "@/pages/SavedPage";
 
 export const router = createBrowserRouter([
   {
@@ -18,6 +19,7 @@ export const router = createBrowserRouter([
       { path: "friends", Component: FriendsPage },
       { path: "search", Component: SearchPage },
       { path: "profile/:userId", Component: UserProfilePage },
+      { path: "saved", Component: SavedPage },
     ],
   },
   { path: "/login", Component: LoginPage },

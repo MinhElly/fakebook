@@ -9,6 +9,8 @@ import com.minh.fakebook.post.domain.enumeration.PostVisibility;
 import com.minh.fakebook.post.repository.PostMediaRepository;
 import com.minh.fakebook.post.repository.PostReactionRepository;
 import com.minh.fakebook.post.repository.PostRepository;
+import com.minh.fakebook.post.repository.SavedPostRepository;
+import com.minh.fakebook.post.domain.SavedPost;
 import com.minh.fakebook.post.security.AuthoritiesConstants;
 import com.minh.fakebook.post.service.dto.PostDTO;
 import com.minh.fakebook.post.service.event.PostCreatedEvent;
@@ -55,6 +57,8 @@ public class PostService {
 
     private final PostReactionRepository postReactionRepository;
 
+    private final SavedPostRepository savedPostRepository;
+
     private final UserServiceClient userClient;
 
     private final MediaServiceClient mediaServiceClient;
@@ -64,6 +68,7 @@ public class PostService {
             PostMapper postMapper,
             PostMediaRepository postMediaRepository,
             PostReactionRepository postReactionRepository,
+            SavedPostRepository savedPostRepository,
             Outbox outbox,
             UserServiceClient userClient,
             MediaServiceClient mediaServiceClient) {
@@ -71,6 +76,7 @@ public class PostService {
         this.postMapper = postMapper;
         this.postMediaRepository = postMediaRepository;
         this.postReactionRepository = postReactionRepository;
+        this.savedPostRepository = savedPostRepository;
         this.outbox = outbox;
         this.userClient = userClient;
         this.mediaServiceClient = mediaServiceClient;
@@ -437,6 +443,64 @@ public class PostService {
             return dto;
         });
     }
+
+    /**
+     * Toggles the saved status of a post for the current user.
+     * @param postId the post ID to save/unsave.
+     * @return true if the post is now saved, false if it is unsaved.
+     */
+    public boolean toggleSavePost(UUID postId) {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || !auth.isAuthenticated() || "anonymousUser".equals(auth.getPrincipal())) {
+            throw new AccessDeniedException("Error: You must be logged in to save a post.");
+        }
+        String sub = ((JwtAuthenticationToken) auth).getToken().getSubject();
+        UUID userId = UUID.fromString(sub);
+
+        // Verify post exists and is visible to the user
+        findOne(postId).orElseThrow(() -> new IllegalArgumentException("Error: Post not found or not accessible"));
+
+        Optional<SavedPost> existing = savedPostRepository.findByUserIdAndPostId(userId, postId);
+        if (existing.isPresent()) {
+            savedPostRepository.delete(existing.get());
+            return false; // Unsaved
+        } else {
+            SavedPost savedPost = new SavedPost();
+            savedPost.setUserId(userId);
+            savedPost.setPostId(postId);
+            savedPost.setCreatedAt(Instant.now());
+            savedPostRepository.save(savedPost);
+            return true; // Saved
+        }
+    }
+
+    /**
+     * Gets all saved posts for the current user.
+     * @return list of saved posts.
+     */
+    @Transactional(readOnly = true)
+    public List<PostDTO> getSavedPosts() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || !auth.isAuthenticated() || "anonymousUser".equals(auth.getPrincipal())) {
+            throw new AccessDeniedException("Error: You must be logged in to view saved posts.");
+        }
+        String sub = ((JwtAuthenticationToken) auth).getToken().getSubject();
+        UUID userId = UUID.fromString(sub);
+
+        List<SavedPost> savedPosts = savedPostRepository.findByUserIdOrderByCreatedAtDesc(userId);
+        List<PostDTO> results = new ArrayList<>();
+        
+        for (SavedPost sp : savedPosts) {
+            try {
+                findOne(sp.getPostId()).ifPresent(results::add);
+            } catch (Exception e) {
+                // Ignore posts that are no longer accessible (e.g. deleted or privacy changed)
+                LOG.warn("Skipping saved post {} for user {} due to access exception", sp.getPostId(), userId);
+            }
+        }
+        return results;
+    }
+
     
     private void publishEvent(String eventType, Object payload, UUID aggregateId) {
         EventEnvelope<Object> envelope = new EventEnvelope<>(

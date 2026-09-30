@@ -202,5 +202,28 @@ public class PostResource {
 
         return ResponseEntity.status(201).body(result);
     }
-}
+    /**
+     * {@code POST  /posts/:id/save} : Toggle save status of a post.
+     *
+     * @param id the id of the post to save or unsave.
+     * @return the {@link ResponseEntity} with status {@code 200 (OK)} and boolean true if saved, false if unsaved.
+     */
+    @PostMapping("/{id}/save")
+    public ResponseEntity<Boolean> toggleSavePost(@PathVariable("id") UUID id) {
+        LOG.debug("REST request to toggle save Post : {}", id);
+        boolean isSaved = postService.toggleSavePost(id);
+        return ResponseEntity.ok().body(isSaved);
+    }
 
+    /**
+     * {@code GET  /posts/saved} : get all saved posts of the current user.
+     *
+     * @return the {@link ResponseEntity} with status {@code 200 (OK)} and the list of saved posts in body.
+     */
+    @GetMapping("/saved")
+    public ResponseEntity<List<PostDTO>> getSavedPosts() {
+        LOG.debug("REST request to get Saved Posts");
+        List<PostDTO> savedPosts = postService.getSavedPosts();
+        return ResponseEntity.ok().body(savedPosts);
+    }
+}
