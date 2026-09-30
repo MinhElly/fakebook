@@ -139,6 +139,8 @@ services:
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
       KAFKA_CONTROLLER_QUORUM_VOTERS: 1@localhost:9093
       KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+    volumes:
+      - kafka-data:/tmp/kraft-combined-logs
     restart: unless-stopped
 
   kafka-ui:
@@ -156,6 +158,7 @@ services:
   redis:
     image: redis:8.10.1
     container_name: fakebook-redis
+    command: ["redis-server", "--appendonly", "yes", "--appendfsync", "everysec", "--save", "60", "1000"]
     ports:
       - 127.0.0.1:${REDIS_PORT:-6379}:6379
     healthcheck:
@@ -163,6 +166,8 @@ services:
       interval: 5s
       timeout: 5s
       retries: 20
+    volumes:
+      - redis-data:/data
     restart: unless-stopped
 
   zipkin:
@@ -175,3 +180,5 @@ services:
 volumes:
   mariadb-data:
   keycloak-data:
+  kafka-data:
+  redis-data:
