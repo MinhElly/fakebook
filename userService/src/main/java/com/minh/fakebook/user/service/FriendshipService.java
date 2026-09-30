@@ -50,7 +50,7 @@ public class FriendshipService {
     public FriendshipDTO save(FriendshipDTO friendshipDTO) {
         LOG.debug("Request to save Friendship : {}", friendshipDTO);
         Friendship friendship = friendshipMapper.toEntity(friendshipDTO);
-        friendship = friendshipRepository.save(friendship);
+        friendship = friendshipRepository.saveAndFlush(friendship);
         return friendshipMapper.toDto(friendship);
     }
 
@@ -63,7 +63,7 @@ public class FriendshipService {
     public FriendshipDTO update(FriendshipDTO friendshipDTO) {
         LOG.debug("Request to update Friendship : {}", friendshipDTO);
         Friendship friendship = friendshipMapper.toEntity(friendshipDTO);
-        friendship = friendshipRepository.save(friendship);
+        friendship = friendshipRepository.saveAndFlush(friendship);
         return friendshipMapper.toDto(friendship);
     }
 

@@ -36,6 +36,15 @@ class ExceptionTranslatorIT {
     }
 
     @Test
+    void testDataIntegrityConflict() throws Exception {
+        mockMvc
+            .perform(get("/api/exception-translator-test/data-integrity-conflict").with(csrf()))
+            .andExpect(status().isConflict())
+            .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON))
+            .andExpect(jsonPath("$.message").value(ErrorConstants.ERR_DATA_INTEGRITY_CONFLICT));
+    }
+
+    @Test
     void testMethodArgumentNotValid() throws Exception {
         mockMvc
             .perform(

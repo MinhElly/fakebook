@@ -96,7 +96,7 @@ spring:
     consul:
       discovery:
         healthCheckPath: /management/health
-        instanceId: authservice:${spring.application.instance-id:${random.value}}
+        instanceId: authservice:${spring.application.instance-id:${HOSTNAME:${server.port}}}
         service-name: authservice
       config:
         watch:

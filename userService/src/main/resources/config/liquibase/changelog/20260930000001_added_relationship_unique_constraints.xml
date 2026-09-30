@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <changeSet id="20260930000001-1" author="codex">
+        <preConditions onFail="HALT" onFailMessage="Duplicate friendship rows exist; resolve them before applying uk_friendships_user_friend">
+            <sqlCheck expectedResult="0">
+                SELECT COUNT(*) FROM (
+                    SELECT user_id, friend_id
+                    FROM friendships
+                    GROUP BY user_id, friend_id
+                    HAVING COUNT(*) &gt; 1
+                ) duplicate_friendships
+            </sqlCheck>
+        </preConditions>
+        <addUniqueConstraint
+            tableName="friendships"
+            columnNames="user_id, friend_id"
+            constraintName="uk_friendships_user_friend"/>
+        <rollback>
+            <dropUniqueConstraint tableName="friendships" constraintName="uk_friendships_user_friend"/>
+        </rollback>
+    </changeSet>
+
+    <changeSet id="20260930000001-2" author="codex">
+        <preConditions onFail="HALT" onFailMessage="Duplicate follow rows exist; resolve them before applying uk_follows_follower_following">
+            <sqlCheck expectedResult="0">
+                SELECT COUNT(*) FROM (
+                    SELECT follower_id, following_id
+                    FROM follows
+                    GROUP BY follower_id, following_id
+                    HAVING COUNT(*) &gt; 1
+                ) duplicate_follows
+            </sqlCheck>
+        </preConditions>
+        <addUniqueConstraint
+            tableName="follows"
+            columnNames="follower_id, following_id"
+            constraintName="uk_follows_follower_following"/>
+        <rollback>
+            <dropUniqueConstraint tableName="follows" constraintName="uk_follows_follower_following"/>
+        </rollback>
+    </changeSet>
+</databaseChangeLog>
