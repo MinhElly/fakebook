@@ -126,7 +126,7 @@ spring:
     consul:
       discovery:
         healthCheckPath: /management/health
-        instanceId: feedservice:${spring.application.instance-id:${random.value}}
+        instanceId: feedservice:${spring.application.instance-id:${HOSTNAME:${server.port}}}
         service-name: feedservice
       config:
         watch:

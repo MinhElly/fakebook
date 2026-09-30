@@ -124,7 +124,7 @@ spring:
     consul:
       discovery:
         healthCheckPath: /management/health
-        instanceId: userservice:${spring.application.instance-id:${random.value}}
+        instanceId: userservice:${spring.application.instance-id:${HOSTNAME:${server.port}}}
         service-name: userservice
       config:
         watch:

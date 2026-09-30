@@ -129,7 +129,7 @@ spring:
     consul:
       discovery:
         healthCheckPath: /management/health
-        instanceId: gateway:${spring.application.instance-id:${random.value}}
+        instanceId: gateway:${spring.application.instance-id:${HOSTNAME:${server.port}}}
         service-name: gateway
       config:
         watch:

@@ -216,8 +216,7 @@ public class FriendRequestService {
         receiverToSender.setFriend(sender);
         receiverToSender.createdAt(Instant.now());
 
-        friendshipRepository.save(senderToReceiver);
-        friendshipRepository.save(receiverToSender);
+        friendshipRepository.saveAllAndFlush(java.util.List.of(senderToReceiver, receiverToSender));
         applicationEventPublisher.publishEvent(FriendshipUpdatedEvent.created(sender.getId(),receiver.getId()));
 
         LOG.info("Scheduled FRIENDSHIP_CREATED event between {} and {}", sender.getId(), receiver.getId());

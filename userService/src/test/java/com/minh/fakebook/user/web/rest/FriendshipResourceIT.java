@@ -149,6 +149,20 @@ class FriendshipResourceIT {
 
     @Test
     @Transactional
+    void createDuplicateFriendshipReturnsConflict() throws Exception {
+        insertedFriendship = friendshipRepository.saveAndFlush(friendship);
+        FriendshipDTO duplicate = friendshipMapper.toDto(createEntity(em));
+
+        restFriendshipMockMvc
+            .perform(
+                post(ENTITY_API_URL).with(csrf()).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(duplicate))
+            )
+            .andExpect(status().isConflict())
+            .andExpect(jsonPath("$.message").value("error.dataIntegrityConflict"));
+    }
+
+    @Test
+    @Transactional
     void createFriendshipWithExistingId() throws Exception {
         // Create the Friendship with an existing ID
         insertedFriendship = friendshipRepository.saveAndFlush(friendship);

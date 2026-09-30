@@ -124,7 +124,7 @@ spring:
     consul:
       discovery:
         healthCheckPath: /management/health
-        instanceId: commentservice:${spring.application.instance-id:${random.value}}
+        instanceId: commentservice:${spring.application.instance-id:${HOSTNAME:${server.port}}}
         service-name: commentservice
       config:
         watch:

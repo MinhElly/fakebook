@@ -147,6 +147,18 @@ class FollowResourceIT {
 
     @Test
     @Transactional
+    void createDuplicateFollowReturnsConflict() throws Exception {
+        insertedFollow = followRepository.saveAndFlush(follow);
+        FollowDTO duplicate = followMapper.toDto(createEntity(em));
+
+        restFollowMockMvc
+            .perform(post(ENTITY_API_URL).with(csrf()).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(duplicate)))
+            .andExpect(status().isConflict())
+            .andExpect(jsonPath("$.message").value("error.dataIntegrityConflict"));
+    }
+
+    @Test
+    @Transactional
     void createFollowWithExistingId() throws Exception {
         // Create the Follow with an existing ID
         insertedFollow = followRepository.saveAndFlush(follow);
