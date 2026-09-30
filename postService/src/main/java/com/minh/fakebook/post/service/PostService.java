@@ -462,7 +462,7 @@ public class PostService {
 
         Optional<SavedPost> existing = savedPostRepository.findByUserIdAndPostId(userId, postId);
         if (existing.isPresent()) {
-            savedPostRepository.delete(existing.get());
+            savedPostRepository.delete(existing.orElseThrow());
             return false; // Unsaved
         } else {
             SavedPost savedPost = new SavedPost();
