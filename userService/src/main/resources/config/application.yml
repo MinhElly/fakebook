@@ -258,4 +258,26 @@ jhipster:
 # https://www.jhipster.tech/common-application-properties/
 # ===================================================================
 
-# application:
+application:
+  liquibase:
+    async-start: false
+namastack:
+  outbox:
+    enabled: true
+    polling-interval: 2000
+    batch-size: 10
+    processing:
+      stop-on-first-failure: true
+      delete-completed-records: false
+    multicaster:
+      enabled: true
+      publish-after-save: true
+    jdbc:
+      schema-initialization:
+        enabled: false
+    retry:
+      policy: exponential
+      max-retries: 5
+    kafka:
+      enabled: true
+      default-topic: friendship-events

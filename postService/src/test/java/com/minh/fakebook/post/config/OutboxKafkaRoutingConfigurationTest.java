@@ -54,6 +54,21 @@ class OutboxKafkaRoutingConfigurationTest {
     }
 
     @Test
+    void shouldRouteMediaCleanupWithPropagationHeaders() {
+        Propagator propagator = mock(Propagator.class);
+        when(propagator.fields()).thenReturn(List.of("traceparent"));
+        var routing = configuration.kafkaOutboxRouting(Optional.of(propagator));
+        var metadata = metadata(Map.of(
+            "destination", "media-cleanup-topic",
+            "traceparent", "00-trace-span-01"
+        ));
+
+        assertThat(routing.resolveTopic(new Object(), metadata)).isEqualTo("media-cleanup-topic");
+        assertThat(routing.buildHeaders(new Object(), metadata))
+            .containsOnly(Map.entry("traceparent", "00-trace-span-01"));
+    }
+
+    @Test
     void shouldForwardNoContextWhenTracingPropagatorIsUnavailable() {
         var routing = configuration.kafkaOutboxRouting(Optional.empty());
         var metadata = metadata(Map.of("traceparent", "00-trace-span-01"));

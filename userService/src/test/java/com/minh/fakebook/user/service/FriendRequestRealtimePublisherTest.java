@@ -2,27 +2,29 @@ package com.minh.fakebook.user.service;
 
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
 
 import com.minh.fakebook.user.service.dto.events.FriendRequestCreatedEvent;
+import io.namastack.outbox.Outbox;
+import java.util.Map;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
-import org.springframework.cloud.stream.function.StreamBridge;
 
 class FriendRequestRealtimePublisherTest {
 
     @Test
     void shouldPublishCreatedEventToDedicatedBinding() {
-        StreamBridge streamBridge = mock(StreamBridge.class);
+        Outbox outbox = mock(Outbox.class);
         FriendRequestCreatedEvent event = FriendRequestCreatedEvent.create(
             UUID.randomUUID(),
             UUID.randomUUID(),
             UUID.randomUUID()
         );
-        when(streamBridge.send("friendRequestEventsOut-out-0", event)).thenReturn(true);
+        new FriendRequestRealtimePublisher(outbox).publish(event);
 
-        new FriendRequestRealtimePublisher(streamBridge).publish(event);
-
-        verify(streamBridge).send("friendRequestEventsOut-out-0", event);
+        verify(outbox).schedule(
+            event,
+            "friend-request-" + event.data().requestId(),
+            Map.of("destination", "friend-request-events")
+        );
     }
 }

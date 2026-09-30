@@ -25,7 +25,6 @@ import org.slf4j.LoggerFactory;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.cache.annotation.Caching;
-import org.springframework.cloud.stream.function.StreamBridge;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -50,8 +49,6 @@ public class FriendRequestService {
 
     private final UserProfileRepository userProfileRepository;
 
-    private final StreamBridge streamBridge;
-
     private final ApplicationEventPublisher applicationEventPublisher;
 
     public FriendRequestService(
@@ -59,13 +56,11 @@ public class FriendRequestService {
             FriendshipRepository friendshipRepository,
             FriendRequestMapper friendRequestMapper,
             UserProfileRepository userProfileRepository,
-            StreamBridge streamBridge,
             ApplicationEventPublisher applicationEventPublisher) {
         this.friendRequestRepository = friendRequestRepository;
         this.friendshipRepository = friendshipRepository;
         this.friendRequestMapper = friendRequestMapper;
         this.userProfileRepository = userProfileRepository;
-        this.streamBridge = streamBridge;
         this.applicationEventPublisher = applicationEventPublisher;
     }
 

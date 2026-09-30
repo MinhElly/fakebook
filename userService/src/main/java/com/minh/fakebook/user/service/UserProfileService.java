@@ -12,6 +12,7 @@ import com.minh.fakebook.user.service.dto.UserProfileDetailDTO;
 import com.minh.fakebook.user.service.dto.UserSearchDTO;
 import com.minh.fakebook.user.service.dto.events.MediaCleanupEvent;
 import com.minh.fakebook.user.service.mapper.UserProfileMapper;
+import io.namastack.outbox.Outbox;
 
 import java.time.Instant;
 import java.util.ArrayList;
@@ -31,7 +32,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
-import org.springframework.cloud.stream.function.StreamBridge;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -61,7 +61,7 @@ public class UserProfileService {
 
     private final FriendRequestRepository friendRequestRepository;
 
-    private final StreamBridge streamBridge;
+    private final Outbox outbox;
 
     private final MediaServiceClient mediaClient;
 
@@ -70,13 +70,13 @@ public class UserProfileService {
             UserProfileMapper userProfileMapper,
             FriendshipRepository friendshipRepository,
             FriendRequestRepository friendRequestRepository,
-            StreamBridge streamBridge,
+            Outbox outbox,
             MediaServiceClient mediaClient) {
         this.userProfileRepository = userProfileRepository;
         this.userProfileMapper = userProfileMapper;
         this.friendshipRepository = friendshipRepository;
         this.friendRequestRepository = friendRequestRepository;
-        this.streamBridge = streamBridge;
+        this.outbox = outbox;
         this.mediaClient = mediaClient;
     }
 
@@ -141,19 +141,23 @@ public class UserProfileService {
                     UUID newAvatarId = existingUserProfile.getAvatarMediaId();
                     if(oldAvatarId != null && !oldAvatarId.equals(newAvatarId)){
                         MediaCleanupEvent event = new MediaCleanupEvent(oldAvatarId, "AVATAR UPDATED");
-                        streamBridge.send("mediaCleanupOut-out-0", event);
-                        LOG.info("Published MediaCleanupEvent for old avatar mediaId: {}", oldAvatarId);
+                        scheduleMediaCleanup(event);
+                        LOG.info("Scheduled MediaCleanupEvent for old avatar mediaId: {}", oldAvatarId);
                     }
                     UUID newCoverId = existingUserProfile.getCoverMediaId();
                     if(oldCoverId != null && !oldCoverId.equals(newCoverId)){
                         MediaCleanupEvent event = new MediaCleanupEvent(oldCoverId, "COVER UPDATED");
-                        streamBridge.send("mediaCleanupOut-out-0", event);
-                        LOG.info("Published MediaCleanupEvent for old cover mediaId: {}", oldCoverId);
+                        scheduleMediaCleanup(event);
+                        LOG.info("Scheduled MediaCleanupEvent for old cover mediaId: {}", oldCoverId);
                     }
                     return existingUserProfile;
                 })
                 .map(userProfileRepository::save)
                 .map(userProfileMapper::toDto);
+    }
+
+    private void scheduleMediaCleanup(MediaCleanupEvent event) {
+        outbox.schedule(event, "media-cleanup-" + event.mediaId(), Map.of("destination", "media-cleanup-topic"));
     }
 
     /**

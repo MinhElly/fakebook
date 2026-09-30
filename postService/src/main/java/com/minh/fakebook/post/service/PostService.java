@@ -24,7 +24,6 @@ import java.util.Optional;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.cloud.stream.function.StreamBridge;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -32,7 +31,6 @@ import org.springframework.security.oauth2.server.resource.authentication.JwtAut
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import com.minh.fakebook.post.service.event.MediaCleanupEvent;
-import org.springframework.messaging.support.MessageBuilder;
 import com.minh.fakebook.post.client.MediaServiceClient;
 import com.minh.fakebook.post.client.MediaValidationDTO;
 import com.minh.fakebook.post.service.event.EventEnvelope;
@@ -59,8 +57,6 @@ public class PostService {
 
     private final UserServiceClient userClient;
 
-    private final StreamBridge streamBridge;
-
     private final MediaServiceClient mediaServiceClient;
 
     public PostService(
@@ -70,7 +66,6 @@ public class PostService {
             PostReactionRepository postReactionRepository,
             Outbox outbox,
             UserServiceClient userClient,
-            StreamBridge streamBridge,
             MediaServiceClient mediaServiceClient) {
         this.postRepository = postRepository;
         this.postMapper = postMapper;
@@ -78,7 +73,6 @@ public class PostService {
         this.postReactionRepository = postReactionRepository;
         this.outbox = outbox;
         this.userClient = userClient;
-        this.streamBridge = streamBridge;
         this.mediaServiceClient = mediaServiceClient;
     }
 
@@ -191,8 +185,8 @@ public class PostService {
                 for (UUID oldMediaId : oldMediaIds) {
                     if (newMediaIds == null || !newMediaIds.contains(oldMediaId)) {
                         MediaCleanupEvent event = new MediaCleanupEvent(oldMediaId, "POST UPDATED");
-                        streamBridge.send("mediaCleanupOut-out-0", event);
-                        LOG.info("Published MediaCleanupEvent for removed post mediaId: {}", oldMediaId);
+                        scheduleMediaCleanup(event);
+                        LOG.info("Scheduled MediaCleanupEvent for removed post mediaId: {}", oldMediaId);
                     }
                 }
             }
@@ -299,8 +293,8 @@ public class PostService {
         if (mediaIds != null) {
                 for (UUID mediaId : mediaIds) {
                     MediaCleanupEvent event = new MediaCleanupEvent(mediaId, "POST DELETED");
-                    streamBridge.send("mediaCleanupOut-out-0", event);
-                    LOG.info("Published MediaCleanupEvent for deleted post mediaId: {}",mediaId);
+                    scheduleMediaCleanup(event);
+                    LOG.info("Scheduled MediaCleanupEvent for deleted post mediaId: {}",mediaId);
                 }
             }
             publishEvent("POST_DELETED", new PostDeletedEvent(id), id);
@@ -448,6 +442,10 @@ public class PostService {
         EventEnvelope<Object> envelope = new EventEnvelope<>(
                 UUID.randomUUID(), eventType, 1, java.time.Instant.now(), payload);
         outbox.schedule(envelope, "post-" + aggregateId);
+    }
+
+    private void scheduleMediaCleanup(MediaCleanupEvent event) {
+        outbox.schedule(event, "media-cleanup-" + event.mediaId(), java.util.Map.of("destination", "media-cleanup-topic"));
     }
 }
 
