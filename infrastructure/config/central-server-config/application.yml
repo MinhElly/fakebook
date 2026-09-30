@@ -16,3 +16,4 @@ spring:
         binder:
           replicationFactor: 1
           auto-create-topics: true
+          enable-observation: true

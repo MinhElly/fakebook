@@ -24,14 +24,23 @@ springdoc:
   api-docs:
     enabled: false
 ---
-feign:
+resilience4j:
   circuitbreaker:
-    enabled: true
-  client:
-    config:
+    configs:
       default:
-        connectTimeout: 3000
-        readTimeout: 5000
+        sliding-window-type: COUNT_BASED
+        sliding-window-size: 5
+        minimum-number-of-calls: 5
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 10s
+        permitted-number-of-calls-in-half-open-state: 2
+        automatic-transition-from-open-to-half-open-enabled: true
+        register-health-indicator: false
+  timelimiter:
+    configs:
+      default:
+        timeout-duration: 4s
+        cancel-running-future: true
 management:
   endpoints:
     web:
@@ -49,6 +58,9 @@ management:
           - prometheus
           - threaddump
           - liquibase
+          - metrics
+          - circuitbreakers
+          - circuitbreakerevents
   endpoint:
     health:
       show-details: when_authorized
@@ -100,13 +112,15 @@ management:
 spring:
   application:
     name: postService
-  kafka:
-    producer:
-      key-serializer: org.apache.kafka.common.serialization.StringSerializer
-      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
-      properties:
-        spring.json.add.type.headers: false
   cloud:
+    openfeign:
+      circuitbreaker:
+        enabled: true
+      client:
+        config:
+          default:
+            connectTimeout: 1500
+            readTimeout: 3000
     consul:
       discovery:
         healthCheckPath: /management/health
@@ -115,6 +129,12 @@ spring:
       config:
         watch:
           enabled: false
+  kafka:
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      properties:
+        spring.json.add.type.headers: false
   docker:
     compose:
       enabled: false

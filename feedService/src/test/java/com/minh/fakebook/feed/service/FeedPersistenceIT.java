@@ -12,8 +12,9 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.minh.fakebook.feed.IntegrationTest;
-import com.minh.fakebook.feed.client.dto.FeedPostReferenceDTO;
 import com.minh.fakebook.feed.client.UserServiceClient;
+import com.minh.fakebook.feed.client.UserServiceUnavailableException;
+import com.minh.fakebook.feed.client.dto.FeedPostReferenceDTO;
 import com.minh.fakebook.feed.domain.FeedItem;
 import com.minh.fakebook.feed.repository.FeedItemRepository;
 import com.minh.fakebook.feed.service.event.PostCreatedEvent;
@@ -134,10 +135,13 @@ class FeedPersistenceIT {
     void audienceLookupFailurePropagatesWithoutWritingFeedRows() {
         UUID authorId = UUID.randomUUID();
         UUID postId = UUID.randomUUID();
-        when(userServiceClient.getUserFriendsList(authorId)).thenThrow(new IllegalStateException("userService unavailable"));
+        RuntimeException rootCause = new RuntimeException("connection refused");
+        when(userServiceClient.getUserFriendsList(authorId))
+            .thenThrow(new UserServiceUnavailableException("userService unavailable", rootCause));
 
         assertThatThrownBy(() -> feedFanoutService.processPostCreated(postCreatedEvent(postId, authorId, "FRIENDS")))
-            .isInstanceOf(IllegalStateException.class);
+            .isInstanceOf(UserServiceUnavailableException.class)
+            .hasCause(rootCause);
 
         assertThat(feedItemRepository.findByPostId(postId)).isEmpty();
         verify(zSetOperations, never()).add(anyString(), anyString(), anyDouble());

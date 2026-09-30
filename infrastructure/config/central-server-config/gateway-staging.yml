@@ -16,8 +16,8 @@ spring:
       client:
         registration:
           oidc:
-            client-id: ${FAKEBOOK_OIDC_GATEWAY_CLIENT_ID:web_app}
-            client-secret: ${FAKEBOOK_OIDC_GATEWAY_CLIENT_SECRET:web_app}
+            client-id: ${FAKEBOOK_OIDC_GATEWAY_CLIENT_ID}
+            client-secret: ${FAKEBOOK_OIDC_GATEWAY_CLIENT_SECRET}
 
 jhipster:
   cors:

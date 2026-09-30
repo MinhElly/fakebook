@@ -1,6 +1,3 @@
-feign:
-  circuitbreaker:
-    enabled: true
 logging:
   level:
     ROOT: INFO
