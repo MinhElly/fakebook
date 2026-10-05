@@ -13,6 +13,8 @@ class FriendRequestRealtimePublisherTest {
 
     @Test
     void shouldPublishCreatedEventToDedicatedBinding() {
+        org.assertj.core.api.Assertions.assertThat(FriendRequestCreatedEvent.class
+            .isAnnotationPresent(io.namastack.outbox.annotation.OutboxEvent.class)).isFalse();
         Outbox outbox = mock(Outbox.class);
         FriendRequestCreatedEvent event = FriendRequestCreatedEvent.create(
             UUID.randomUUID(),

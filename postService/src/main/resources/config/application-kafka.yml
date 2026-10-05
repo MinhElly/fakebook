@@ -1,15 +1,5 @@
 spring:
-  cloud:
-    stream:
-      kafka:
-        binder:
-          replicationFactor: 1
-          auto-create-topics: true
-          brokers: localhost:9092
-          enable-observation: true
-      bindings:
-        mediaCleanupOut-out-0:
-          destination: media-cleanup-topic
-          content-type: application/json
-          producer:
-            use-native-encoding: true
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    template:
+      observation-enabled: true

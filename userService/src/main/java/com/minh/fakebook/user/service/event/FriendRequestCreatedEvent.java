@@ -2,9 +2,6 @@ package com.minh.fakebook.user.service.event;
 
 import java.time.Instant;
 import java.util.UUID;
-import io.namastack.outbox.annotation.OutboxEvent;
-
-@OutboxEvent
 public record FriendRequestCreatedEvent(
     UUID eventId,
     String eventType,
