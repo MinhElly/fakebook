@@ -83,7 +83,18 @@ mariadb -h <MARIADB_HOST> -P 3306 -u post_user -p --ssl-ca=/opt/fakebook/infrast
 
 ---
 
-## 6. Kiểm tra & Thao tác trên Redis Cache
+## 6. Kiểm tra Redis Cache và Feed projection
+
+Feed đọc MariaDB `feed_items`, không còn sử dụng `feed:user:*`. Kiểm tra thứ tự
+và access path bằng query tương ứng với user cần chẩn đoán:
+
+```sql
+EXPLAIN SELECT * FROM feed_items
+WHERE user_id = '<user UUID>'
+ORDER BY created_at DESC, post_id DESC LIMIT 20;
+```
+
+Redis vẫn phục vụ cache User. Dùng SCAN để xem các trang/sort của một user:
 
 ```bash
 # Mở redis-cli tương tác
@@ -93,17 +104,8 @@ docker exec -it fakebook-redis redis-cli
 127.0.0.1:6379> PING
 PONG
 
-# Xem danh sách các key Timeline
-127.0.0.1:6379> KEYS feed:user:*
-
-# Đếm số lượng bài viết trong ZSet của một người dùng
-127.0.0.1:6379> ZCARD feed:user:c7a8b9e0-1234-5678-9abc-def012345678
-
-# Lấy 10 bài viết mới nhất kèm score timestamp
-127.0.0.1:6379> ZREVRANGEBYSCORE feed:user:c7a8b9e0-1234-5678-9abc-def012345678 +inf -inf WITHSCORES LIMIT 0 10
-
-# Xóa toàn bộ cache (Khẩn cấp)
-127.0.0.1:6379> FLUSHDB
+# Xem cache friends của đúng user; tiếp tục SCAN nếu cursor trả về khác 0
+127.0.0.1:6379> SCAN 0 MATCH userFriends::c7a8b9e0-1234-5678-9abc-def012345678_* COUNT 100
 ```
 
 ---

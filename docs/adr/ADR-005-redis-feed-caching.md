@@ -1,7 +1,13 @@
 # ADR-005: Redis Sorted Sets for News Feed Timeline Caching
 
 ## Trạng thái
-**Accepted**
+**Superseded — 2026-10-05**
+
+Feed hiện đọc trực tiếp MariaDB và không còn ghi/xóa Redis timeline hoặc dùng
+Hibernate L2. Xem [caching hiện tại](../02-architecture/caching.md). Index hiện có
+`(user_id, created_at, post_id)` được kiểm tra bằng `SHOW INDEX` và `EXPLAIN`
+trong `UserFeedDatabaseIT`; không thêm index trùng. Nội dung dưới đây là quyết định
+lịch sử; các tỷ lệ đọc/ghi và độ trễ nêu trong đó chưa có benchmark xác nhận.
 
 ## Bối cảnh (Context)
 Bảng tin mạng xã hội có tần suất đọc vượt trội so với tần suất ghi (Read-to-Write ratio có thể lên đến 100:1).
