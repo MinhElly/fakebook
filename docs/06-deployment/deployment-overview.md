@@ -1,12 +1,12 @@
 # Deployment Overview (Tổng quan Chiến lược Triển khai)
 
-Tài liệu này tổng hợp mô hình triển khai của hệ thống Fakebook xuyên suốt các môi trường từ phát triển cục bộ (**Dev**), máy chủ thử nghiệm tích hợp (**Staging**) đến kế hoạch vận hành chính thức (**Production**).
+Tài liệu này tổng hợp mô hình triển khai được mô tả trong source. Audit 2026-10-02 chưa xác minh một staging đang chạy; “Staging” bên dưới là topology Docker Compose hiện có trong repo, không phải bằng chứng deploy thành công.
 
 ---
 
 ## 1. Ma trận so sánh các Môi trường Triển khai
 
-| Thành phần | Môi trường Local Dev | Môi trường Staging (Hiện tại) | Môi trường Production (Kế hoạch) |
+| Thành phần | Môi trường Local Dev | Staging theo source Compose | Production (Kế hoạch) |
 | :--- | :--- | :--- | :--- |
 | **Frontend** | Host Local (`localhost:5173`) | **Vercel** (`fakebook-zeta.vercel.app`) | Vercel / Cloud CDN (Custom Domain) |
 | **Backend Services** | Máy Host (JVM Java 21) | **Docker Compose trên Azure VM** | Kubernetes Cluster (EKS / AKS) |
@@ -23,7 +23,7 @@ Tài liệu này tổng hợp mô hình triển khai của hệ thống Fakebook
 
 ## 2. Kiến trúc Staging Hybrid (Vercel + Azure VM + AWS RDS)
 
-Môi trường Staging hiện tại được thiết kế theo mô hình lai (Hybrid Cloud Architecture) tận dụng thế mạnh của từng nền tảng:
+Topology staging trong source được thiết kế theo mô hình lai (Hybrid Cloud Architecture):
 
 ```mermaid
 flowchart LR
@@ -60,3 +60,10 @@ flowchart LR
 1. **Frontend trên Vercel**: Tận dụng CDN toàn cầu của Vercel, thời gian build nhanh, tự động preview theo Pull Request.
 2. **Backend trên Azure VM**: Toàn bộ các container backend và hạ tầng nội bộ chạy trong một mạng bridge Docker riêng biệt được điều phối qua `infrastructure/docker-compose-staging.yml`.
 3. **Database trên AWS RDS**: Đảm bảo an toàn dữ liệu, tự động sao lưu, hỗ trợ mã hóa đường truyền bắt buộc (TLS/SSL).
+
+## 3. Trạng thái và hướng triển khai kế tiếp
+
+- Repo có `infrastructure/docker-compose-staging.yml`, workflow build/test và publish image immutable; chưa có bằng chứng live staging trong lần audit này.
+- Repo chưa có Kubernetes manifests, Helm/Kustomize, Argo `Application`/`ApplicationSet` hay External Secrets resources.
+- Hướng đã chọn cho staging kế tiếp là k3s + Argo CD, chạy application workloads trong cluster và dùng MariaDB/Kafka/Redis/Keycloak external/managed. Đây là target architecture, hiện **NO-GO để tuyên bố đã triển khai**.
+- Trước khi chuyển sang k3s phải thay Consul dev-mode bằng Service DNS/config phù hợp, giải quyết realtime process-local khi scale ngang, thêm secrets/migration/probe/resource/network-policy và chứng minh authenticated E2E + recovery.

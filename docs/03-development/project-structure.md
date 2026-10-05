@@ -43,7 +43,8 @@ fakebook/
 │   └── k6/http-baseline.js       # Load test baseline cho API Gateway & Microservices
 │
 ├── scripts/                      # Utility scripts
-│   └── e2e-smoke-test.sh         # Script kiểm thử khói (Smoke Test) tự động toàn bộ luồng E2E
+│   ├── e2e-normal-user-smoke-test.ps1 # E2E smoke test với normal user token, feed & Zipkin trace
+│   └── e2e-smoke-test.sh         # Script kiểm thử khói legacy (Client Credentials)
 │
 ├── docs/                         # Toàn bộ tài liệu kỹ thuật của dự án
 ├── fakebook-master.jdl           # JHipster Domain Language file mô tả toàn bộ entity

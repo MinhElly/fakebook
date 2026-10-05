@@ -17,7 +17,7 @@ Hệ thống áp dụng nghiêm ngặt nguyên tắc **Database-per-Service**:
 | :--- | :--- | :--- |
 | `gateway` | `gateway` | Session reactive (Spring Session R2DBC) & Liquibase tracking |
 | `user_service` | `userService` | Bảng `user_profiles`, `friendships`, `friend_requests`, `follows` |
-| `post_service` | `postService` | Bảng `posts`, `post_media`, `post_reactions` |
+| `post_service` | `postService` | Bảng `posts`, `post_media`, `post_reactions`, `saved_post` |
 | `comment_service` | `commentService` | Bảng `comments`, `comment_reactions`, `post_cache` |
 | `media_service` | `mediaService` | Bảng `media` (Cloudinary URLs, metadata) |
 | `feed_service` | `feedService` | Bảng `feed_items` (Bản ghi timeline lưu trữ lâu dài) |

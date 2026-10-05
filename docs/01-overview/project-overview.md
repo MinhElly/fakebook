@@ -7,7 +7,7 @@
 Dự án mô phỏng các tính năng cốt lõi của mạng xã hội quy mô lớn:
 - **Xác thực & Danh tính (IAM)**: Đăng nhập/đăng ký người dùng, phân quyền OAuth2/OIDC, SSO qua Google, xác thực token JWT thông qua Keycloak 26.
 - **Hồ sơ & Mạng lưới bạn bè (Social Graph)**: Quản lý thông tin cá nhân, gửi lời mời kết bạn, chấp nhận/từ chối kết bạn, theo dõi (follow) người dùng và gợi ý kết bạn dựa trên bạn chung (mutual friends).
-- **Đăng tải bài viết (Post & Reaction)**: Soạn thảo bài đăng với các chế độ hiển thị (PUBLIC, PRIVATE, FRIENDS), hỗ trợ tương tác cảm xúc (LIKE, LOVE, WOW, SAD, ANGRY).
+- **Đăng tải bài viết (Post, Reaction & Saved Posts)**: Soạn thảo bài đăng với các chế độ hiển thị (PUBLIC, PRIVATE, FRIENDS), hỗ trợ tương tác cảm xúc và lưu trữ bài viết (Saved Posts). Tính năng Saved Posts đã được tích hợp hoàn chỉnh ở cả backend (Post Service) và frontend UI (SavedPage & bookmarks).
 - **Bình luận (Comments)**: Thảo luận trên bài viết, phản hồi bình luận phân cấp, đồng bộ dữ liệu bài viết qua Kafka read-model cache.
 - **Quản lý đa phương tiện (Media Storage)**: Tải lên hình ảnh/video qua Cloudinary CDN, lưu trữ metadata và cơ chế tự động dọn dẹp (cleanup) media mồ côi qua Kafka event.
 - **Bảng tin cá nhân hóa (Personalized News Feed)**: Kiến trúc Fan-out-on-write bất đồng bộ qua Kafka, lưu trữ dài hạn trên MariaDB và tăng tốc truy vấn bằng Redis In-Memory Sorted Sets.
@@ -20,7 +20,7 @@ Dự án mô phỏng các tính năng cốt lõi của mạng xã hội quy mô 
 | :--- | :--- | :--- |
 | **Frontend** | React 19, Vite 8, TypeScript 5.7, Tailwind CSS v4, `keycloak-js`, Axios | Giao diện Single Page Application (SPA), xác thực PKCE |
 | **API Gateway** | Spring Cloud Gateway (Reactive WebFlux), Spring Security OAuth2 | Reverse proxy, định tuyến động theo Consul, TokenRelay, CORS |
-| **Backend Framework** | Java 21 (Temurin), Spring Boot 3.4.x, Spring Cloud 2024.x | Nền tảng thực thi microservices |
+| **Backend Framework** | Java 21 (Temurin), Spring Boot 4.1.1, Spring Cloud 2025.1.3, JHipster Framework 9.3.0 | Nền tảng thực thi microservices |
 | **Identity Provider** | Keycloak 26.7.2 (Quay.io) | Quản lý Realm `jhipster`, OIDC / OAuth2, Google Identity Provider |
 | **Service Registry & Config**| HashiCorp Consul 2.0.3 + `consul-config-loader` | Đăng ký dịch vụ, load YAML tập trung vào Consul KV Store |
 | **Message Broker** | Apache Kafka Native 4.3.1 (KRaft mode) | Xử lý streaming sự kiện bất đồng bộ, Fan-out bảng tin, dọn dẹp media |
@@ -47,6 +47,6 @@ Hệ thống được thiết kế theo nguyên tắc:
 ## 4. Mục tiêu tài liệu này
 
 Tài liệu trong thư mục `docs/` được biên soạn nhằm đảm bảo:
-- **100% phản ánh đúng source code hiện tại**: Mọi port, endpoint, biến môi trường và lệnh chạy đều lấy trực tiếp từ mã nguồn thực tế.
+- **Bám sát source code có version**: Mỗi đợt audit cần ghi commit/branch, phân biệt source local, remote, runtime và staging; tài liệu không tự động đúng sau khi code thay đổi.
 - **Dễ dàng tiếp cận cho thành viên mới**: Chỉ cần làm theo hướng dẫn tại [local-setup.md](../03-development/local-setup.md), một lập trình viên mới có thể khởi chạy toàn bộ hệ thống trên máy cá nhân mà không gặp trở ngại.
 - **Sẵn sàng vận hành (Production-Ready Mindset)**: Cung cấp đầy đủ hướng dẫn giám sát, runbook cứu hộ sự cố, và phân tích chi tiết môi trường Staging.

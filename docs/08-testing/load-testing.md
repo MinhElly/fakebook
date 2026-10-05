@@ -1,6 +1,6 @@
 # Load & Performance Testing (Kiểm thử Tải & Hiệu năng)
 
-Tài liệu này hướng dẫn cách thực thi và phân tích kết quả kiểm thử tải cho Fakebook bằng công cụ **k6** dựa trên kịch bản thực tế tại `performance/k6/http-baseline.js`.
+Tài liệu này đặc tả kịch bản kiểm thử tải bằng **k6** với script baseline `performance/k6/http-baseline.js` đã sẵn sàng trong kho mã nguồn, hỗ trợ đo lường độ trễ và khả năng chịu tải của các endpoint thông qua Gateway.
 
 ---
 
@@ -50,7 +50,7 @@ export default function () {
 | Biến môi trường | Mặc định | Mô tả |
 | :--- | :--- | :--- |
 | `BASE_URL` | `http://test.127.0.0.1.nip.io` | URL gốc của Gateway cần test |
-| `TARGET_PATH`| `/healthz` | Đường dẫn endpoint kiểm thử (ví dụ: `/services/feedservice/api/feeds`) |
+| `TARGET_PATH`| `/healthz` | Đường dẫn endpoint kiểm thử (ví dụ: `/services/feedservice/api/feed/me`) |
 | `VUS` | `10` | Số lượng Virtual Users chạy đồng thời |
 | `DURATION` | `20s` | Thời gian duy trì tải (ví dụ: `30s`, `1m`) |
 | `AUTH_TOKEN` | *(để trống)* | Bearer Token JWT nếu endpoint yêu cầu xác thực |
@@ -73,7 +73,7 @@ k6 run -e BASE_URL="http://localhost:8080" -e TARGET_PATH="/management/health" -
 ```bash
 k6 run \
   -e BASE_URL="http://localhost:8080" \
-  -e TARGET_PATH="/services/feedservice/api/feeds" \
+  -e TARGET_PATH="/services/feedservice/api/feed/me" \
   -e AUTH_TOKEN="<YOUR_ACCESS_TOKEN>" \
   -e VUS=50 \
   -e DURATION=1m \
@@ -89,3 +89,10 @@ k6 run \
 - **`http_req_duration (p95)`**: 95% số lượng request có thời gian phản hồi thấp hơn ngưỡng này. Tiêu chuẩn: `< 500ms`.
 - **`http_req_duration (p99)`**: 99% số lượng request có thời gian phản hồi thấp hơn ngưỡng này (đo lường đuôi độ trễ - tail latency). Tiêu chuẩn: `< 1000ms`.
 - **`http_reqs (RPS)`**: Số lượng request hoàn thành trên mỗi giây (Throughput).
+
+## 5. Gate trước khi dùng trong CI
+
+1. Tạo và review `performance/k6/http-baseline.js` đúng với mẫu trên.
+2. Dùng token normal-user cho `/api/feed/me`; không dùng client-credentials để suy ra hành vi người dùng.
+3. Chạy warm-up riêng, cố định dataset và ghi rõ môi trường/phần cứng.
+4. Lưu raw summary cùng commit SHA; không công bố ngưỡng p95/p99 là đạt khi chưa có run artifact.

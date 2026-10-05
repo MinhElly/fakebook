@@ -7,7 +7,7 @@ Tài liệu này đặc tả chi tiết từng microservice trong hệ thống F
 ## 1. Gateway (`gateway`)
 
 - **Trách nhiệm**: Cổng API tập trung (API Gateway) cho toàn bộ hệ thống; reverse proxy; định tuyến động theo danh mục Consul; tự động forward token OAuth2 JWT (`TokenRelay`); quản lý CORS tập trung; quản lý session reactive.
-- **Framework / Runtime**: Spring Boot 3.4.x, Spring Cloud Gateway (Reactive WebFlux), R2DBC MariaDB driver.
+- **Framework / Runtime**: Spring Boot 4.1.1, Spring Cloud 2025.1.3, Spring Cloud Gateway (Reactive WebFlux), R2DBC MariaDB driver.
 - **Port mặc định**: `8080` (Consul discovery ID: `gateway`)
 - **Database**: `gateway` (sử dụng R2DBC reactive driver cho runtime và Liquibase JDBC cho database migration).
 - **Cache**: Không sử dụng.
@@ -25,7 +25,7 @@ Tài liệu này đặc tả chi tiết từng microservice trong hệ thống F
 ## 2. User Service (`userService`)
 
 - **Trách nhiệm**: Quản lý hồ sơ người dùng (User Profiles), yêu cầu kết bạn (Friend Requests), quan hệ bạn bè 2 chiều (Friendships), theo dõi (Follows) và tính toán danh sách gợi ý bạn bè (Friend Suggestions dựa trên bạn chung).
-- **Framework / Runtime**: Spring Boot, Spring Data JPA / JDBC, OpenFeign, Spring Cache.
+- **Framework / Runtime**: Spring Boot 4.1.1, Spring Data JPA / JDBC, OpenFeign, Spring Cache.
 - **Port mặc định**: `8082` (Consul discovery ID: `userservice`)
 - **Database**: MariaDB schema `user_service` (Local port 3307 / Staging AWS RDS TLS)
 - **Entities**: `UserProfile`, `FriendRequest`, `Follow`, `Friendship`.
@@ -36,13 +36,13 @@ Tài liệu này đặc tả chi tiết từng microservice trong hệ thống F
     - `media-cleanup-topic` (binding: `mediaCleanupOut-out-0`): Phát sinh khi avatar/cover cũ được thay thế để MediaService dọn dẹp trên Cloudinary.
   - **Consumes**: Không có consumer trực tiếp (chỉ có probe topic mặc định).
 - **Main APIs**:
-  - `GET/POST/PUT /api/user-profiles`: Quản lý hồ sơ cá nhân.
-  - `GET /api/user-profiles/friend-suggestions`: Lấy gợi ý kết bạn kèm số lượng bạn chung.
-  - `GET/POST /api/friendships`: Quản lý danh sách bạn bè.
-  - `GET /api/friendships/friends-list/{userId}`: Lấy danh sách ID bạn bè (được FeedService gọi qua Feign).
-  - `GET/POST /api/user-follows`: Quản lý danh sách theo dõi.
-  - `GET /api/user-follows/followers-list/{userId}`: Lấy danh sách ID người theo dõi (được FeedService gọi qua Feign).
-  - `POST /api/friend-requests`: Gửi, chấp nhận hoặc từ chối lời mời kết bạn.
+  - `GET/PATCH /api/user-profiles/me`: Đọc/cập nhật hồ sơ của user hiện tại.
+  - `GET /api/user-profiles/public[/{id}]`: Đọc profile public.
+  - `GET /api/user-profiles/search` và `GET /api/user-profiles/suggestions`: Tìm kiếm và gợi ý kết bạn.
+  - `GET /api/friendships/me`, `GET /api/friendships/user/{userId}`, `DELETE /api/friendships/user/{friendId}`: Luồng bạn bè dành cho client.
+  - `GET /api/friendships/user/{userId}/friend-ids`: Danh sách ID bạn bè cho Feed/Post.
+  - `POST /api/follows/user/{id}`, `DELETE /api/follows/user/{id}` và các route `following`/`follower`: Luồng follow.
+  - `POST /api/friend-requests/user/{id}` cùng các action `accept`, `reject`, `cancel`: Vòng đời lời mời kết bạn.
 - **Dependencies**: Media Service (qua `MediaServiceClient`), Consul, Redis, MariaDB.
 - **Authentication**: OAuth2 Resource Server (xác thực token Bearer JWT phát hành bởi Keycloak).
 - **Health Check**: `GET http://localhost:8082/management/health`
@@ -55,7 +55,7 @@ Tài liệu này đặc tả chi tiết từng microservice trong hệ thống F
 - **Framework / Runtime**: Spring Boot, Spring Data JPA, OpenFeign, Spring Cloud Stream Kafka.
 - **Port mặc định**: `8083` (Consul discovery ID: `postservice`)
 - **Database**: MariaDB schema `post_service` (Local port 3307 / Staging AWS RDS TLS)
-- **Entities**: `Post`, `PostMedia`, `PostReaction`.
+- **Entities**: `Post`, `PostMedia`, `PostReaction`, `SavedPost` (bảng `saved_post`).
 - **Cache**: Không trực tiếp sử dụng Redis (ủy quyền cho FeedService).
 - **Kafka**:
   - **Produces**:
@@ -63,9 +63,12 @@ Tài liệu này đặc tả chi tiết từng microservice trong hệ thống F
     - `media-cleanup-topic` (binding: `mediaCleanupOut-out-0`): Gửi danh sách media ID cần xóa khi bài viết bị xóa hoặc sửa bớt ảnh.
   - **Consumes**: Không có.
 - **Main APIs**:
-  - `GET/POST/PUT/DELETE /api/posts`: CRUD bài viết.
+  - `POST /api/posts/create`, `GET/PUT/PATCH/DELETE /api/posts[/{id}]`: CRUD bài viết và kiểm tra visibility/ownership.
   - `GET /api/posts/{id}`: Chi tiết bài viết.
-  - `POST/DELETE /api/post-reactions`: Thả/hủy cảm xúc trên bài viết.
+  - `PUT/DELETE /api/post-reactions/posts/{postId}`: Thả/thay/hủy cảm xúc trên bài viết.
+  - `GET /api/post-reactions/summaries` và `GET /api/post-reactions/posts/{postId}`: Batch summary và danh sách reactor.
+  - `POST /api/posts/{id}/save`: Toggle lưu/bỏ lưu bài viết (trả về boolean).
+  - `GET /api/posts/saved`: Lấy danh sách bài viết đã lưu của người dùng hiện tại.
   - `GET/POST /api/post-medias`: Quản lý media liên kết với bài viết.
 - **Dependencies**: User Service (qua `UserServiceClient`), Media Service (qua `MediaServiceClient`), Consul, Kafka, MariaDB.
 - **Authentication**: OAuth2 Resource Server (Bearer JWT).
@@ -86,9 +89,11 @@ Tài liệu này đặc tả chi tiết từng microservice trong hệ thống F
   - **Consumes**:
     - `post-events` (binding: `processPostEvent-in-0`, group: `comment-service-post-sync`, DLQ: `post-events-dlt`): Lắng nghe sự kiện để thêm/cập nhật/xóa bản ghi tương ứng trong bảng `post_cache`.
 - **Main APIs**:
-  - `GET/POST/PUT/DELETE /api/comments`: CRUD bình luận trên bài viết.
-  - `GET /api/comments/post/{postId}`: Lấy danh sách bình luận theo bài viết.
-  - `POST/DELETE /api/comment-reactions`: Thả cảm xúc trên bình luận.
+  - `GET /api/comments?postId.equals={postId}`: Lấy comment ACTIVE theo bài viết.
+  - `POST /api/comments/create`, `POST /api/comments/reply`: Tạo comment và reply.
+  - `PUT/DELETE /api/comments/{commentId}`: Sửa hoặc soft-delete bởi owner/admin.
+  - `POST /api/comments/summaries`: Batch comment count/preview cho nhiều post.
+  - `POST /api/comment-reactions/toggle`: Bật, đổi hoặc gỡ reaction trên comment.
 - **Dependencies**: Post Service (qua `PostFeignClient`), User Service (qua `UserServiceClient`), Consul, Kafka, MariaDB.
 - **Authentication**: OAuth2 Resource Server (Bearer JWT).
 - **Health Check**: `GET http://localhost:8085/management/health`
@@ -131,8 +136,8 @@ Tài liệu này đặc tả chi tiết từng microservice trong hệ thống F
   - **Consumes**:
     - `post-events` (binding: `processPostEvent-in-0`, group: `feed-service-post-sync`, DLQ: `post-events-feed-dlt`): Tiêu thụ event tạo bài, cập nhật quyền riêng tư hoặc xóa bài viết để cập nhật đồng thời MariaDB và Redis.
 - **Main APIs**:
-  - `GET /api/feeds`: Lấy bảng tin của người dùng hiện tại (truy vấn nhanh qua Redis ZSet, fallback sang MariaDB nếu cache miss).
-  - `GET /api/feed-items`: Quản lý các bản ghi feed item.
+  - `GET /api/feed/me`: Lấy bảng tin của người dùng hiện tại (Redis ZSet, warm/fallback từ MariaDB/Post Service khi cần).
+  - CRUD `/api/feed-items`: Chỉ `ROLE_ADMIN`, không phải contract frontend.
 - **Dependencies**: User Service (qua `UserServiceClient` để lấy bạn bè/followers), Consul, Kafka, Redis, MariaDB.
 - **Authentication**: OAuth2 Resource Server (Bearer JWT). Khi tiêu thụ Kafka không có user context, sử dụng `TokenRelayRequestInterceptor` với luồng OAuth2 Client Credentials (client ID `internal`) để gọi sang User Service.
 - **Health Check**: `GET http://localhost:8086/management/health`
@@ -155,7 +160,7 @@ Tài liệu này đặc tả chi tiết từng microservice trong hệ thống F
 ## 8. Frontend Application (`frontend`)
 
 - **Trách nhiệm**: Giao diện người dùng Web SPA tương tác hoàn chỉnh. Hỗ trợ hiển thị News Feed thời gian thực, quản lý bài viết, bộ chọn emoji, gallery hình ảnh, quản lý bạn bè và kết nối với Keycloak để xác thực.
-- **Tech Stack**: React 19, Vite 8, TypeScript 5.7, Tailwind CSS v4, `keycloak-js`, Axios.
+- **Tech Stack**: React 19, Vite 8, TypeScript 5.7, Tailwind CSS v4, React Router 8, `keycloak-js`, Axios.
 - **Port Dev**: `5173` (hoặc cấu hình tùy ý)
 - **Deployment**:
   - Dev: Chạy máy host qua `npm run dev`

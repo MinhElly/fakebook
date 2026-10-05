@@ -39,7 +39,7 @@ export async function sendFriendRequest(targetUserId: string): Promise<boolean> 
 
 export async function cancelFriendRequest(targetUserId: string, requestId?: string): Promise<boolean> {
   if (requestId) {
-    await api.delete(`/services/userservice/api/friend-requests/${requestId}/cancel`);
+    await api.post(`/services/userservice/api/friend-requests/${requestId}/cancel`);
     return true;
   }
   try {
@@ -49,7 +49,7 @@ export async function cancelFriendRequest(targetUserId: string, requestId?: stri
     const sentList = res.data || [];
     const found = sentList.find((req: any) => req.receiver?.id === targetUserId);
     if (found && found.id) {
-      await api.delete(`/services/userservice/api/friend-requests/${found.id}/cancel`);
+      await api.post(`/services/userservice/api/friend-requests/${found.id}/cancel`);
       return true;
     }
   } catch (err) {

@@ -3,10 +3,10 @@
 [![CI/CD Pipeline](https://github.com/MinhElly/fakebook/actions/workflows/ci.yml/badge.svg)](https://github.com/MinhElly/fakebook/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Java](https://img.shields.io/badge/Java-21-orange.svg)](https://www.oracle.com/java/)
-[![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.4.x-brightgreen.svg)](https://spring.io/projects/spring-boot)
+[![Spring Boot](https://img.shields.io/badge/Spring%20Boot-4.1.1-brightgreen.svg)](https://spring.io/projects/spring-boot)
 [![React](https://img.shields.io/badge/React-19-blue.svg)](https://react.dev/)
 
-**Fakebook** là nền tảng mạng xã hội phân tán hiện đại được xây dựng theo kiến trúc **Microservices** hướng sự kiện (Event-Driven Architecture). Hệ thống kết hợp sức mạnh của hệ sinh thái **Java 21 / Spring Boot / JHipster 9.3**, giao diện người dùng **React 19 / Vite / Tailwind CSS v4**, cùng hạ tầng phân tán **Keycloak, Consul, Kafka, MariaDB và Redis**.
+**Fakebook** là nền tảng mạng xã hội phân tán hiện đại được xây dựng theo kiến trúc **Microservices** hướng sự kiện (Event-Driven Architecture). Hệ thống kết hợp sức mạnh của hệ sinh thái **Java 21 / Spring Boot 4.1.1 / JHipster 9.3**, giao diện người dùng **React 19 / Vite / Tailwind CSS v4**, cùng hạ tầng phân tán **Keycloak, Consul, Kafka, MariaDB và Redis**.
 
 ---
 
@@ -44,7 +44,7 @@ flowchart LR
 
 - **Frontend**: React 19, TypeScript 5.7, Vite 8, Tailwind CSS v4, `keycloak-js`, Axios.
 - **API Gateway**: Spring Cloud Gateway (Reactive WebFlux), Spring Security OAuth2 TokenRelay.
-- **Backend Services**: Spring Boot 3.4.x, Java 21 (Temurin), Spring Data JPA / JDBC, OpenFeign, Spring Cloud Stream.
+- **Backend Services**: Spring Boot 4.1.1, Spring Cloud 2025.1.3, Java 21 (Temurin), Spring Data JPA / JDBC, OpenFeign, Spring Cloud Stream.
 - **Identity & Access Management (IAM)**: Keycloak 26 (OAuth2 / OIDC, Google Identity Provider).
 - **Service Discovery & Config**: HashiCorp Consul 2.0.3, `consul-config-loader`.
 - **Message Streaming**: Apache Kafka Native 4.3.1 (KRaft mode).
@@ -93,15 +93,15 @@ Truy cập ứng dụng tại: **`http://localhost:5173`** (Đăng nhập với 
 fakebook/
 ├── gateway/              # API Gateway & Reverse Proxy (Port 8080)
 ├── userService/          # Quản lý hồ sơ, bạn bè & theo dõi (Port 8082)
-├── postService/          # Quản lý bài đăng & reactions (Port 8083)
+├── postService/          # Quản lý bài đăng, reactions & saved posts (Port 8083)
 ├── commentService/       # Quản lý bình luận & PostCache (Port 8085)
 ├── mediaService/         # Quản lý upload Cloudinary & dọn dẹp media (Port 8084)
 ├── feedService/          # Bảng tin cá nhân hóa & Redis Fan-out (Port 8086)
 ├── authService/          # JHipster skeleton microservice (Port 8081)
 ├── frontend/             # Giao diện người dùng React 19 SPA
 ├── infrastructure/       # Docker Compose dev/staging, scripts & central config
-├── performance/          # Kịch bản kiểm thử tải k6
-├── scripts/              # E2E Smoke Test script
+├── performance/          # Kịch bản kiểm thử tải k6 (http-baseline.js)
+├── scripts/              # E2E Smoke Test scripts (PowerShell & Bash)
 └── docs/                 # Toàn bộ tài liệu kỹ thuật chi tiết
 ```
 

@@ -31,7 +31,7 @@ sequenceDiagram
     participant Redis_Feed as Redis ZSet (feed:user:*)
     participant MariaDB_Comment as MariaDB (comment_service.post_cache)
 
-    Author->>PostService: POST /api/posts (Tạo bài viết mới)
+    Author->>PostService: POST /api/posts/create (Tạo bài viết mới)
     PostService->>MariaDB_Post: INSERT INTO posts (...)
     MariaDB_Post-->>PostService: Đã lưu bài viết
     

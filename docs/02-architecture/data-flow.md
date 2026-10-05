@@ -15,13 +15,13 @@ flowchart TD
     end
 
     subgraph Step2["2. Đăng bài viết"]
-        D --> E[Frontend gọi POST /services/postservice/api/posts<br/>kèm danh sách mediaIds]
+        D --> E[Frontend gọi POST /services/postservice/api/posts/create<br/>kèm content, visibility, mediaIds, taggedUserIds]
         E --> F[PostService lưu bài vào DB postservice]
         F --> G[Lưu bản ghi liên kết vào bảng post_media]
     end
 
     subgraph Step3["3. Bắn sự kiện qua Kafka"]
-        G --> H[PostService bắn PostCreatedEvent sang topic post-events]
+        G --> H[PostService ghi event vào transactional outbox<br/>publisher gửi PostCreatedEvent sang topic post-events]
     end
 
     subgraph Step4["4. Xử lý bất đồng bộ downstream"]
@@ -50,7 +50,7 @@ sequenceDiagram
     participant CacheDB as MariaDB (comment_service.post_cache)
     participant CommentDB as MariaDB (comment_service.comments)
 
-    User->>CS: POST /api/comments {postId, content, parentId?}
+    User->>CS: POST /api/comments/create {postId, content}
     CS->>CacheDB: SELECT * FROM post_cache WHERE id = :postId
     
     alt Bài viết không tồn tại trong Cache hoặc status == INACTIVE
@@ -70,7 +70,7 @@ Trong `userService` (`UserProfileService.java`), thuật toán tìm kiếm gợi
 
 ```mermaid
 flowchart TD
-    Req[Client gọi GET /api/user-profiles/friend-suggestions] --> GetSubject[Lấy currentUserId từ JWT Subject]
+    Req[Client gọi GET /api/user-profiles/suggestions] --> GetSubject[Lấy currentUserId từ JWT Subject]
     GetSubject --> SQL[Chạy Native Query: findFriendSuggestions]
     
     SQL --> Logic["1. Tìm danh sách tất cả bạn bè của currentUserId (Tập F)<br/>2. Tìm bạn bè của các bạn bè trong F (Bạn của bạn - Friend of Friends)<br/>3. Loại trừ chính currentUserId và những người đã là bạn / đã gửi request<br/>4. GROUP BY gợi ý và COUNT số lượng bạn chung (mutualFriendsCount)<br/>5. ORDER BY mutualFriendsCount DESC LIMIT 100"]
@@ -79,3 +79,42 @@ flowchart TD
     Hydrate --> DTO[Ghép profile + mutualFriendsCount + friendshipStatus = NONE]
     DTO --> Resp[Trả về danh sách UserSearchDTO cho Frontend]
 ```
+
+---
+
+## 4. Luồng 4: Lưu bài viết & Truy xuất bài đã lưu (Saved Posts Flow)
+
+Tính năng lưu bài viết (Bookmark) cho phép người dùng lưu trữ các bài đăng quan tâm và xem lại tập trung:
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor User as Người dùng
+    participant UI as React Frontend (/saved)
+    participant GW as API Gateway (:8080)
+    participant PS as Post Service (:8083)
+    participant DB as MariaDB (post_service.saved_post)
+
+    alt Lưu hoặc Bỏ lưu bài viết (Toggle)
+        User->>UI: Nhấn "Lưu bài viết" trên menu Post
+        UI->>GW: POST /services/postservice/api/posts/{postId}/save (Bearer JWT)
+        GW->>PS: Forward request kèm userId từ token
+        PS->>DB: Kiểm tra bản ghi (user_id, post_id)
+        alt Đã lưu trước đó
+            PS->>DB: DELETE FROM saved_post WHERE user_id = :uid AND post_id = :pid
+            PS-->>UI: HTTP 200 OK (body: false - đã bỏ lưu)
+        else Chưa lưu
+            PS->>DB: INSERT INTO saved_post (id, user_id, post_id, created_at)
+            PS-->>UI: HTTP 200 OK (body: true - đã lưu)
+        end
+    else Xem danh sách bài viết đã lưu
+        User->>UI: Truy cập menu "Đã lưu" (/saved)
+        UI->>GW: GET /services/postservice/api/posts/saved (Bearer JWT)
+        GW->>PS: Forward request kèm userId
+        PS->>DB: Query các post_id từ saved_post WHERE user_id = :uid ORDER BY created_at DESC
+        PS->>DB: Nạp thông tin Post tương ứng, lọc bài còn ACTIVE/quyền xem
+        PS-->>UI: HTTP 200 OK (List<PostDTO>)
+        UI-->>User: Render danh sách bài viết trên SavedPage
+    end
+```
+
