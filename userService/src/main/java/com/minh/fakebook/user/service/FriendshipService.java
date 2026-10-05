@@ -108,10 +108,6 @@ public class FriendshipService {
         LOG.debug("Request to delete Friendship : {}", id);
         friendshipRepository.deleteById(id);
     }
-    @Caching(evict = {
-        @CacheEvict(value = "userFriends", allEntries = true),
-        @CacheEvict(value = "friendSuggestions", allEntries = true)
-    })
     public void unFriend(UUID currentUserId, UUID friendUserId ){
         if(currentUserId.equals(friendUserId)){
             throw new IllegalArgumentException("Cannot unfriend yourself");
@@ -124,11 +120,11 @@ public class FriendshipService {
         LOG.info("Scheduled FRIENDSHIP_DELETED event between {} and {}", currentUserId, friendUserId);
 
     }
-    @Cacheable (value = "userFriends", key = "#userId.toString() + '_' + #pageable.pageNumber + '_' + #pageable.pageSize")
+    @Cacheable (value = "userFriends", key = "#userId.toString() + '_' + #pageable.pageNumber + '_' + #pageable.pageSize + '_' + #pageable.sort.toString()")
     public Page<FriendshipDTO> getMyFriendsList(UUID userId, Pageable pageable){
         return friendshipRepository.findByUserId(userId, pageable).map(friendshipMapper::toDto);
     }
-    @Cacheable(value = "userFriends", key = "#userId.toString() + '_' + #pageable.pageNumber + '_' + #pageable.pageSize")
+    @Cacheable(value = "userFriends", key = "#userId.toString() + '_' + #pageable.pageNumber + '_' + #pageable.pageSize + '_' + #pageable.sort.toString()")
     public Page<FriendshipDTO> getUserFriendsList(UUID userId, Pageable pageable){
         return friendshipRepository.findByUserId(userId, pageable).map(friendshipMapper::toDto);
     }

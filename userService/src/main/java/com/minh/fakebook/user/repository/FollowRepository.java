@@ -44,4 +44,6 @@ public interface FollowRepository extends JpaRepository<Follow, UUID>, JpaSpecif
 
     @Query("SELECT f.follower.id FROM Follow f WHERE f.following.id = :userId")
     List<UUID> findFollowerIdsByUserId(@Param("userId") UUID userId);
+    @org.springframework.data.jpa.repository.Query("SELECT CASE WHEN e.follower.id = :userId THEN e.following.id ELSE e.follower.id END FROM Follow e WHERE e.follower.id = :userId OR e.following.id = :userId")
+    java.util.List<UUID> findRelatedUserIds(@org.springframework.data.repository.query.Param("userId") UUID userId);
 }

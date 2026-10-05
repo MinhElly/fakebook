@@ -86,7 +86,6 @@ public class UserProfileService {
      * @param userProfileDTO the entity to save.
      * @return the persisted entity.
      */
-    @CacheEvict(value = "userProfile", key = "#userProfileDTO.id.toString()", condition = "#userProfileDTO.id != null")
     public UserProfileDTO save(UserProfileDTO userProfileDTO) {
         LOG.debug("Request to save UserProfile : {}", userProfileDTO);
         UserProfile userProfile = userProfileMapper.toEntity(userProfileDTO);
@@ -100,7 +99,6 @@ public class UserProfileService {
      * @param userProfileDTO the entity to save.
      * @return the persisted entity.
      */
-    @CacheEvict(value = "userProfile", key = "#userProfileDTO.id.toString()")
     public UserProfileDTO update(UserProfileDTO userProfileDTO) {
         LOG.debug("Request to update UserProfile : {}", userProfileDTO);
         UserProfile userProfile = userProfileMapper.toEntity(userProfileDTO);
@@ -114,7 +112,6 @@ public class UserProfileService {
      * @param userProfileDTO the entity to update partially.
      * @return the persisted entity.
      */
-    @CacheEvict(value = "userProfile", key = "#userProfileDTO.id.toString()", condition = "#result.isPresent()")
     public Optional<UserProfileDTO> partialUpdate(UserProfileDTO userProfileDTO) {
         LOG.debug("Request to partially update UserProfile : {}", userProfileDTO);
 
@@ -167,7 +164,7 @@ public class UserProfileService {
      * @return the entity.
      */
     @Transactional(readOnly = true)
-    @Cacheable(value = "userProfile", key = "#id.toString()")
+    @Cacheable(value = "userProfile", key = "#id.toString() + ':optional'")
     public Optional<UserProfileDTO> findOne(UUID id) {
         LOG.debug("Request to get UserProfile : {}", id);
         return userProfileRepository.findById(id).map(userProfileMapper::toDto);
@@ -178,7 +175,6 @@ public class UserProfileService {
      *
      * @param id the id of the entity.
      */
-    @CacheEvict(value = "userProfile", key = "#id.toString()")
     public void delete(UUID id) {
         LOG.debug("Request to delete UserProfile : {}", id);
         userProfileRepository.deleteById(id);

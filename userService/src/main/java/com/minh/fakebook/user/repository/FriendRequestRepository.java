@@ -34,4 +34,6 @@ public interface FriendRequestRepository
     
     @Query ("SELECT fr.sender.id FROM FriendRequest fr WHERE fr.receiver.id = :currentUserId AND fr.sender.id IN :targetIds AND fr.status = :status")
     Set<UUID> findPendingSenderIdsIn(@Param ("currentUserId") UUID currentUserId, @Param ("targetIds") Collection<UUID> targetIds, @Param ("status") FriendRequestStatus status);
+    @org.springframework.data.jpa.repository.Query("SELECT CASE WHEN e.sender.id = :userId THEN e.receiver.id ELSE e.sender.id END FROM FriendRequest e WHERE e.sender.id = :userId OR e.receiver.id = :userId")
+    java.util.List<UUID> findRelatedUserIds(@org.springframework.data.repository.query.Param("userId") UUID userId);
 }

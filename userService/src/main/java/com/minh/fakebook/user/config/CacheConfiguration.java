@@ -51,7 +51,7 @@ public class CacheConfiguration {
             JsonNode node = p.getCodec().readTree(p);
             int page = node.has("pageNumber") ? node.get("pageNumber").asInt() : (node.has("number") ? node.get("number").asInt() : 0);
             int size = node.has("pageSize") ? node.get("pageSize").asInt() : (node.has("size") ? node.get("size").asInt() : 20);
-            return PageRequest.of(page, size);
+            return PageRequest.of(page, size, readSort(node));
         }
     }
 
@@ -61,10 +61,25 @@ public class CacheConfiguration {
             JsonNode node = p.getCodec().readTree(p);
             int page = node.has("pageNumber") ? node.get("pageNumber").asInt() : (node.has("number") ? node.get("number").asInt() : 0);
             int size = node.has("pageSize") ? node.get("pageSize").asInt() : (node.has("size") ? node.get("size").asInt() : 20);
-            return PageRequest.of(page, size);
+            return PageRequest.of(page, size, readSort(node));
         }
     }
 
+    private static org.springframework.data.domain.Sort readSort(JsonNode node) {
+        java.util.List<org.springframework.data.domain.Sort.Order> orders = new java.util.ArrayList<>();
+        JsonNode sort = node.get("sortOrders");
+        if (sort != null && sort.isArray()) {
+            for (JsonNode order : sort) {
+                var value = new org.springframework.data.domain.Sort.Order(
+                    org.springframework.data.domain.Sort.Direction.valueOf(order.get("direction").asText()),
+                    order.get("property").asText(),
+                    org.springframework.data.domain.Sort.NullHandling.valueOf(order.get("nullHandling").asText()));
+                if (order.path("ignoreCase").asBoolean()) value = value.ignoreCase();
+                orders.add(value);
+            }
+        }
+        return org.springframework.data.domain.Sort.by(orders);
+    }
     @Bean 
     public RedisCacheManager cacheManager(RedisConnectionFactory connectionFactory){
         ObjectMapper objectMapper = new ObjectMapper();
@@ -74,6 +89,7 @@ public class CacheConfiguration {
         SimpleModule pageModule = new SimpleModule();
         pageModule.addDeserializer(Pageable.class, new PageableDeserializer());
         pageModule.addDeserializer(PageRequest.class, new PageRequestDeserializer());
+        pageModule.addSerializer(PageRequest.class, new CachedPageRequestSerializer());
         objectMapper.registerModule(pageModule);
 
         objectMapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
@@ -86,6 +102,6 @@ public class CacheConfiguration {
             RedisSerializationContext.SerializationPair.fromSerializer(new StringRedisSerializer()))
         .serializeValuesWith(
             RedisSerializationContext.SerializationPair.fromSerializer(jsonSerializer));
-        return RedisCacheManager.builder(connectionFactory).cacheDefaults(cacheConfig).build();
+        return RedisCacheManager.builder(connectionFactory).cacheDefaults(cacheConfig).transactionAware().build();
     }
 }

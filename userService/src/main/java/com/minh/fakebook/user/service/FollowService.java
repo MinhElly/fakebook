@@ -113,11 +113,6 @@ public class FollowService {
         followRepository.deleteById(id);
     }
 
-    @Caching(evict = {
-        @CacheEvict(value = "userFollowing", allEntries = true),
-        @CacheEvict(value = "userFollowers", allEntries = true),
-        @CacheEvict(value = "friendSuggestions", allEntries = true)
-    })
     public FollowDTO followUser(UUID senderId, UUID targetUserId){
         if(senderId.equals(targetUserId)){
             throw new IllegalArgumentException("Sender and targer user must be different people");
@@ -135,11 +130,6 @@ public class FollowService {
         return followMapper.toDto(followRepository.saveAndFlush(follow));
     }
 
-    @Caching(evict = {
-        @CacheEvict(value = "userFollowing", allEntries = true),
-        @CacheEvict(value = "userFollowers", allEntries = true),
-        @CacheEvict(value = "friendSuggestions", allEntries = true)
-    })
     public void unfollowUser(UUID currentUserId, UUID targetUserId){
     if(currentUserId.equals(targetUserId)){
        throw new IllegalArgumentException("Cannot unfollow yourself");
@@ -152,13 +142,13 @@ public class FollowService {
     }
 
     @Transactional(readOnly = true)
-    @Cacheable(value = "userFollowing", key = "#userId.toString() + '_' + #pageable.pageNumber + '_' + #pageable.pageSize")
+    @Cacheable(value = "userFollowing", key = "#userId.toString() + '_' + #pageable.pageNumber + '_' + #pageable.pageSize + '_' + #pageable.sort.toString()")
     public Page<FollowDTO> getFollowingList(UUID userId, Pageable pageable){
         return followRepository.findFollowing(userId, pageable).map(followMapper::toDto);    
     }
 
     @Transactional(readOnly = true)
-    @Cacheable(value = "userFollowers", key = "#userId.toString() + '_' + #pageable.pageNumber + '_' + #pageable.pageSize")
+    @Cacheable(value = "userFollowers", key = "#userId.toString() + '_' + #pageable.pageNumber + '_' + #pageable.pageSize + '_' + #pageable.sort.toString()")
     public Page<FollowDTO> getFollowerList(UUID userId, Pageable pageable){
         return followRepository.findFollowers(userId, pageable).map(followMapper::toDto);    
     }

@@ -86,4 +86,6 @@ public interface FriendshipRepository extends JpaRepository<Friendship, UUID>, J
     """, nativeQuery = true)
     List<FriendSuggestionProjection> findFriendSuggestions(@Param("currentUserId") UUID currentUserId, Pageable pageable);
     
+    @org.springframework.data.jpa.repository.Query("SELECT CASE WHEN e.user.id = :userId THEN e.friend.id ELSE e.user.id END FROM Friendship e WHERE e.user.id = :userId OR e.friend.id = :userId")
+    java.util.List<UUID> findRelatedUserIds(@org.springframework.data.repository.query.Param("userId") UUID userId);
 }
