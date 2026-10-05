@@ -25,7 +25,6 @@ import org.slf4j.LoggerFactory;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.cache.annotation.Caching;
-import org.springframework.cloud.stream.function.StreamBridge;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -50,8 +49,6 @@ public class FriendRequestService {
 
     private final UserProfileRepository userProfileRepository;
 
-    private final StreamBridge streamBridge;
-
     private final ApplicationEventPublisher applicationEventPublisher;
 
     public FriendRequestService(
@@ -59,13 +56,11 @@ public class FriendRequestService {
             FriendshipRepository friendshipRepository,
             FriendRequestMapper friendRequestMapper,
             UserProfileRepository userProfileRepository,
-            StreamBridge streamBridge,
             ApplicationEventPublisher applicationEventPublisher) {
         this.friendRequestRepository = friendRequestRepository;
         this.friendshipRepository = friendshipRepository;
         this.friendRequestMapper = friendRequestMapper;
         this.userProfileRepository = userProfileRepository;
-        this.streamBridge = streamBridge;
         this.applicationEventPublisher = applicationEventPublisher;
     }
 
@@ -154,7 +149,7 @@ public class FriendRequestService {
         LOG.debug("Request to delete FriendRequest : {}", id);
         friendRequestRepository.deleteById(id);
     }
-    @Transactional 
+    @Transactional
     @Caching (evict = {
         @CacheEvict(value = "pendingSentRequests", allEntries = true),
         @CacheEvict(value = "pendingReceivedRequests", allEntries = true),
@@ -170,14 +165,14 @@ public class FriendRequestService {
         if(friendshipRepository.existsFriendship(senderId, targetUserId)){
             throw new IllegalStateException("Users are alrealy friends");
         }
-        boolean requestExists = 
+        boolean requestExists =
         friendRequestRepository.existsBySenderIdAndReceiverIdAndStatus(senderId, targetUserId, FriendRequestStatus.PENDING) ||
         friendRequestRepository.existsBySenderIdAndReceiverIdAndStatus(targetUserId, senderId, FriendRequestStatus.PENDING);
         if(requestExists){
             throw new IllegalStateException("Friend request already exists");
         }
         FriendRequest friendRequest = new FriendRequest();
-        
+
         friendRequest.sender(sender);
         friendRequest.setReceiver(receiver);
         friendRequest.setStatus(FriendRequestStatus.PENDING);
@@ -186,7 +181,7 @@ public class FriendRequestService {
         applicationEventPublisher.publishEvent(
             FriendRequestCreatedEvent.create(friendRequest.getId(), senderId, targetUserId)
         );
-        return friendRequestMapper.toDto(friendRequest);  
+        return friendRequestMapper.toDto(friendRequest);
     }
     @Transactional
     @Caching(evict = {
@@ -194,7 +189,7 @@ public class FriendRequestService {
         @CacheEvict (value = "pendingSentRequests", allEntries = true),
         @CacheEvict (value = "userFriends", allEntries = true),
         @CacheEvict (value = "friendSuggestions", allEntries = true)
-    }) 
+    })
     public FriendRequestDTO acceptFriendRequest(UUID requestId, UUID currentId){
         FriendRequest friendRequest = friendRequestRepository.findById(requestId).orElseThrow(() -> new EntityNotFoundException("Friend request not found"));
         if(friendRequest.getStatus() != FriendRequestStatus.PENDING) {
@@ -221,16 +216,10 @@ public class FriendRequestService {
         receiverToSender.setFriend(sender);
         receiverToSender.createdAt(Instant.now());
 
-        friendshipRepository.save(senderToReceiver);
-        friendshipRepository.save(receiverToSender);
-        FriendshipUpdatedEvent event = new FriendshipUpdatedEvent(
-            sender.getId(),
-            receiver.getId(),
-            "CREATED",
-            Instant.now()
-);
-        streamBridge.send("friendshipEventsOut-out-0", event);
-        LOG.info("Published FriendshipUpdatedEvent between {} and {}", sender.getId(), receiver.getId());
+        friendshipRepository.saveAllAndFlush(java.util.List.of(senderToReceiver, receiverToSender));
+        applicationEventPublisher.publishEvent(FriendshipUpdatedEvent.created(sender.getId(),receiver.getId()));
+
+        LOG.info("Scheduled FRIENDSHIP_CREATED event between {} and {}", sender.getId(), receiver.getId());
 
         FriendRequest saved = friendRequestRepository.save(friendRequest);
 

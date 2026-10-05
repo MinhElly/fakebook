@@ -25,4 +25,7 @@
     <include file="config/liquibase/changelog/20260916000000_alter_outbox_payload.xml" relativeToChangelogFile="false"/>
     <include file="config/liquibase/changelog/20260924000000_reconcile_outbox_payload.xml" relativeToChangelogFile="false"/>
     <include file="config/liquibase/changelog/20260925000000_add_post_reaction_unique.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20260925000000_alter_post_content.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20260928010000_add_feed_backfill_index.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20260930000000_added_entity_SavedPost.xml" relativeToChangelogFile="false"/>
 </databaseChangeLog>

@@ -3,6 +3,7 @@ package com.minh.fakebook.user.service;
 import com.minh.fakebook.user.domain.Friendship;
 import com.minh.fakebook.user.repository.FriendshipRepository;
 import com.minh.fakebook.user.service.dto.FriendshipDTO;
+import com.minh.fakebook.user.service.dto.events.FriendshipUpdatedEvent;
 import com.minh.fakebook.user.service.mapper.FriendshipMapper;
 
 import java.util.List;
@@ -13,6 +14,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.cache.annotation.Caching;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -31,9 +33,12 @@ public class FriendshipService {
 
     private final FriendshipMapper friendshipMapper;
 
-    public FriendshipService(FriendshipRepository friendshipRepository, FriendshipMapper friendshipMapper) {
+    private final ApplicationEventPublisher applicationEventPublisher;
+
+    public FriendshipService(FriendshipRepository friendshipRepository, FriendshipMapper friendshipMapper, ApplicationEventPublisher applicationEventPublisher) {
         this.friendshipRepository = friendshipRepository;
         this.friendshipMapper = friendshipMapper;
+        this.applicationEventPublisher = applicationEventPublisher;
     }
 
     /**
@@ -45,7 +50,7 @@ public class FriendshipService {
     public FriendshipDTO save(FriendshipDTO friendshipDTO) {
         LOG.debug("Request to save Friendship : {}", friendshipDTO);
         Friendship friendship = friendshipMapper.toEntity(friendshipDTO);
-        friendship = friendshipRepository.save(friendship);
+        friendship = friendshipRepository.saveAndFlush(friendship);
         return friendshipMapper.toDto(friendship);
     }
 
@@ -58,7 +63,7 @@ public class FriendshipService {
     public FriendshipDTO update(FriendshipDTO friendshipDTO) {
         LOG.debug("Request to update Friendship : {}", friendshipDTO);
         Friendship friendship = friendshipMapper.toEntity(friendshipDTO);
-        friendship = friendshipRepository.save(friendship);
+        friendship = friendshipRepository.saveAndFlush(friendship);
         return friendshipMapper.toDto(friendship);
     }
 
@@ -113,18 +118,19 @@ public class FriendshipService {
         }
         if(!friendshipRepository.existsFriendship(currentUserId, friendUserId)){
             throw new IllegalStateException("You are not friend with this user");
-        }else{
-            friendshipRepository.deleteFriendship(currentUserId, friendUserId);
-        
-        }  
+        }
+        friendshipRepository.deleteFriendship(currentUserId, friendUserId);
+        applicationEventPublisher.publishEvent(FriendshipUpdatedEvent.deleted(currentUserId, friendUserId));
+        LOG.info("Scheduled FRIENDSHIP_DELETED event between {} and {}", currentUserId, friendUserId);
+
     }
     @Cacheable (value = "userFriends", key = "#userId.toString() + '_' + #pageable.pageNumber + '_' + #pageable.pageSize")
     public Page<FriendshipDTO> getMyFriendsList(UUID userId, Pageable pageable){
-        return friendshipRepository.findByUserId(userId, pageable).map(friendshipMapper::toDto);    
+        return friendshipRepository.findByUserId(userId, pageable).map(friendshipMapper::toDto);
     }
     @Cacheable(value = "userFriends", key = "#userId.toString() + '_' + #pageable.pageNumber + '_' + #pageable.pageSize")
     public Page<FriendshipDTO> getUserFriendsList(UUID userId, Pageable pageable){
-        return friendshipRepository.findByUserId(userId, pageable).map(friendshipMapper::toDto);    
+        return friendshipRepository.findByUserId(userId, pageable).map(friendshipMapper::toDto);
     }
     @Transactional(readOnly = true)
     public boolean areFriends(UUID userId1, UUID userId2) {

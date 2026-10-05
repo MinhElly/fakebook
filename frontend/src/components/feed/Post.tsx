@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import { usePostStore } from "@/stores/postStore";
 import { useCommentStore } from "@/stores/commentStore";
+import { useFriendStore } from "@/stores/friendStore";
 import { useOutsideClick } from "@/hooks/useOutsideClick";
 import CreatePostModal from "./CreatePostModal";
 import CommentSection from "./CommentSection";
@@ -20,6 +21,7 @@ import {
   type ReactionSummary,
   type ReactionType,
 } from "@/services/reactionService";
+import api from "@/services/apis";
 
 interface Props {
   post: PostType;
@@ -40,6 +42,7 @@ export default function Post({ post, isModal = false }: Props) {
   const { user } = useAuth();
   const { deletePost, setToastMessage } = usePostStore();
   const { comments: commentStoreComments, fetchedPosts: commentStoreFetchedPosts } = useCommentStore();
+  const { getStatus, sendRequest, cancelRequest } = useFriendStore();
 
   const [showComments, setShowComments] = useState(isModal);
   const [showMenu, setShowMenu] = useState(false);
@@ -68,6 +71,9 @@ export default function Post({ post, isModal = false }: Props) {
   const isOwn = post.authorId === user?.id;
   const isAdmin = keycloak.hasRealmRole("ROLE_ADMIN");
   const canDelete = isOwn || isAdmin;
+  
+  const friendStatus = getStatus(post.authorId);
+  const showAddFriend = !isOwn && post.visibility === "PUBLIC" && friendStatus !== "friends";
   
   let displayContent = post.content || "";
   let bgGradient = null;
@@ -109,6 +115,20 @@ export default function Post({ post, isModal = false }: Props) {
       navigate("/profile");
     } else if (post.authorId) {
       navigate(`/profile/${post.authorId}`);
+    }
+  }
+
+  async function handleSavePost() {
+    setShowMenu(false);
+    try {
+      const res = await api.post(`/services/postservice/api/posts/${post.id}/save`);
+      if (res.data) {
+        setToastMessage("Đã lưu bài viết vào mục Đã lưu.");
+      } else {
+        setToastMessage("Đã bỏ lưu bài viết.");
+      }
+    } catch (e) {
+      setToastMessage("Có lỗi xảy ra, vui lòng thử lại!");
     }
   }
 
@@ -308,10 +328,38 @@ export default function Post({ post, isModal = false }: Props) {
               className="w-10 h-10 rounded-full object-cover cursor-pointer hover:opacity-90 transition-opacity"
             />
             <div className="flex flex-col justify-center leading-snug">
-              <p className="font-semibold text-[#1C1E21] text-sm inline-block">
+              <p className="font-semibold text-[#1C1E21] text-sm inline-flex items-center flex-wrap">
                 <span onClick={handleAuthorClick} className="hover:underline cursor-pointer">
                   {post.user}
                 </span>
+                
+                {showAddFriend && (
+                  <>
+                    <span className="mx-1 text-[#65676B]">•</span>
+                    {friendStatus === "none" && (
+                      <button 
+                        onClick={() => sendRequest({ id: post.authorId, name: post.user, avatar: post.avatar, cover: "", mutualFriends: 0, location: "", work: "", education: "", bio: "" })}
+                        className="text-[#1877F2] font-semibold hover:underline"
+                      >
+                        Thêm bạn bè
+                      </button>
+                    )}
+                    {friendStatus === "pending_sent" && (
+                      <button 
+                        onClick={() => cancelRequest(post.authorId)}
+                        className="text-[#65676B] font-semibold hover:underline"
+                      >
+                        Đã gửi lời mời
+                      </button>
+                    )}
+                    {friendStatus === "pending_received" && (
+                      <span className="text-[#65676B] font-semibold">
+                        Đã nhận lời mời
+                      </span>
+                    )}
+                  </>
+                )}
+
                 {renderTaggedUsers()}
                 {location && (
                   <span className="text-[#65676B] font-normal">
@@ -344,7 +392,7 @@ export default function Post({ post, isModal = false }: Props) {
               {showMenu && (
                 <div className="absolute right-0 top-full mt-1 w-64 bg-white rounded-lg shadow-xl border border-[#E4E6EB] py-2 z-10">
                   <button
-                    onClick={() => { setShowMenu(false); setToastMessage("Đã lưu bài viết vào mục Đã lưu."); }}
+                    onClick={handleSavePost}
                     className="w-full flex items-center gap-3 px-4 py-2 hover:bg-[#F0F2F5] transition-colors text-sm text-[#1C1E21] font-medium"
                   >
                     <svg className="w-5 h-5 text-[#1C1E21]" fill="currentColor" viewBox="0 0 24 24">

@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <changeSet id="20260928000000-1" author="codex">
+        <addColumn tableName="feed_items">
+            <column name="author_id" type="varchar(36)">
+                <constraints nullable="true"/>
+            </column>
+            <column name="visibility" type="varchar(20)">
+                <constraints nullable="true"/>
+            </column>
+        </addColumn>
+
+        <createIndex tableName="feed_items" indexName="idx_feed_items_user_author_visibility">
+            <column name="user_id"/>
+            <column name="author_id"/>
+            <column name="visibility"/>
+        </createIndex>
+    </changeSet>
+</databaseChangeLog>

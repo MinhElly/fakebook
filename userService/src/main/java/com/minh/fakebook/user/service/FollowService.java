@@ -54,7 +54,7 @@ public class FollowService {
     public FollowDTO save(FollowDTO followDTO) {
         LOG.debug("Request to save Follow : {}", followDTO);
         Follow follow = followMapper.toEntity(followDTO);
-        follow = followRepository.save(follow);
+        follow = followRepository.saveAndFlush(follow);
         return followMapper.toDto(follow);
     }
 
@@ -67,7 +67,7 @@ public class FollowService {
     public FollowDTO update(FollowDTO followDTO) {
         LOG.debug("Request to update Follow : {}", followDTO);
         Follow follow = followMapper.toEntity(followDTO);
-        follow = followRepository.save(follow);
+        follow = followRepository.saveAndFlush(follow);
         return followMapper.toDto(follow);
     }
 
@@ -132,7 +132,7 @@ public class FollowService {
         follow.setFollower(sender);
         follow.setFollowing(receiver);
         follow.setCreatedAt(Instant.now());
-        return followMapper.toDto(followRepository.save(follow));
+        return followMapper.toDto(followRepository.saveAndFlush(follow));
     }
 
     @Caching(evict = {

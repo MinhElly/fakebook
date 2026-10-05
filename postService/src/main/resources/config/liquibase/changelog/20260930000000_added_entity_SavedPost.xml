@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:ext="http://www.liquibase.org/xml/ns/dbchangelog-ext"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd
+                        http://www.liquibase.org/xml/ns/dbchangelog-ext http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-ext.xsd">
+
+    <changeSet id="20260930000000-1" author="antigravity">
+        <createTable tableName="saved_post">
+            <column name="id" type="${uuidType}">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="user_id" type="${uuidType}">
+                <constraints nullable="false" />
+            </column>
+            <column name="post_id" type="${uuidType}">
+                <constraints nullable="false" />
+            </column>
+            <column name="created_at" type="datetime">
+                <constraints nullable="false" />
+            </column>
+        </createTable>
+        
+        <sql dbms="mariadb, mysql">ALTER TABLE saved_post CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;</sql>
+
+        <addUniqueConstraint tableName="saved_post" columnNames="user_id, post_id" constraintName="ux_saved_post__user_post"/>
+        <addForeignKeyConstraint baseColumnNames="post_id" baseTableName="saved_post" constraintName="fk_saved_post__post_id" referencedColumnNames="id" referencedTableName="posts" onDelete="CASCADE"/>
+    </changeSet>
+</databaseChangeLog>

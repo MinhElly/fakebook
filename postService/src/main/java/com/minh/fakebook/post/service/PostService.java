@@ -1,6 +1,7 @@
 package com.minh.fakebook.post.service;
 
 import com.minh.fakebook.post.client.UserServiceClient;
+import com.minh.fakebook.post.client.DownstreamServiceUnavailableException;
 import com.minh.fakebook.post.domain.Post;
 import com.minh.fakebook.post.domain.PostMedia;
 import com.minh.fakebook.post.domain.enumeration.PostStatus;
@@ -8,6 +9,8 @@ import com.minh.fakebook.post.domain.enumeration.PostVisibility;
 import com.minh.fakebook.post.repository.PostMediaRepository;
 import com.minh.fakebook.post.repository.PostReactionRepository;
 import com.minh.fakebook.post.repository.PostRepository;
+import com.minh.fakebook.post.repository.SavedPostRepository;
+import com.minh.fakebook.post.domain.SavedPost;
 import com.minh.fakebook.post.security.AuthoritiesConstants;
 import com.minh.fakebook.post.service.dto.PostDTO;
 import com.minh.fakebook.post.service.event.PostCreatedEvent;
@@ -23,7 +26,6 @@ import java.util.Optional;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.cloud.stream.function.StreamBridge;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -31,7 +33,6 @@ import org.springframework.security.oauth2.server.resource.authentication.JwtAut
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import com.minh.fakebook.post.service.event.MediaCleanupEvent;
-import org.springframework.messaging.support.MessageBuilder;
 import com.minh.fakebook.post.client.MediaServiceClient;
 import com.minh.fakebook.post.client.MediaValidationDTO;
 import com.minh.fakebook.post.service.event.EventEnvelope;
@@ -56,9 +57,9 @@ public class PostService {
 
     private final PostReactionRepository postReactionRepository;
 
-    private final UserServiceClient userClient;
+    private final SavedPostRepository savedPostRepository;
 
-    private final StreamBridge streamBridge;
+    private final UserServiceClient userClient;
 
     private final MediaServiceClient mediaServiceClient;
 
@@ -67,17 +68,17 @@ public class PostService {
             PostMapper postMapper,
             PostMediaRepository postMediaRepository,
             PostReactionRepository postReactionRepository,
+            SavedPostRepository savedPostRepository,
             Outbox outbox,
             UserServiceClient userClient,
-            StreamBridge streamBridge,
             MediaServiceClient mediaServiceClient) {
         this.postRepository = postRepository;
         this.postMapper = postMapper;
         this.postMediaRepository = postMediaRepository;
         this.postReactionRepository = postReactionRepository;
+        this.savedPostRepository = savedPostRepository;
         this.outbox = outbox;
         this.userClient = userClient;
-        this.streamBridge = streamBridge;
         this.mediaServiceClient = mediaServiceClient;
     }
 
@@ -190,8 +191,8 @@ public class PostService {
                 for (UUID oldMediaId : oldMediaIds) {
                     if (newMediaIds == null || !newMediaIds.contains(oldMediaId)) {
                         MediaCleanupEvent event = new MediaCleanupEvent(oldMediaId, "POST UPDATED");
-                        streamBridge.send("mediaCleanupOut-out-0", event);
-                        LOG.info("Published MediaCleanupEvent for removed post mediaId: {}", oldMediaId);
+                        scheduleMediaCleanup(event);
+                        LOG.info("Scheduled MediaCleanupEvent for removed post mediaId: {}", oldMediaId);
                     }
                 }
             }
@@ -298,8 +299,8 @@ public class PostService {
         if (mediaIds != null) {
                 for (UUID mediaId : mediaIds) {
                     MediaCleanupEvent event = new MediaCleanupEvent(mediaId, "POST DELETED");
-                    streamBridge.send("mediaCleanupOut-out-0", event);
-                    LOG.info("Published MediaCleanupEvent for deleted post mediaId: {}",mediaId);
+                    scheduleMediaCleanup(event);
+                    LOG.info("Scheduled MediaCleanupEvent for deleted post mediaId: {}",mediaId);
                 }
             }
             publishEvent("POST_DELETED", new PostDeletedEvent(id), id);
@@ -358,8 +359,10 @@ public class PostService {
                         if (!authorId.equals(mediaInfo.ownerId()) || !"ACTIVE".equals(mediaInfo.status()) || !"POST".equals(mediaInfo.purpose())) {
                             throw new RuntimeException("Error: Invalid media permissions or status.");
                         }
-                    } catch (Exception e) {
-                        throw new IllegalArgumentException("Error: Media validation failed for ID " + mediaId);
+                    } catch (DownstreamServiceUnavailableException exception) {
+                        throw exception;
+                    } catch (Exception exception) {
+                        throw new IllegalArgumentException("Error: Media validation failed for ID " + mediaId, exception);
                     }
 
                     PostMedia postMedia = new PostMedia();
@@ -440,11 +443,73 @@ public class PostService {
             return dto;
         });
     }
+
+    /**
+     * Toggles the saved status of a post for the current user.
+     * @param postId the post ID to save/unsave.
+     * @return true if the post is now saved, false if it is unsaved.
+     */
+    public boolean toggleSavePost(UUID postId) {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || !auth.isAuthenticated() || "anonymousUser".equals(auth.getPrincipal())) {
+            throw new AccessDeniedException("Error: You must be logged in to save a post.");
+        }
+        String sub = ((JwtAuthenticationToken) auth).getToken().getSubject();
+        UUID userId = UUID.fromString(sub);
+
+        // Verify post exists and is visible to the user
+        findOne(postId).orElseThrow(() -> new IllegalArgumentException("Error: Post not found or not accessible"));
+
+        Optional<SavedPost> existing = savedPostRepository.findByUserIdAndPostId(userId, postId);
+        if (existing.isPresent()) {
+            savedPostRepository.delete(existing.orElseThrow());
+            return false; // Unsaved
+        } else {
+            SavedPost savedPost = new SavedPost();
+            savedPost.setUserId(userId);
+            savedPost.setPostId(postId);
+            savedPost.setCreatedAt(Instant.now());
+            savedPostRepository.save(savedPost);
+            return true; // Saved
+        }
+    }
+
+    /**
+     * Gets all saved posts for the current user.
+     * @return list of saved posts.
+     */
+    @Transactional(readOnly = true)
+    public List<PostDTO> getSavedPosts() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || !auth.isAuthenticated() || "anonymousUser".equals(auth.getPrincipal())) {
+            throw new AccessDeniedException("Error: You must be logged in to view saved posts.");
+        }
+        String sub = ((JwtAuthenticationToken) auth).getToken().getSubject();
+        UUID userId = UUID.fromString(sub);
+
+        List<SavedPost> savedPosts = savedPostRepository.findByUserIdOrderByCreatedAtDesc(userId);
+        List<PostDTO> results = new ArrayList<>();
+        
+        for (SavedPost sp : savedPosts) {
+            try {
+                findOne(sp.getPostId()).ifPresent(results::add);
+            } catch (Exception e) {
+                // Ignore posts that are no longer accessible (e.g. deleted or privacy changed)
+                LOG.warn("Skipping saved post {} for user {} due to access exception", sp.getPostId(), userId);
+            }
+        }
+        return results;
+    }
+
     
     private void publishEvent(String eventType, Object payload, UUID aggregateId) {
         EventEnvelope<Object> envelope = new EventEnvelope<>(
                 UUID.randomUUID(), eventType, 1, java.time.Instant.now(), payload);
         outbox.schedule(envelope, "post-" + aggregateId);
+    }
+
+    private void scheduleMediaCleanup(MediaCleanupEvent event) {
+        outbox.schedule(event, "media-cleanup-" + event.mediaId(), java.util.Map.of("destination", "media-cleanup-topic"));
     }
 }
 

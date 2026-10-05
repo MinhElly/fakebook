@@ -5,6 +5,8 @@ import api from "@/services/apis";
 import { useAuth } from "@/providers/AuthProvider";
 import { getPersonalizedFeed } from "@/services/feedService";
 import { fetchReactionSummaries } from "@/services/reactionService";
+import { fetchCommentSummaries } from "@/services/commentService";
+import { hydratePosts } from "@/utils/postHydration";
 import { useRealtime } from "@/providers/RealtimeProvider";
 
 export default function PostProvider({ children }: { children: React.ReactNode }) {
@@ -100,8 +102,21 @@ export default function PostProvider({ children }: { children: React.ReactNode }
       refreshTimer = window.setTimeout(() => void flushReactionChanges(), 300);
     });
 
+    const unsubscribeComment = subscribe(event => {
+      if (event.eventType === "COMMENT_CHANGED" && visiblePostIdsRef.current.has(event.postId)) {
+        // Tăng/giảm bộ đếm (hoặc gọi API lấy count mới). Ở đây ta gọi hàm đơn giản là tăng 1 (nếu tạo) hoặc fetch lại count
+        api.get(`/services/commentservice/api/comments/count?postId.equals=${event.postId}`)
+          .then(res => {
+            const count = res.data as number;
+            setPosts(prev => prev.map(p => p.id === event.postId ? { ...p, comments: count } : p));
+          })
+          .catch(() => {});
+      }
+    });
+
     return () => {
       unsubscribe();
+      unsubscribeComment();
       if (refreshTimer !== undefined) window.clearTimeout(refreshTimer);
     };
   }, [status, refreshReactionPostIds, subscribe]);
@@ -148,144 +163,19 @@ export default function PostProvider({ children }: { children: React.ReactNode }
         .slice(0, PAGE_SIZE);
       fetchedCount = Math.max(feedItems.length, publicPosts.length);
 
-      const mappedPosts = postsData.map((dto: any) => ({
-        id: dto.id,
-        authorId: dto.authorId,
-        user: dto.authorId,
-        avatar: "/default-avatar.svg",
-        time: new Date(dto.createdAt).toLocaleString(),
-        content: dto.content,
-        visibility: dto.visibility || "PUBLIC",
-        taggedUserIds: dto.taggedUserIds || [],
-        mediaIds: dto.mediaIds || [],
-        image: null,
-        likes: 0,
-        comments: 0,
-        shares: 0,
-        liked: false,
-      }));
-
-      // 1. Fetch user profiles
-      const authorIdsSet = new Set<string>(postsData.map((dto: any) => dto.authorId));
-      postsData.forEach((dto: any) => {
-        if (dto.taggedUserIds) {
-          dto.taggedUserIds.forEach((id: string) => authorIdsSet.add(id));
-        }
-      });
-      const authorIds = Array.from(authorIdsSet);
-      if (authorIds.length > 0) {
-        try {
-          const profileRes = await api.get(
-            `/services/userservice/api/user-profiles/public?id.in=${authorIds.join(",")}`,
-            { timeout: 3000 }
-          );
-          const profileMap: Record<string, any> = {};
-
-          profileRes.data.forEach((p: any) => {
-            profileMap[p.id] = {
-              name: p.displayName || p.username || "Người dùng",
-              avatarMediaId: p.avatarMediaId
-            };
-          });
-
-          mappedPosts.forEach((post: any) => {
-            const author = profileMap[post.user];
-            if (author) {
-              post.user = author.name;
-              post.avatarMediaId = author.avatarMediaId;
-            } else {
-              post.user = "Người dùng ẩn danh";
-            }
-            post.taggedUsers = (post.taggedUserIds || []).map((id: string) => ({
-              id,
-              name: profileMap[id]?.name || "Người dùng"
-            }));
-          });
-        } catch (e) {
-          console.warn("UserService tắt hoặc không phản hồi.");
-          mappedPosts.forEach((post: any) => {
-            post.user = "Tác giả (Chưa bật UserService)";
-          });
-        }
-      }
-
-      // 2. Fetch media URLs
-      const allMediaIds = new Set<string>();
-      mappedPosts.forEach((p: any) => {
-        (p.mediaIds || []).forEach((id: string) => allMediaIds.add(id));
-        if (p.avatarMediaId) allMediaIds.add(p.avatarMediaId);
-      });
-
-      if (allMediaIds.size > 0) {
-        try {
-          const mediaRes = await api.get(
-            `/services/mediaservice/api/media?id.in=${Array.from(allMediaIds).join(",")}`,
-            { timeout: 3000 }
-          );
-          const mediaMap: Record<string, string> = {};
-          mediaRes.data.forEach((m: any) => {
-            mediaMap[m.id] = m.url;
-          });
-
-          mappedPosts.forEach((post: any) => {
-            // Faker post data can reference media records that do not exist in
-            // MediaService. Keep only IDs that were actually resolved so the
-            // browser does not request a guaranteed 404 for every feed load.
-            post.mediaIds = (post.mediaIds || []).filter((id: string) => Boolean(mediaMap[id]));
-            post.image = post.mediaIds.length > 0 ? mediaMap[post.mediaIds[0]] : null;
-            if (post.avatarMediaId && mediaMap[post.avatarMediaId]) {
-              post.avatar = mediaMap[post.avatarMediaId];
-            } else {
-              post.avatar = "/default-avatar.svg";
-            }
-          });
-        } catch (e) {
-          console.warn("MediaService tắt hoặc không phản hồi.");
-          mappedPosts.forEach((post: any) => {
-            post.image = null;
-            post.mediaIds = [];
-            post.avatar = "/default-avatar.svg";
-          });
-        }
-      } else {
-        mappedPosts.forEach((post: any) => {
-          post.avatar = "/default-avatar.svg";
-        });
-      }
-
-      // 3. Fetch comment counts (batch, parallel)
-      try {
-        const countPromises = mappedPosts.map((post: any) =>
-          api.get(
-            `/services/commentservice/api/comments/count?postId.equals=${post.id}`,
-            { timeout: 3000 }
-          )
-            .then(res => ({ postId: post.id, count: res.data as number }))
-            .catch(() => ({ postId: post.id, count: 0 }))
-        );
-        const counts = await Promise.all(countPromises);
-        const countMap: Record<string, number> = {};
-        counts.forEach(c => { countMap[c.postId] = c.count; });
-        mappedPosts.forEach((post: any) => {
-          post.comments = countMap[post.id] || 0;
-        });
-      } catch (e) {
-        console.warn("CommentService tắt hoặc không phản hồi.");
-      }
-
-      try {
-        const postIds = mappedPosts.map((post: Post) => post.id).slice(0, 50);
-        const summaries = await fetchReactionSummaries(postIds);
-        const summaryMap = new Map(summaries.map(summary => [summary.postId, summary]));
-        mappedPosts.forEach((post: Post) => {
-          post.reactionSummary = summaryMap.get(post.id);
-        });
-      } catch (e) {
-        console.warn("Không tải được reaction summaries", e);
-      }
+      const mappedPosts = await hydratePosts(postsData);
 
       if (pageNum === 0) {
-        setPosts(mappedPosts);
+        if (isForceRefresh) {
+          // Khi đăng bài mới hoặc có polling, ta append các bài mới lên ĐẦU mảng cũ
+          // thay vì ghi đè làm mất các bài cũ người dùng đã cuộn xuống tải.
+          setPosts((prev) => {
+            const newPosts = mappedPosts.filter((m: any) => !prev.some(p => p.id === m.id));
+            return [...newPosts, ...prev];
+          });
+        } else {
+          setPosts(mappedPosts);
+        }
       } else {
         setPosts((prev) => {
           const newPosts = mappedPosts.filter((m: any) => !prev.some(p => p.id === m.id));

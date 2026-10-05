@@ -1,4 +1,5 @@
 import type { ReactionSummary } from "@/services/reactionService";
+import type { CommentPreview } from "@/services/commentService";
 
 export interface User {
   name: string;
@@ -31,6 +32,7 @@ export interface Post {
   shares: number;
   liked: boolean;
   reactionSummary?: ReactionSummary;
+  previewComment?: CommentPreview | null;
 }
 
 export interface Message {

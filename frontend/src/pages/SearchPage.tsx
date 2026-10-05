@@ -115,18 +115,6 @@ export default function SearchPage() {
             </div>
           </div>
 
-          {/* Accordion Filter Items */}
-          <div className="border-t border-[#E4E6EB] pt-2 space-y-1 text-sm text-[#050505]">
-            {["Ngày đăng", "Bài viết của", "Vị trí được gắn thẻ"].map((filterName) => (
-              <div key={filterName} className="flex items-center justify-between px-3 py-2 rounded-lg hover:bg-[#F0F2F5] cursor-pointer text-sm font-medium">
-                <span>{filterName}</span>
-                <svg className="w-5 h-5 text-[#65676B]" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
-                </svg>
-              </div>
-            ))}
-          </div>
-
           {/* Category List */}
           <div className="border-t border-[#E4E6EB] pt-2 space-y-1">
             <button
@@ -143,22 +131,22 @@ export default function SearchPage() {
               Mọi người
             </button>
 
-            {[
-              { label: "Thước phim", iconPath: "M4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm16-4H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H8V4h12v12z" },
-              { label: "Marketplace", iconPath: "M3 9l1-5h16l1 5H3zm1 11v-9h16v9H4zm6-3h4v-2h-4v2z" },
-              { label: "Trang", iconPath: "M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm3 11H9v-1c0-2 4-3.1 6-3.1s6 1.1 6 3.1v1z" },
-              { label: "Nhóm", iconPath: "M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5z" },
-              { label: "Sự kiện", iconPath: "M19 4h-1V2h-2v2H8V2H6v2H5c-1.11 0-1.99.9-1.99 2L3 20c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 16H5V10h14v10z" },
-            ].map(({ label, iconPath }) => (
-              <div key={label} className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-[#050505] hover:bg-[#F0F2F5] cursor-pointer">
-                <div className="w-8 h-8 rounded-full bg-[#E4E6EB] flex items-center justify-center text-[#050505]">
-                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                    <path d={iconPath} />
-                  </svg>
-                </div>
-                {label}
-              </div>
-            ))}
+            {/*{[*/}
+            {/*  { label: "Thước phim", iconPath: "M4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm16-4H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H8V4h12v12z" },*/}
+            {/*  { label: "Marketplace", iconPath: "M3 9l1-5h16l1 5H3zm1 11v-9h16v9H4zm6-3h4v-2h-4v2z" },*/}
+            {/*  { label: "Trang", iconPath: "M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm3 11H9v-1c0-2 4-3.1 6-3.1s6 1.1 6 3.1v1z" },*/}
+            {/*  { label: "Nhóm", iconPath: "M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5z" },*/}
+            {/*  { label: "Sự kiện", iconPath: "M19 4h-1V2h-2v2H8V2H6v2H5c-1.11 0-1.99.9-1.99 2L3 20c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 16H5V10h14v10z" },*/}
+            {/*].map(({ label, iconPath }) => (*/}
+            {/*  <div key={label} className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-[#050505] hover:bg-[#F0F2F5] cursor-pointer">*/}
+            {/*    <div className="w-8 h-8 rounded-full bg-[#E4E6EB] flex items-center justify-center text-[#050505]">*/}
+            {/*      <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">*/}
+            {/*        <path d={iconPath} />*/}
+            {/*      </svg>*/}
+            {/*    </div>*/}
+            {/*    {label}*/}
+            {/*  </div>*/}
+            {/*))}*/}
           </div>
         </div>
       </aside>

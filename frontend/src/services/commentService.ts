@@ -16,9 +16,32 @@ export interface CommentDTO {
   likedByCurrentUser?: boolean;
 }
 
+export interface CommentPreview {
+  id: string;
+  authorId: string;
+  content: string;
+  createdAt: string;
+}
+
+export interface CommentSummary {
+  postId: string;
+  commentCount: number;
+  previewComment: CommentPreview | null;
+}
+
+export async function fetchCommentSummaries(postIds: string[]): Promise<CommentSummary[]> {
+  const uniquePostIds = [...new Set(postIds)].slice(0, 50);
+  if (uniquePostIds.length === 0) return [];
+
+  const response = await api.post<CommentSummary[]>("/services/commentservice/api/comments/summaries", {
+    postIds: uniquePostIds,
+  });
+  return response.data;
+}
+
 export async function getCommentsByPostId(postId: string): Promise<CommentDTO[]> {
   try {
-    const response = await api.get<CommentDTO[]>(`/services/commentservice/api/comments?postId.equals=${postId}&size=100`);
+    const response = await api.get<CommentDTO[]>(`/services/commentservice/api/comments?postId.equals=${postId}&size=100&_t=${Date.now()}`);
     return response.data || [];
   } catch (error) {
     console.warn("Failed to fetch comments:", error);

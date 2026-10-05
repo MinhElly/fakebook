@@ -3,6 +3,8 @@ package com.minh.fakebook.comment.service;
 import com.minh.fakebook.comment.domain.*; // for static metamodels
 import com.minh.fakebook.comment.domain.Comment;
 import com.minh.fakebook.comment.repository.CommentRepository;
+import com.minh.fakebook.comment.security.AuthoritiesConstants;
+import com.minh.fakebook.comment.security.SecurityUtils;
 import com.minh.fakebook.comment.service.criteria.CommentCriteria;
 import com.minh.fakebook.comment.service.dto.CommentDTO;
 import com.minh.fakebook.comment.service.mapper.CommentMapper;
@@ -15,14 +17,7 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import tech.jhipster.service.QueryService;
-import java.util.UUID;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
-import org.springframework.security.access.AccessDeniedException;
-import com.minh.fakebook.comment.domain.PostCache;
-import com.minh.fakebook.comment.client.UserServiceClient;
-import com.minh.fakebook.comment.security.AuthoritiesConstants;
+import java.util.List;
 
 /**
  * Service for executing complex queries for {@link Comment} entities in the database.
@@ -40,20 +35,16 @@ public class CommentQueryService extends QueryService<Comment> {
 
     private final CommentMapper commentMapper;
 
-    private final UserServiceClient userFeignClient;
-
-    private final PostCacheResolver postCacheResolver;
+    private final CommentViewAuthorizationService authorizationService;
 
     public CommentQueryService(
         CommentRepository commentRepository,
         CommentMapper commentMapper,
-        UserServiceClient userFeignClient,
-        PostCacheResolver postCacheResolver
+        CommentViewAuthorizationService authorizationService
     ) {
         this.commentRepository = commentRepository;
         this.commentMapper = commentMapper;
-        this.userFeignClient = userFeignClient;
-        this.postCacheResolver = postCacheResolver;
+        this.authorizationService = authorizationService;
     }
 
     /**
@@ -115,38 +106,13 @@ public class CommentQueryService extends QueryService<Comment> {
     }
 
     private void verifyViewPermission(CommentCriteria criteria) {
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        boolean isAdmin = auth.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals(AuthoritiesConstants.ADMIN));
-
-        if (isAdmin) {
+        if (SecurityUtils.hasCurrentUserThisAuthority(AuthoritiesConstants.ADMIN)) {
             return;
         }
-
         if (criteria == null || criteria.getPostId() == null || criteria.getPostId().getEquals()
             == null) {
-            throw new AccessDeniedException("User must provide a specific postId to view comments.");
+            throw new org.springframework.security.access.AccessDeniedException("User must provide a specific postId to view comments.");
         }
-
-        UUID targetPostId = criteria.getPostId().getEquals();
-        PostCache postCache = postCacheResolver.resolve(targetPostId);
-
-        UUID currentUserId = null;
-        if (auth instanceof JwtAuthenticationToken jwtAuth) {
-            currentUserId = UUID.fromString(jwtAuth.getToken().getSubject());
-        } else {
-            throw new AccessDeniedException("User not authenticated properly");
-        }
-
-        boolean isOwner = currentUserId.equals(postCache.getAuthorId());
-        if (!isOwner) {
-            if ("PRIVATE".equalsIgnoreCase(postCache.getVisibility())) {
-                throw new AccessDeniedException("You cannot view comments of this private post");
-            } else if ("FRIENDS".equalsIgnoreCase(postCache.getVisibility())) {
-                boolean areFriends = userFeignClient.checkFriendship(currentUserId, postCache.getAuthorId());
-                if (!areFriends) {
-                    throw new AccessDeniedException("You must be friends to view comments of this post");
-                }
-            }
-        }
+        authorizationService.verifyCanView(List.of(criteria.getPostId().getEquals()));
     }
 }

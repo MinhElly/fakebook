@@ -12,7 +12,7 @@ public class DatabaseTestcontainer {
 
     private static final MariaDBContainer<?> DATABASE_CONTAINER = (MariaDBContainer) new MariaDBContainer<>("mariadb:12.3.3")
         .withDatabaseName("postService")
-
+        .withCommand("--character-set-server=utf8mb4", "--collation-server=utf8mb4_unicode_ci")
         .withLogConsumer(new Slf4jLogConsumer(LoggerFactory.getLogger(DatabaseTestcontainer.class)))
         .withReuse(true);
 

@@ -1,6 +1,6 @@
 import LeftSidebar from "@/components/sidebar/LeftSidebar";
 import RightSidebar from "@/components/sidebar/RightSidebar";
-import Stories from "@/components/feed/Stories";
+
 import PostCreator from "@/components/feed/PostCreator";
 import Post from "@/components/feed/Post";
 import { usePostStore } from "@/stores/postStore";
@@ -34,7 +34,7 @@ export default function HomePage() {
             ml-0 md:ml-[72px] lg:ml-[280px] xl:ml-[360px]
             mr-0 xl:mr-[360px]
           ">
-        <Stories />
+
         <PostCreator />
 
         {/* Uploading Placeholder */}

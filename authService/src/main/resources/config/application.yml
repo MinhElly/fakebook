@@ -24,14 +24,6 @@ springdoc:
   api-docs:
     enabled: false
 ---
-feign:
-  circuitbreaker:
-    enabled: true
-  # client:
-  #   config:
-  #     default:
-  #       connectTimeout: 5000
-  #       readTimeout: 5000
 management:
   endpoints:
     web:
@@ -104,7 +96,7 @@ spring:
     consul:
       discovery:
         healthCheckPath: /management/health
-        instanceId: authservice:${spring.application.instance-id:${random.value}}
+        instanceId: authservice:${spring.application.instance-id:${HOSTNAME:${server.port}}}
         service-name: authservice
       config:
         watch:

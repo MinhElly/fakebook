@@ -24,14 +24,23 @@ springdoc:
   api-docs:
     enabled: false
 ---
-feign:
+resilience4j:
   circuitbreaker:
-    enabled: true
-  client:
-    config:
+    configs:
       default:
-        connectTimeout: 3000
-        readTimeout: 5000
+        sliding-window-type: COUNT_BASED
+        sliding-window-size: 5
+        minimum-number-of-calls: 5
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 10s
+        permitted-number-of-calls-in-half-open-state: 2
+        automatic-transition-from-open-to-half-open-enabled: true
+        register-health-indicator: false
+  timelimiter:
+    configs:
+      default:
+        timeout-duration: 4s
+        cancel-running-future: true
 management:
   endpoints:
     web:
@@ -49,6 +58,9 @@ management:
           - prometheus
           - threaddump
           - liquibase
+          - metrics
+          - circuitbreakers
+          - circuitbreakerevents
   endpoint:
     health:
       show-details: when_authorized
@@ -101,14 +113,28 @@ spring:
   application:
     name: commentService
   cloud:
+    openfeign:
+      circuitbreaker:
+        enabled: true
+      client:
+        config:
+          default:
+            connectTimeout: 1500
+            readTimeout: 3000
     consul:
       discovery:
         healthCheckPath: /management/health
-        instanceId: commentservice:${spring.application.instance-id:${random.value}}
+        instanceId: commentservice:${spring.application.instance-id:${HOSTNAME:${server.port}}}
         service-name: commentservice
       config:
         watch:
           enabled: false
+  kafka:
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      properties:
+        spring.json.add.type.headers: false
   docker:
     compose:
       enabled: false
@@ -141,7 +167,7 @@ spring:
       hibernate.type.preferred_instant_jdbc_type: TIMESTAMP
       hibernate.id.new_generator_mappings: true
       hibernate.connection.provider_disables_autocommit: true
-      hibernate.cache.use_second_level_cache: false
+      hibernate.cache.use_second_level_cache: true
       hibernate.cache.use_query_cache: false
       hibernate.generate_statistics: false
       # modify batch size as necessary
@@ -239,3 +265,24 @@ jhipster:
 # ===================================================================
 
 # application:
+
+namastack:
+  outbox:
+    enabled: true
+    polling-interval: 2000
+    batch-size: 10
+    processing:
+      stop-on-first-failure: true
+      delete-completed-records: false
+    multicaster:
+      enabled: true
+      publish-after-save: true
+    jdbc:
+      schema-initialization:
+        enabled: false
+    retry:
+      policy: exponential
+      max-retries: 5
+    kafka:
+      enabled: true
+      default-topic: comment-events
