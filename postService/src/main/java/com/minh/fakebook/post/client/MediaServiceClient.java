@@ -1,4 +1,5 @@
 package com.minh.fakebook.post.client;
+import com.minh.fakebook.post.client.dto.MediaValidationDTO;
 
 import com.minh.fakebook.post.config.FeignUserRelayRequestInterceptor;
 import java.util.UUID;
@@ -12,7 +13,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 @FeignClient(
     name = "mediaservice",
     configuration = FeignUserRelayRequestInterceptor.class,
-    fallbackFactory = MediaServiceClientFallback.class
+    fallbackFactory = MediaServiceClientFallbackFactory.class
 )
 public interface MediaServiceClient {
 

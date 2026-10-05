@@ -8,7 +8,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 /**
  * Feign Client to communicate with userService.
  */
-@FeignClient(name = "userservice", configuration = TokenRelayRequestInterceptor.class, fallbackFactory = UserServiceFallback.class)
+@FeignClient(name = "userservice", configuration = TokenRelayRequestInterceptor.class, fallbackFactory = UserServiceFallbackFactory.class)
 public interface UserServiceClient {
 
     /**

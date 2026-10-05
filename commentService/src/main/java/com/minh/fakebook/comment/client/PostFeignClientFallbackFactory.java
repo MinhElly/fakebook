@@ -7,9 +7,9 @@ import org.springframework.cloud.openfeign.FallbackFactory;
 import org.springframework.stereotype.Component;
 
 @Component
-public class PostFeignClientFallback implements FallbackFactory<PostFeignClient> {
+public class PostFeignClientFallbackFactory implements FallbackFactory<PostFeignClient> {
 
-    private static final Logger LOG = LoggerFactory.getLogger(PostFeignClientFallback.class);
+    private static final Logger LOG = LoggerFactory.getLogger(PostFeignClientFallbackFactory.class);
 
     @Override
     public PostFeignClient create(Throwable cause) {

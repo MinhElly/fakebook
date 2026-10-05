@@ -1,11 +1,10 @@
-package com.minh.fakebook.user.service.dto.events;
+package com.minh.fakebook.user.service.event;
 
 import java.time.Instant;
 import java.util.UUID;
 import io.namastack.outbox.annotation.OutboxEvent;
 
-@Deprecated(forRemoval = false)
-/** Compatibility payload for persisted outbox records with the old class name. */
+@OutboxEvent
 public record FriendRequestCreatedEvent(
     UUID eventId,
     String eventType,
@@ -23,6 +22,5 @@ public record FriendRequestCreatedEvent(
         );
     }
 
-    /** Compatibility payload for persisted outbox records with the old class name. */
-public record Data(UUID requestId, UUID senderId, UUID receiverId) {}
+    public record Data(UUID requestId, UUID senderId, UUID receiverId) {}
 }

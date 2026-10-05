@@ -1,4 +1,5 @@
 package com.minh.fakebook.comment.service;
+import com.minh.fakebook.comment.client.dto.PostSyncDTO;
 
 import com.minh.fakebook.comment.client.PostFeignClient;
 import com.minh.fakebook.comment.domain.PostCache;
@@ -22,7 +23,7 @@ public class PostCacheWriter {
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public PostCache fetchAndCache(UUID postId) {
-        PostFeignClient.PostSyncDTO post = postFeignClient.getPostById(postId);
+        PostSyncDTO post = postFeignClient.getPostById(postId);
         if (post == null) {
             throw new IllegalArgumentException("Post not found: " + postId);
         }

@@ -1,4 +1,5 @@
 package com.minh.fakebook.gateway.realtime;
+import com.minh.fakebook.gateway.broker.FriendRequestEventConsumerConfiguration;
 
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;

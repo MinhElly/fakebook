@@ -13,7 +13,7 @@ class MediaServiceFallbackFactoryTest {
     @Test
     void clientUsesCauseAwareFallbackFactory() {
         assertThat(MediaServiceClient.class.getAnnotation(FeignClient.class).fallbackFactory())
-            .isEqualTo(MediaServiceClientFallback.class);
+            .isEqualTo(MediaServiceClientFallbackFactory.class);
     }
 
     @Test
@@ -21,7 +21,7 @@ class MediaServiceFallbackFactoryTest {
         ConnectException cause = new ConnectException("connection refused");
         UUID mediaId = UUID.randomUUID();
 
-        assertThatThrownBy(() -> new MediaServiceClientFallback().create(cause).getMediaById(mediaId))
+        assertThatThrownBy(() -> new MediaServiceClientFallbackFactory().create(cause).getMediaById(mediaId))
             .isInstanceOf(DownstreamServiceUnavailableException.class)
             .hasMessageContaining(mediaId.toString())
             .hasCause(cause);

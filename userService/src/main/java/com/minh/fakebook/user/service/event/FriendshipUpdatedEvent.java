@@ -1,11 +1,10 @@
-package com.minh.fakebook.user.service.dto.events;
+package com.minh.fakebook.user.service.event;
 
 import java.time.Instant;
 import java.util.UUID;
 import io.namastack.outbox.annotation.OutboxEvent;
 
-@Deprecated(forRemoval = false)
-/** Compatibility payload for persisted outbox records with the old class name. */
+@OutboxEvent
 public record FriendshipUpdatedEvent(
         UUID eventId,
         String eventType,
@@ -18,6 +17,5 @@ public record FriendshipUpdatedEvent(
     public static FriendshipUpdatedEvent deleted(UUID userId, UUID friendId) {
         return new FriendshipUpdatedEvent(UUID.randomUUID(), "FRIENDSHIP_DELETED", 1, Instant.now(), new Data(userId, friendId));
     }
-    /** Compatibility payload for persisted outbox records with the old class name. */
-public record Data(UUID userId, UUID friendId) {}
+    public record Data(UUID userId, UUID friendId) {}
 }

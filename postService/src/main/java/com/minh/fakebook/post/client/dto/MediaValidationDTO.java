@@ -1,4 +1,4 @@
-package com.minh.fakebook.post.client;
+package com.minh.fakebook.post.client.dto;
 
 import java.util.UUID;
 

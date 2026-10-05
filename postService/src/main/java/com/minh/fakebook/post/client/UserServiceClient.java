@@ -11,7 +11,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 @FeignClient(
     name = "userservice",
     configuration = FeignUserRelayRequestInterceptor.class,
-    fallbackFactory = UserServiceClientFallback.class
+    fallbackFactory = UserServiceClientFallbackFactory.class
 )
 public interface UserServiceClient {
     /**

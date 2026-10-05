@@ -1,6 +1,6 @@
 package com.minh.fakebook.user.service;
 
-import com.minh.fakebook.user.service.dto.events.FriendshipUpdatedEvent;
+import com.minh.fakebook.user.service.event.FriendshipUpdatedEvent;
 import io.namastack.outbox.Outbox;
 import java.util.Map;
 import org.springframework.stereotype.Component;

@@ -1,4 +1,5 @@
 package com.minh.fakebook.comment.service;
+import com.minh.fakebook.comment.client.dto.PostSyncDTO;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -33,7 +34,7 @@ class PostCacheWriterTest {
     void fetchesAndCachesMissingPost() {
         UUID postId = UUID.randomUUID();
         UUID authorId = UUID.randomUUID();
-        PostFeignClient.PostSyncDTO remotePost = new PostFeignClient.PostSyncDTO(postId, authorId, "ACTIVE", "FRIENDS");
+        PostSyncDTO remotePost = new PostSyncDTO(postId, authorId, "ACTIVE", "FRIENDS");
         when(postFeignClient.getPostById(postId)).thenReturn(remotePost);
 
         PostCache resolvedPost = postCacheWriter.fetchAndCache(postId);

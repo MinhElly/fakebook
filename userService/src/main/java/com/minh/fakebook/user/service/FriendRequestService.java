@@ -8,8 +8,8 @@ import com.minh.fakebook.user.repository.FriendRequestRepository;
 import com.minh.fakebook.user.repository.FriendshipRepository;
 import com.minh.fakebook.user.repository.UserProfileRepository;
 import com.minh.fakebook.user.service.dto.FriendRequestDTO;
-import com.minh.fakebook.user.service.dto.events.FriendRequestCreatedEvent;
-import com.minh.fakebook.user.service.dto.events.FriendshipUpdatedEvent;
+import com.minh.fakebook.user.service.event.FriendRequestCreatedEvent;
+import com.minh.fakebook.user.service.event.FriendshipUpdatedEvent;
 import com.minh.fakebook.user.service.mapper.FriendRequestMapper;
 
 

@@ -12,9 +12,9 @@ class FeignFallbackFactoryTest {
 
     @Test
     void clientsUseCauseAwareFallbackFactories() {
-        assertThat(UserServiceClient.class.getAnnotation(FeignClient.class).fallbackFactory()).isEqualTo(UserServiceFallback.class);
+        assertThat(UserServiceClient.class.getAnnotation(FeignClient.class).fallbackFactory()).isEqualTo(UserServiceFallbackFactory.class);
         assertThat(PostFeignClient.class.getAnnotation(FeignClient.class).fallbackFactory())
-            .isEqualTo(PostFeignClientFallback.class);
+            .isEqualTo(PostFeignClientFallbackFactory.class);
     }
 
     @Test
@@ -22,7 +22,7 @@ class FeignFallbackFactoryTest {
         ConnectException cause = new ConnectException("connection refused");
 
         assertThatThrownBy(() ->
-            new UserServiceFallback().create(cause).checkFriendship(UUID.randomUUID(), UUID.randomUUID())
+            new UserServiceFallbackFactory().create(cause).checkFriendship(UUID.randomUUID(), UUID.randomUUID())
         )
             .isInstanceOf(DownstreamServiceUnavailableException.class)
             .hasMessageContaining("checking friendship")
@@ -34,7 +34,7 @@ class FeignFallbackFactoryTest {
         ConnectException cause = new ConnectException("connection refused");
         UUID postId = UUID.randomUUID();
 
-        assertThatThrownBy(() -> new PostFeignClientFallback().create(cause).getPostById(postId))
+        assertThatThrownBy(() -> new PostFeignClientFallbackFactory().create(cause).getPostById(postId))
             .isInstanceOf(DownstreamServiceUnavailableException.class)
             .hasMessageContaining(postId.toString())
             .hasCause(cause);

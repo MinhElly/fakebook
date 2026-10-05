@@ -3,7 +3,7 @@ package com.minh.fakebook.user.service;
 import com.minh.fakebook.user.domain.Friendship;
 import com.minh.fakebook.user.repository.FriendshipRepository;
 import com.minh.fakebook.user.service.dto.FriendshipDTO;
-import com.minh.fakebook.user.service.dto.events.FriendshipUpdatedEvent;
+import com.minh.fakebook.user.service.event.FriendshipUpdatedEvent;
 import com.minh.fakebook.user.service.mapper.FriendshipMapper;
 
 import java.util.List;

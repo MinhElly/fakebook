@@ -34,7 +34,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import com.minh.fakebook.post.service.event.MediaCleanupEvent;
 import com.minh.fakebook.post.client.MediaServiceClient;
-import com.minh.fakebook.post.client.MediaValidationDTO;
+import com.minh.fakebook.post.client.dto.MediaValidationDTO;
 import com.minh.fakebook.post.service.event.EventEnvelope;
 
 

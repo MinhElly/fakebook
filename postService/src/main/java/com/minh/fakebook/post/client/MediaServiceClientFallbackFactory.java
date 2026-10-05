@@ -7,9 +7,9 @@ import org.springframework.cloud.openfeign.FallbackFactory;
 import org.springframework.stereotype.Component;
 
 @Component
-public class MediaServiceClientFallback implements FallbackFactory<MediaServiceClient> {
+public class MediaServiceClientFallbackFactory implements FallbackFactory<MediaServiceClient> {
 
-    private static final Logger LOG = LoggerFactory.getLogger(MediaServiceClientFallback.class);
+    private static final Logger LOG = LoggerFactory.getLogger(MediaServiceClientFallbackFactory.class);
 
     @Override
     public MediaServiceClient create(Throwable cause) {

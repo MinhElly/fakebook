@@ -1,4 +1,5 @@
 package com.minh.fakebook.user.web.rest;
+import com.minh.fakebook.user.client.dto.MediaDTO;
 
 import static com.minh.fakebook.user.domain.UserProfileAsserts.*;
 import static com.minh.fakebook.user.web.rest.TestUtil.createUpdateProxyForBean;
@@ -853,7 +854,7 @@ class UserProfileResourceIT {
 
     private void mockActiveMedia(UUID mediaId) {
         when(mediaServiceClient.getMediaById(mediaId))
-            .thenReturn(new MediaServiceClient.MediaDTO(mediaId, userProfile.getId(), "https://media.test/" + mediaId, "ACTIVE"));
+            .thenReturn(new MediaDTO(mediaId, userProfile.getId(), "https://media.test/" + mediaId, "ACTIVE"));
     }
 
     protected void assertIncrementedRepositoryCount(long countBefore) {

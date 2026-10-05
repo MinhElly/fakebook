@@ -8,15 +8,15 @@ import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.cloud.openfeign.FeignClient;
 
-class UserServiceFallbackTest {
+class UserServiceFallbackFactoryTest {
 
-    private final UserServiceFallback fallbackFactory = new UserServiceFallback();
+    private final UserServiceFallbackFactory fallbackFactory = new UserServiceFallbackFactory();
 
     @Test
     void feignClientUsesCauseAwareFallbackFactory() {
         FeignClient annotation = UserServiceClient.class.getAnnotation(FeignClient.class);
 
-        assertThat(annotation.fallbackFactory()).isEqualTo(UserServiceFallback.class);
+        assertThat(annotation.fallbackFactory()).isEqualTo(UserServiceFallbackFactory.class);
     }
 
     @Test

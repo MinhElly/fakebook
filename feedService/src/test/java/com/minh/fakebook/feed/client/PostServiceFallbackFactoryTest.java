@@ -7,15 +7,15 @@ import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.cloud.openfeign.FeignClient;
 
-class PostServiceFallbackTest {
+class PostServiceFallbackFactoryTest {
 
-    private final PostServiceFallback fallbackFactory = new PostServiceFallback();
+    private final PostServiceFallbackFactory fallbackFactory = new PostServiceFallbackFactory();
 
     @Test
     void shouldConfigureFallbackFactory() {
         FeignClient annotation = PostServiceClient.class.getAnnotation(FeignClient.class);
 
-        assertThat(annotation.fallbackFactory()).isEqualTo(PostServiceFallback.class);
+        assertThat(annotation.fallbackFactory()).isEqualTo(PostServiceFallbackFactory.class);
     }
 
     @Test

@@ -1,4 +1,5 @@
 package com.minh.fakebook.user.service;
+import com.minh.fakebook.user.client.dto.MediaDTO;
 
 import com.minh.fakebook.user.client.MediaServiceClient;
 import com.minh.fakebook.user.domain.UserProfile;
@@ -10,7 +11,7 @@ import com.minh.fakebook.user.repository.FriendSuggestionProjection;
 import com.minh.fakebook.user.service.dto.UserProfileDTO;
 import com.minh.fakebook.user.service.dto.UserProfileDetailDTO;
 import com.minh.fakebook.user.service.dto.UserSearchDTO;
-import com.minh.fakebook.user.service.dto.events.MediaCleanupEvent;
+import com.minh.fakebook.user.service.event.MediaCleanupEvent;
 import com.minh.fakebook.user.service.mapper.UserProfileMapper;
 import io.namastack.outbox.Outbox;
 
@@ -122,13 +123,13 @@ public class UserProfileService {
                     UUID oldCoverId = existingUserProfile.getCoverMediaId();
 
                     if(userProfileDTO.getAvatarMediaId() != null && !userProfileDTO.getAvatarMediaId().equals(oldAvatarId)){
-                        MediaServiceClient.MediaDTO media = mediaClient.getMediaById(userProfileDTO.getAvatarMediaId());
+                        MediaDTO media = mediaClient.getMediaById(userProfileDTO.getAvatarMediaId());
                         if(media == null || !existingUserProfile.getId().equals(media.ownerId()) || !"ACTIVE".equalsIgnoreCase(media.status())){
                             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invaild avatar media: media does not exist, is inactive, or does not belong to user");
                         }
                     }
                     if(userProfileDTO.getCoverMediaId() != null && !userProfileDTO.getCoverMediaId().equals(oldCoverId)){
-                        MediaServiceClient.MediaDTO media = mediaClient.getMediaById(userProfileDTO.getCoverMediaId());
+                        MediaDTO media = mediaClient.getMediaById(userProfileDTO.getCoverMediaId());
                         if(media == null || !existingUserProfile.getId().equals(media.ownerId()) || !"ACTIVE".equalsIgnoreCase(media.status())){
                             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invaild cover media: media does not exist, is inactive, or does not belong to user");
                         }

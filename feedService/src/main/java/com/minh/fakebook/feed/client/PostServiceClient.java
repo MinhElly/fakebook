@@ -10,7 +10,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 @FeignClient(
     name = "postservice",
     configuration = TokenRelayRequestInterceptor.class,
-    fallbackFactory = PostServiceFallback.class
+    fallbackFactory = PostServiceFallbackFactory.class
 )
 public interface PostServiceClient {
     @GetMapping("/api/internal/feed-posts")

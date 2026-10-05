@@ -1,4 +1,4 @@
-package com.minh.fakebook.user.service.dto.events;
+package com.minh.fakebook.user.service.event;
 
 import static org.assertj.core.api.Assertions.assertThat;
 

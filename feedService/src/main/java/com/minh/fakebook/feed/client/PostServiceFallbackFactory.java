@@ -9,9 +9,9 @@ import org.springframework.cloud.openfeign.FallbackFactory;
 import org.springframework.stereotype.Component;
 
 @Component
-public class PostServiceFallback implements FallbackFactory<PostServiceClient> {
+public class PostServiceFallbackFactory implements FallbackFactory<PostServiceClient> {
 
-    private static final Logger LOG = LoggerFactory.getLogger(PostServiceFallback.class);
+    private static final Logger LOG = LoggerFactory.getLogger(PostServiceFallbackFactory.class);
 
     @Override
     public PostServiceClient create(Throwable cause) {

@@ -8,9 +8,9 @@ import org.springframework.cloud.openfeign.FallbackFactory;
 import org.springframework.stereotype.Component;
 
 @Component
-public class UserServiceFallback implements FallbackFactory<UserServiceClient> {
+public class UserServiceFallbackFactory implements FallbackFactory<UserServiceClient> {
 
-    private static final Logger LOG = LoggerFactory.getLogger(UserServiceFallback.class);
+    private static final Logger LOG = LoggerFactory.getLogger(UserServiceFallbackFactory.class);
 
     @Override
     public UserServiceClient create(Throwable cause) {
