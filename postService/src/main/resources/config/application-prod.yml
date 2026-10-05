@@ -24,10 +24,10 @@ management:
     metrics:
       export:
         enabled: false
-  zipkin: # Use the "zipkin" Maven profile to have the Spring Cloud Zipkin dependencies
-    tracing:
-      endpoint: http://localhost:9411/api/v2/spans
   tracing:
+    export:
+      zipkin:
+        endpoint: ${MANAGEMENT_TRACING_EXPORT_ZIPKIN_ENDPOINT:http://zipkin:9411/api/v2/spans}
     sampling:
       probability: 1.0 # report 100% of traces
 
@@ -41,11 +41,11 @@ spring:
     consul:
       discovery:
         prefer-ip-address: true
-      host: localhost
-      port: 8500
+      host: ${SPRING_CLOUD_CONSUL_HOST:consul}
+      port: ${SPRING_CLOUD_CONSUL_PORT:8500}
   datasource:
     type: com.zaxxer.hikari.HikariDataSource
-    url: jdbc:mariadb://localhost:3306/postService?useLegacyDatetimeCode=false
+    url: ${SPRING_DATASOURCE_URL:jdbc:mariadb://mariadb:3306/post_service?useLegacyDatetimeCode=false}
     hikari:
       poolName: Hikari
       auto-commit: false

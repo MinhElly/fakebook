@@ -3,6 +3,7 @@ package com.minh.fakebook.user.web.rest.errors;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
 import org.springframework.dao.ConcurrencyFailureException;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.BadCredentialsException;
@@ -15,6 +16,11 @@ public class ExceptionTranslatorTestController {
     @GetMapping("/concurrency-failure")
     public void concurrencyFailure() {
         throw new ConcurrencyFailureException("test concurrency failure");
+    }
+
+    @GetMapping("/data-integrity-conflict")
+    public void dataIntegrityConflict() {
+        throw new DataIntegrityViolationException("test duplicate relationship");
     }
 
     @PostMapping("/method-argument")

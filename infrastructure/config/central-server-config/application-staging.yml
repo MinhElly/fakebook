@@ -1,0 +1,43 @@
+logging:
+  level:
+    ROOT: INFO
+    tech.jhipster: INFO
+management:
+  tracing:
+    export:
+      zipkin:
+        endpoint: http://${ZIPKIN_HOST:zipkin}:${ZIPKIN_PORT:9411}/api/v2/spans
+    sampling:
+      probability: 0.1
+
+spring:
+  kafka:
+    bootstrap-servers: ${KAFKA_HOST:kafka}:${KAFKA_PORT:29092}
+    producer:
+      acks: all
+      retries: 2147483647
+      properties:
+        enable.idempotence: true
+        max.in.flight.requests.per.connection: 5
+  docker:
+    compose:
+      enabled: false
+  cloud:
+    stream:
+      kafka:
+        binder:
+          brokers: ${KAFKA_HOST:kafka}:${KAFKA_PORT:29092}
+          configuration:
+            acks: all
+            enable.idempotence: true
+            max.in.flight.requests.per.connection: 5
+  security:
+    oauth2:
+      client:
+        provider:
+          oidc:
+            issuer-uri: ${FAKEBOOK_OIDC_ISSUER_URI}
+        registration:
+          oidc:
+            client-id: ${FAKEBOOK_OIDC_CLIENT_ID}
+            client-secret: ${FAKEBOOK_OIDC_CLIENT_SECRET}

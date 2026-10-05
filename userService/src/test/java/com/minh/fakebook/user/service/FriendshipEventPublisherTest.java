@@ -1,0 +1,23 @@
+package com.minh.fakebook.user.service;
+
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+
+import com.minh.fakebook.user.service.dto.events.FriendshipUpdatedEvent;
+import io.namastack.outbox.Outbox;
+import java.util.Map;
+import java.util.UUID;
+import org.junit.jupiter.api.Test;
+
+class FriendshipEventPublisherTest {
+
+    @Test
+    void shouldPublishFriendshipEventToDedicatedBinding() {
+        Outbox outbox = mock(Outbox.class);
+        FriendshipUpdatedEvent event = FriendshipUpdatedEvent.created(UUID.randomUUID(), UUID.randomUUID());
+
+        new FriendshipEventPublisher(outbox).publish(event);
+
+        verify(outbox).schedule(event, "friendship-" + event.data().userId(), Map.of("destination", "friendship-events"));
+    }
+}

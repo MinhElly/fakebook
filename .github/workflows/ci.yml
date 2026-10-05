@@ -1,0 +1,197 @@
+name: Fakebook CI/CD Pipeline
+
+on:
+  push:
+    branches:
+      - develop
+      - staging
+      - main
+      - master
+  pull_request:
+    branches:
+      - develop
+      - staging
+      - main
+      - master
+
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  REGISTRY: ghcr.io
+
+jobs:
+  # 0. Validate configuration files and Docker Compose templates
+  validate-config:
+    name: Validate Configuration & Compose
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Validate Local Dev Docker Compose
+        run: docker compose -f infrastructure/docker-compose.yml config --quiet
+
+      - name: Validate Staging Docker Compose Template
+        run: docker compose --env-file infrastructure/.env.staging.example -f infrastructure/docker-compose-staging.yml config --quiet
+
+  # 1. Validate the frontend artifact deployed by Vercel
+  build-frontend:
+    name: Build Frontend for Vercel
+    needs: [validate-config]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Build frontend
+        working-directory: frontend
+        env:
+          VITE_API_BASE_URL: https://api-staging.example.com
+          VITE_KEYCLOAK_URL: https://api-staging.example.com
+        run: npm run build
+
+  # 2. Verify every backend; publish only after protected-branch pushes
+  build-backend-services:
+    name: Verify / Publish (${{ matrix.service }})
+    needs: [validate-config]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - service: gateway
+            path: gateway
+            image_name: fakebook-gateway
+          - service: authService
+            path: authService
+            image_name: fakebook-authservice
+          - service: userService
+            path: userService
+            image_name: fakebook-userservice
+          - service: postService
+            path: postService
+            image_name: fakebook-postservice
+          - service: mediaService
+            path: mediaService
+            image_name: fakebook-mediaservice
+          - service: commentService
+            path: commentService
+            image_name: fakebook-commentservice
+          - service: feedService
+            path: feedService
+            image_name: fakebook-feedservice
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: 'maven'
+
+      - name: Verify backend service
+        working-directory: ${{ matrix.path }}
+        run: |
+          chmod +x mvnw
+          ./mvnw -ntp clean verify
+
+      - name: Log in to GitHub Container Registry (GHCR)
+        if: >-
+          github.event_name == 'push' &&
+          (github.ref == 'refs/heads/develop' ||
+          github.ref == 'refs/heads/staging' ||
+          github.ref == 'refs/heads/main' ||
+          github.ref == 'refs/heads/master')
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Lowercase repository owner name
+        if: >-
+          github.event_name == 'push' &&
+          (github.ref == 'refs/heads/develop' ||
+          github.ref == 'refs/heads/staging' ||
+          github.ref == 'refs/heads/main' ||
+          github.ref == 'refs/heads/master')
+        run: |
+          echo "IMAGE_PREFIX=${REGISTRY}/${GITHUB_REPOSITORY_OWNER,,}" >> "$GITHUB_ENV"
+
+      - name: Build and push immutable OCI image
+        if: >-
+          github.event_name == 'push' &&
+          (github.ref == 'refs/heads/develop' ||
+          github.ref == 'refs/heads/staging' ||
+          github.ref == 'refs/heads/main' ||
+          github.ref == 'refs/heads/master')
+        working-directory: ${{ matrix.path }}
+        run: |
+          IMAGE_NAME="${IMAGE_PREFIX}/${{ matrix.image_name }}"
+          FULL_SHA="${GITHUB_SHA}"
+
+          if [[ ! "${FULL_SHA}" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "Invalid Git commit SHA: ${FULL_SHA}"
+            exit 1
+          fi
+
+          IMMUTABLE_TAG="sha-${FULL_SHA}"
+          BRANCH_REF="${GITHUB_REF_NAME}"
+          EXTRA_TAGS="${BRANCH_REF}"
+
+          if [ "${BRANCH_REF}" = "main" ] || [ "${BRANCH_REF}" = "master" ]; then
+            EXTRA_TAGS="latest,main"
+          fi
+
+          echo "Publishing immutable image: ${IMAGE_NAME}:${IMMUTABLE_TAG}"
+          echo "Publishing moving aliases: ${EXTRA_TAGS}"
+
+          ./mvnw -ntp package jib:build -DskipTests \
+            -Djib.to.image="${IMAGE_NAME}:${IMMUTABLE_TAG}" \
+            -Djib.to.tags="${EXTRA_TAGS}" \
+            -Djib.to.auth.username="${{ github.actor }}" \
+            -Djib.to.auth.password="${{ secrets.GITHUB_TOKEN }}"
+
+  # 3. Pipeline Completion Summary
+  pipeline-summary:
+    name: CI/CD Pipeline Summary
+    needs: [validate-config, build-frontend, build-backend-services]
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Check Status
+        run: |
+          if [ "${{ needs.validate-config.result }}" = "success" ] && \
+             [ "${{ needs.build-frontend.result }}" = "success" ] && \
+             [ "${{ needs.build-backend-services.result }}" = "success" ]; then
+            echo "🎉 CI/CD Pipeline Completed Successfully!"
+          else
+            echo "❌ CI/CD Pipeline Failed!"
+            exit 1
+          fi

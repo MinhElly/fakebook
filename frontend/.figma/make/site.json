@@ -1,0 +1,10 @@
+{
+  "description": "Recreates the Facebook interface to help users experience familiar social media layouts for design inspiration or testing purposes.",
+  "robots": {
+    "index": false
+  },
+  "accessibility": {
+    "addBypassLinks": false,
+    "ignoreReducedMotion": false
+  }
+}

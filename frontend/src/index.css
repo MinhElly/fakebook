@@ -1,0 +1,51 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+@import 'tailwindcss';
+
+@theme inline {
+  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+  --color-fb-blue: #1877F2;
+  --color-fb-hover: #166fe5;
+  --color-fb-bg: #F0F2F5;
+  --color-fb-card: #ffffff;
+  --color-fb-border: #CED0D4;
+  --color-fb-text: #1C1E21;
+  --color-fb-muted: #65676B;
+  --color-fb-input: #F0F2F5;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.animate-slide-up {
+  animation: slideUp 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes fbPulse {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.04);
+    opacity: 0.92;
+  }
+}
+
+.animate-fb-pulse {
+  animation: fbPulse 2.4s ease-in-out infinite;
+}
+

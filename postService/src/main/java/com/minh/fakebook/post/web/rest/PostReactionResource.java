@@ -5,6 +5,9 @@ import com.minh.fakebook.post.service.PostReactionQueryService;
 import com.minh.fakebook.post.service.PostReactionService;
 import com.minh.fakebook.post.service.criteria.PostReactionCriteria;
 import com.minh.fakebook.post.service.dto.PostReactionDTO;
+import com.minh.fakebook.post.service.dto.PostReactionSummaryDTO;
+import com.minh.fakebook.post.service.dto.PostReactorDTO;
+import com.minh.fakebook.post.service.dto.SetPostReactionRequest;
 import com.minh.fakebook.post.web.rest.errors.BadRequestAlertException;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
@@ -16,6 +19,7 @@ import java.util.Optional;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -72,9 +76,45 @@ public class PostReactionResource {
             throw new BadRequestAlertException("A new postReaction cannot already have an ID", ENTITY_NAME, "idexists");
         }
         postReactionDTO = postReactionService.save(postReactionDTO);
-        return ResponseEntity.created(new URI("/api/post-reactions/" + postReactionDTO.getId()))
-            .headers(HeaderUtil.createEntityCreationAlert(applicationName, true, ENTITY_NAME, postReactionDTO.getId().toString()))
-            .body(postReactionDTO);
+        if (postReactionDTO == null) {
+            return ResponseEntity.noContent().build();
+        }
+
+        return ResponseEntity.created(new URI("/api/post-reactions/" +
+                postReactionDTO.getId()))
+                .headers(HeaderUtil.createEntityCreationAlert(applicationName,
+                        true, ENTITY_NAME, postReactionDTO.getId().toString()))
+                .body(postReactionDTO);
+    }
+
+    @PutMapping("/posts/{postId}")
+    public ResponseEntity<PostReactionSummaryDTO> setReaction(
+        @PathVariable UUID postId,
+        @Valid @RequestBody SetPostReactionRequest request
+    ) {
+        return ResponseEntity.ok(postReactionService.setReaction(postId, request.reactionType()));
+    }
+
+    @DeleteMapping("/posts/{postId}")
+    public ResponseEntity<PostReactionSummaryDTO> removeReaction(@PathVariable UUID postId) {
+        return ResponseEntity.ok(postReactionService.removeCurrentUserReaction(postId));
+    }
+
+    @GetMapping("/summaries")
+    public ResponseEntity<List<PostReactionSummaryDTO>> getSummaries(
+        @RequestParam(name = "postId.in") List<UUID> postIds
+    ) {
+        return ResponseEntity.ok(postReactionService.getSummaries(postIds));
+    }
+
+    @GetMapping("/posts/{postId}")
+    public ResponseEntity<List<PostReactorDTO>> getReactors(
+        @PathVariable UUID postId,
+        @ParameterObject Pageable pageable
+    ) {
+        Page<PostReactorDTO> page = postReactionService.getReactors(postId, pageable);
+        HttpHeaders headers = PaginationUtil.generatePaginationHttpHeaders(ServletUriComponentsBuilder.fromCurrentRequest(), page);
+        return ResponseEntity.ok().headers(headers).body(page.getContent());
     }
 
     /**
@@ -156,7 +196,7 @@ public class PostReactionResource {
     @GetMapping("")
     public ResponseEntity<List<PostReactionDTO>> getAllPostReactions(
         PostReactionCriteria criteria,
-        @org.springdoc.core.annotations.ParameterObject Pageable pageable
+        @ParameterObject Pageable pageable
     ) {
         LOG.debug("REST request to get PostReactions by criteria: {}", criteria);
 

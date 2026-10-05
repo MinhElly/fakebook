@@ -2,6 +2,7 @@ package com.minh.fakebook.media;
 
 import com.minh.fakebook.media.config.AsyncSyncConfiguration;
 import com.minh.fakebook.media.config.DatabaseTestcontainer;
+import com.minh.fakebook.media.config.JacksonHibernateConfiguration;
 import com.minh.fakebook.media.config.TestSecurityConfiguration;
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
@@ -19,7 +20,7 @@ import org.springframework.boot.test.context.SpringBootTest;
         MediaServiceApp.class,
         AsyncSyncConfiguration.class,
         TestSecurityConfiguration.class,
-        com.minh.fakebook.media.config.JacksonHibernateConfiguration.class,
+        JacksonHibernateConfiguration.class,
         DatabaseTestcontainer.class,
     }
 )

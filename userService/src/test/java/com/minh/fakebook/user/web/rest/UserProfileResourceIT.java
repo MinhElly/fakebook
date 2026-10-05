@@ -4,13 +4,17 @@ import static com.minh.fakebook.user.domain.UserProfileAsserts.*;
 import static com.minh.fakebook.user.web.rest.TestUtil.createUpdateProxyForBean;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.hasItem;
+import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 import com.minh.fakebook.user.IntegrationTest;
+import com.minh.fakebook.user.client.MediaServiceClient;
 import com.minh.fakebook.user.domain.UserProfile;
 import com.minh.fakebook.user.repository.UserProfileRepository;
+import com.minh.fakebook.user.security.AuthoritiesConstants;
 import com.minh.fakebook.user.service.dto.UserProfileDTO;
 import com.minh.fakebook.user.service.mapper.UserProfileMapper;
 import jakarta.persistence.EntityManager;
@@ -23,6 +27,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
 import org.springframework.security.test.context.support.WithMockUser;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 import tools.jackson.databind.ObjectMapper;
@@ -32,7 +37,7 @@ import tools.jackson.databind.ObjectMapper;
  */
 @IntegrationTest
 @AutoConfigureMockMvc
-@WithMockUser
+@WithMockUser(authorities = AuthoritiesConstants.ADMIN)
 class UserProfileResourceIT {
 
     private static final String DEFAULT_USERNAME = "AAAAAAAAAA";
@@ -59,6 +64,9 @@ class UserProfileResourceIT {
     private static final String ENTITY_API_URL = "/api/user-profiles";
     private static final String ENTITY_API_URL_ID = ENTITY_API_URL + "/{id}";
 
+    private static final String PUBLIC_ENTITY_API_URL = ENTITY_API_URL + "/public";
+    private static final String PUBLIC_ENTITY_API_URL_ID = PUBLIC_ENTITY_API_URL + "/{id}";
+
     @Autowired
     private ObjectMapper om;
 
@@ -74,6 +82,9 @@ class UserProfileResourceIT {
     @Autowired
     private MockMvc restUserProfileMockMvc;
 
+    @MockitoBean
+    private MediaServiceClient mediaServiceClient;
+
     private UserProfile userProfile;
 
     private UserProfile insertedUserProfile;
@@ -86,6 +97,7 @@ class UserProfileResourceIT {
      */
     public static UserProfile createEntity() {
         return new UserProfile()
+            .id(UUID.randomUUID())
             .username(DEFAULT_USERNAME)
             .displayName(DEFAULT_DISPLAY_NAME)
             .bio(DEFAULT_BIO)
@@ -103,6 +115,7 @@ class UserProfileResourceIT {
      */
     public static UserProfile createUpdatedEntity() {
         return new UserProfile()
+            .id(UUID.randomUUID())
             .username(UPDATED_USERNAME)
             .displayName(UPDATED_DISPLAY_NAME)
             .bio(UPDATED_BIO)
@@ -127,16 +140,27 @@ class UserProfileResourceIT {
 
     @Test
     @Transactional
-    void createUserProfile() throws Exception {
+    void createUserProfileFromAuthenticatedUser() throws Exception {
         long databaseSizeBeforeCreate = getRepositoryCount();
-        // Create the UserProfile
-        UserProfileDTO userProfileDTO = userProfileMapper.toDto(userProfile);
+        UUID userId = UUID.randomUUID();
+
         var returnedUserProfileDTO = om.readValue(
             restUserProfileMockMvc
                 .perform(
-                    post(ENTITY_API_URL).with(csrf()).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(userProfileDTO))
+                    get(ENTITY_API_URL + "/me")
+                        .with(
+                            jwt().jwt(token ->
+                                token
+                                    .subject(userId.toString())
+                                    .claim("preferred_username", DEFAULT_USERNAME)
+                                    .claim("name", DEFAULT_DISPLAY_NAME)
+                            )
+                        )
                 )
-                .andExpect(status().isCreated())
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(userId.toString()))
+                .andExpect(jsonPath("$.username").value(DEFAULT_USERNAME))
+                .andExpect(jsonPath("$.displayName").value(DEFAULT_DISPLAY_NAME))
                 .andReturn()
                 .getResponse()
                 .getContentAsString(),
@@ -236,7 +260,7 @@ class UserProfileResourceIT {
 
         // Get all the userProfileList
         restUserProfileMockMvc
-            .perform(get(ENTITY_API_URL + "?sort=id,desc"))
+            .perform(get(PUBLIC_ENTITY_API_URL + "?sort=id,desc"))
             .andExpect(status().isOk())
             .andExpect(content().contentType(MediaType.APPLICATION_JSON_VALUE))
             .andExpect(jsonPath("$.[*].id").value(hasItem(userProfile.getId().toString())))
@@ -257,7 +281,7 @@ class UserProfileResourceIT {
 
         // Get the userProfile
         restUserProfileMockMvc
-            .perform(get(ENTITY_API_URL_ID, userProfile.getId()))
+            .perform(get(PUBLIC_ENTITY_API_URL_ID, userProfile.getId()))
             .andExpect(status().isOk())
             .andExpect(content().contentType(MediaType.APPLICATION_JSON_VALUE))
             .andExpect(jsonPath("$.id").value(userProfile.getId().toString()))
@@ -523,7 +547,7 @@ class UserProfileResourceIT {
      */
     private void defaultUserProfileShouldBeFound(String filter) throws Exception {
         restUserProfileMockMvc
-            .perform(get(ENTITY_API_URL + "?sort=id,desc&" + filter))
+            .perform(get(PUBLIC_ENTITY_API_URL + "?sort=id,desc&" + filter))
             .andExpect(status().isOk())
             .andExpect(content().contentType(MediaType.APPLICATION_JSON_VALUE))
             .andExpect(jsonPath("$.[*].id").value(hasItem(userProfile.getId().toString())))
@@ -548,7 +572,7 @@ class UserProfileResourceIT {
      */
     private void defaultUserProfileShouldNotBeFound(String filter) throws Exception {
         restUserProfileMockMvc
-            .perform(get(ENTITY_API_URL + "?sort=id,desc&" + filter))
+            .perform(get(PUBLIC_ENTITY_API_URL + "?sort=id,desc&" + filter))
             .andExpect(status().isOk())
             .andExpect(content().contentType(MediaType.APPLICATION_JSON_VALUE))
             .andExpect(jsonPath("$").isArray())
@@ -566,7 +590,7 @@ class UserProfileResourceIT {
     @Transactional
     void getNonExistingUserProfile() throws Exception {
         // Get the userProfile
-        restUserProfileMockMvc.perform(get(ENTITY_API_URL_ID, UUID.randomUUID().toString())).andExpect(status().isNotFound());
+        restUserProfileMockMvc.perform(get(PUBLIC_ENTITY_API_URL_ID, UUID.randomUUID().toString())).andExpect(status().isNotFound());
     }
 
     @Test
@@ -674,6 +698,7 @@ class UserProfileResourceIT {
     void partialUpdateUserProfileWithPatch() throws Exception {
         // Initialize the database
         insertedUserProfile = userProfileRepository.saveAndFlush(userProfile);
+        mockActiveMedia(UPDATED_COVER_MEDIA_ID);
 
         long databaseSizeBeforeUpdate = getRepositoryCount();
 
@@ -706,6 +731,8 @@ class UserProfileResourceIT {
     void fullUpdateUserProfileWithPatch() throws Exception {
         // Initialize the database
         insertedUserProfile = userProfileRepository.saveAndFlush(userProfile);
+        mockActiveMedia(UPDATED_AVATAR_MEDIA_ID);
+        mockActiveMedia(UPDATED_COVER_MEDIA_ID);
 
         long databaseSizeBeforeUpdate = getRepositoryCount();
 
@@ -822,6 +849,11 @@ class UserProfileResourceIT {
 
     protected long getRepositoryCount() {
         return userProfileRepository.count();
+    }
+
+    private void mockActiveMedia(UUID mediaId) {
+        when(mediaServiceClient.getMediaById(mediaId))
+            .thenReturn(new MediaServiceClient.MediaDTO(mediaId, userProfile.getId(), "https://media.test/" + mediaId, "ACTIVE"));
     }
 
     protected void assertIncrementedRepositoryCount(long countBefore) {

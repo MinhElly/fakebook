@@ -1,21 +1,25 @@
 spring:
   cloud:
     function:
-      definition: kafkaConsumer;kafkaProducer
+      definition: kafkaConsumer
     stream:
       kafka:
         binder:
           replicationFactor: 1
           auto-create-topics: true
           brokers: localhost:9092
+          enable-observation: true
       bindings:
+        mediaCleanupOut-out-0:
+          destination: media-cleanup-topic
+          content-type: application/json
+          producer:
+            use-native-encoding: true
         binding-out-0:
+          destination: post-events
           content-type: text/plain
           group: post-service
         kafkaConsumer-in-0:
           destination: sse-topic
-          content-type: text/plain
-          group: post-service
-        kafkaProducer-out-0:
           content-type: text/plain
           group: post-service

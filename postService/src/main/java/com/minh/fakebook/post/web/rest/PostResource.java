@@ -4,6 +4,7 @@ import com.minh.fakebook.post.repository.PostRepository;
 import com.minh.fakebook.post.service.PostQueryService;
 import com.minh.fakebook.post.service.PostService;
 import com.minh.fakebook.post.service.criteria.PostCriteria;
+import com.minh.fakebook.post.service.dto.CreatePostRequestDTO;
 import com.minh.fakebook.post.service.dto.PostDTO;
 import com.minh.fakebook.post.web.rest.errors.BadRequestAlertException;
 import jakarta.validation.Valid;
@@ -16,6 +17,7 @@ import java.util.Optional;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -53,24 +55,6 @@ public class PostResource {
         this.postQueryService = postQueryService;
     }
 
-    /**
-     * {@code POST  /posts} : Create a new post.
-     *
-     * @param postDTO the postDTO to create.
-     * @return the {@link ResponseEntity} with status {@code 201 (Created)} and with body the new postDTO, or with status {@code 400 (Bad Request)} if the post has already an ID.
-     * @throws URISyntaxException if the Location URI syntax is incorrect.
-     */
-    @PostMapping("")
-    public ResponseEntity<PostDTO> createPost(@Valid @RequestBody PostDTO postDTO) throws URISyntaxException {
-        LOG.debug("REST request to save Post : {}", postDTO);
-        if (postDTO.getId() != null) {
-            throw new BadRequestAlertException("A new post cannot already have an ID", ENTITY_NAME, "idexists");
-        }
-        postDTO = postService.save(postDTO);
-        return ResponseEntity.created(new URI("/api/posts/" + postDTO.getId()))
-            .headers(HeaderUtil.createEntityCreationAlert(applicationName, true, ENTITY_NAME, postDTO.getId().toString()))
-            .body(postDTO);
-    }
 
     /**
      * {@code PUT  /posts/:id} : Updates an existing post.
@@ -151,7 +135,7 @@ public class PostResource {
     @GetMapping("")
     public ResponseEntity<List<PostDTO>> getAllPosts(
         PostCriteria criteria,
-        @org.springdoc.core.annotations.ParameterObject Pageable pageable
+        @ParameterObject Pageable pageable
     ) {
         LOG.debug("REST request to get Posts by criteria: {}", criteria);
 
@@ -196,7 +180,50 @@ public class PostResource {
         LOG.debug("REST request to delete Post : {}", id);
         postService.delete(id);
         return ResponseEntity.noContent()
-            .headers(HeaderUtil.createEntityDeletionAlert(applicationName, true, ENTITY_NAME, id.toString()))
-            .build();
+                .headers(HeaderUtil.createEntityDeletionAlert(applicationName, true, ENTITY_NAME, id.toString()))
+                .build();
+    }
+    
+    /**
+     * {@code POST  /api/posts/create} : Create a new post.
+     *
+     * @param request The request body containing the content and visibility.
+     * @return The {@link org.springframework.http.ResponseEntity} with status
+     *         {@code 201
+    (Created)} and the created post DTO.
+     */
+    @PostMapping("/create")
+    public ResponseEntity<PostDTO> createNewPost(
+            @RequestBody CreatePostRequestDTO request) {
+
+        LOG.debug("REST request to create a new Post : {}", request);
+        PostDTO result = postService.createPost(request.content(),
+                request.visibility(), request.mediaIds(), request.taggedUserIds());
+
+        return ResponseEntity.status(201).body(result);
+    }
+    /**
+     * {@code POST  /posts/:id/save} : Toggle save status of a post.
+     *
+     * @param id the id of the post to save or unsave.
+     * @return the {@link ResponseEntity} with status {@code 200 (OK)} and boolean true if saved, false if unsaved.
+     */
+    @PostMapping("/{id}/save")
+    public ResponseEntity<Boolean> toggleSavePost(@PathVariable("id") UUID id) {
+        LOG.debug("REST request to toggle save Post : {}", id);
+        boolean isSaved = postService.toggleSavePost(id);
+        return ResponseEntity.ok().body(isSaved);
+    }
+
+    /**
+     * {@code GET  /posts/saved} : get all saved posts of the current user.
+     *
+     * @return the {@link ResponseEntity} with status {@code 200 (OK)} and the list of saved posts in body.
+     */
+    @GetMapping("/saved")
+    public ResponseEntity<List<PostDTO>> getSavedPosts() {
+        LOG.debug("REST request to get Saved Posts");
+        List<PostDTO> savedPosts = postService.getSavedPosts();
+        return ResponseEntity.ok().body(savedPosts);
     }
 }

@@ -14,7 +14,7 @@ spring:
   cloud:
     consul:
       config:
-        fail-fast: false # if not in "prod" profile, do not force to use Spring Cloud Config
+        fail-fast: true
         format: yaml
         profile-separator: '-'
       discovery:
@@ -26,10 +26,10 @@ spring:
           - git-branch=${git.branch:}
           - context-path=${server.servlet.context-path:}
 
-      host: localhost
-      port: 8500
+      host: ${SPRING_CLOUD_CONSUL_HOST:localhost}
+      port: ${SPRING_CLOUD_CONSUL_PORT:8500}
   docker:
     compose:
-      enabled: true
+      enabled: false
       lifecycle-management: start-only
       file: src/main/docker/services.yml

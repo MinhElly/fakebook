@@ -5,6 +5,7 @@ import jakarta.validation.constraints.*;
 import java.io.Serial;
 import java.io.Serializable;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.UUID;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
@@ -21,7 +22,6 @@ public class UserProfile implements Serializable {
     private static final long serialVersionUID = 1L;
 
     @Id
-    @GeneratedValue
     @JdbcTypeCode(SqlTypes.VARCHAR)
     @Column(name = "id", length = 36)
     private UUID id;
@@ -39,6 +39,29 @@ public class UserProfile implements Serializable {
     @Lob
     @Column(name = "bio")
     private String bio;
+
+    @Column(name = "birthday")
+    private LocalDate birthday;
+
+    @Size(max = 20)
+    @Column(name = "gender", length = 20)
+    private String gender;
+
+    @Size(max = 255)
+    @Column(name = "location", length = 255)
+    private String location;
+
+    @Size(max = 255)
+    @Column(name = "education", length = 255)
+    private String education;
+
+    @Size(max = 255)
+    @Column(name = "work", length = 255)
+    private String work;
+
+    @Size(max = 50)
+    @Column(name = "relationship", length = 50)
+    private String relationship;
 
     @JdbcTypeCode(SqlTypes.VARCHAR)
     @Column(name = "avatar_media_id", length = 36)
@@ -107,6 +130,84 @@ public class UserProfile implements Serializable {
 
     public void setBio(String bio) {
         this.bio = bio;
+    }
+
+    public LocalDate getBirthday() {
+        return this.birthday;
+    }
+
+    public UserProfile birthday(LocalDate birthday) {
+        this.setBirthday(birthday);
+        return this;
+    }
+
+    public void setBirthday(LocalDate birthday) {
+        this.birthday = birthday;
+    }
+
+    public String getGender() {
+        return this.gender;
+    }
+
+    public UserProfile gender(String gender) {
+        this.setGender(gender);
+        return this;
+    }
+
+    public void setGender(String gender) {
+        this.gender = gender;
+    }
+
+    public String getLocation() {
+        return this.location;
+    }
+
+    public UserProfile location(String location) {
+        this.setLocation(location);
+        return this;
+    }
+
+    public void setLocation(String location) {
+        this.location = location;
+    }
+
+    public String getEducation() {
+        return this.education;
+    }
+
+    public UserProfile education(String education) {
+        this.setEducation(education);
+        return this;
+    }
+
+    public void setEducation(String education) {
+        this.education = education;
+    }
+
+    public String getWork() {
+        return this.work;
+    }
+
+    public UserProfile work(String work) {
+        this.setWork(work);
+        return this;
+    }
+
+    public void setWork(String work) {
+        this.work = work;
+    }
+
+    public String getRelationship() {
+        return this.relationship;
+    }
+
+    public UserProfile relationship(String relationship) {
+        this.setRelationship(relationship);
+        return this;
+    }
+
+    public void setRelationship(String relationship) {
+        this.relationship = relationship;
     }
 
     public UUID getAvatarMediaId() {

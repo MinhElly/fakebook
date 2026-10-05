@@ -24,14 +24,6 @@ springdoc:
   api-docs:
     enabled: false
 ---
-feign:
-  circuitbreaker:
-    enabled: true
-  # client:
-  #   config:
-  #     default:
-  #       connectTimeout: 5000
-  #       readTimeout: 5000
 management:
   endpoints:
     web:
@@ -104,14 +96,14 @@ spring:
     consul:
       discovery:
         healthCheckPath: /management/health
-        instanceId: authservice:${spring.application.instance-id:${random.value}}
+        instanceId: authservice:${spring.application.instance-id:${HOSTNAME:${server.port}}}
         service-name: authservice
       config:
         watch:
           enabled: false
   docker:
     compose:
-      enabled: true
+      enabled: false
       lifecycle-management: start-only
       file: src/main/docker/mariadb.yml
   profiles:
@@ -121,7 +113,6 @@ spring:
     active: '@spring.profiles.active@'
     group:
       dev:
-        - secret-samples
         - kafka
         - api-docs
         # Uncomment to activate TLS for the dev profile

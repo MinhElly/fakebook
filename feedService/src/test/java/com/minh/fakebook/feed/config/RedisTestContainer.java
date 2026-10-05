@@ -22,10 +22,10 @@ public class RedisTestContainer {
 
     @Bean
     DynamicPropertyRegistrar redisProperties(GenericContainer redisContainer) {
-        return registry ->
-            registry.add(
-                "jhipster.cache.redis.server",
-                () -> "redis://" + redisContainer.getContainerIpAddress() + ":" + redisContainer.getMappedPort(6379)
-            );
+        return registry -> {
+            var redisUrl = "redis://" + redisContainer.getHost() + ":" + redisContainer.getMappedPort(6379);
+            registry.add("jhipster.cache.redis.server", () -> redisUrl);
+            registry.add("spring.data.redis.url", () -> redisUrl);
+        };
     }
 }

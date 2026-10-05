@@ -10,6 +10,11 @@
     <property name="uuidType" value="varchar(36)" dbms="mariadb"/>
     <property name="datetimeType" value="datetime(6)" dbms="mariadb"/>
     <property name="timeType" value="time(6)" dbms="mariadb"/>
+    <property name="clobType" value="clob" dbms="h2"/>
+    <property name="blobType" value="blob" dbms="h2"/>
+    <property name="uuidType" value="varchar(36)" dbms="h2"/>
+    <property name="datetimeType" value="datetime(6)" dbms="h2"/>
+    <property name="timeType" value="time(6)" dbms="h2"/>
 
     <include file="config/liquibase/changelog/00000000000000_initial_schema.xml" relativeToChangelogFile="false"/>
     <include file="config/liquibase/changelog/20231210042757_added_entity_UserProfile.xml" relativeToChangelogFile="false"/>
@@ -20,6 +25,10 @@
     <include file="config/liquibase/changelog/20231210042857_added_entity_constraints_FriendRequest.xml" relativeToChangelogFile="false"/>
     <include file="config/liquibase/changelog/20231210042957_added_entity_constraints_Follow.xml" relativeToChangelogFile="false"/>
     <include file="config/liquibase/changelog/20231210043057_added_entity_constraints_Friendship.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20260907000000_added_birthday_gender_to_UserProfile.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20260908000000_added_location_education_work_relationship_to_UserProfile.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20260930000000_added_outbox_record.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20260930000001_added_relationship_unique_constraints.xml" relativeToChangelogFile="false"/>
     <!-- jhipster-needle-liquibase-add-constraints-changelog - JHipster will add liquibase constraints changelogs here -->
     <!-- jhipster-needle-liquibase-add-incremental-changelog - JHipster will add incremental liquibase changelogs here -->
 </databaseChangeLog>

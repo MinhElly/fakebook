@@ -1,7 +1,7 @@
 package com.minh.fakebook.post.security;
 
-import java.util.ArrayList;
 import java.util.Collection;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -107,12 +107,26 @@ public final class SecurityUtils {
         return mapRolesToGrantedAuthorities(getRolesFromClaims(claims));
     }
 
-    @SuppressWarnings("unchecked")
     private static Collection<String> getRolesFromClaims(Map<String, Object> claims) {
-        return (Collection<String>) claims.getOrDefault(
-            "groups",
-            claims.getOrDefault("roles", claims.getOrDefault(CLAIMS_NAMESPACE + "roles", new ArrayList<>()))
-        );
+        Collection<String> roles = new LinkedHashSet<>();
+        addRoles(roles, claims.get("groups"));
+        addRoles(roles, claims.get("roles"));
+        addRoles(roles, claims.get(CLAIMS_NAMESPACE + "roles"));
+
+        Object realmAccess = claims.get("realm_access");
+        if (realmAccess instanceof Map<?, ?> realmAccessClaims) {
+            addRoles(roles, realmAccessClaims.get("roles"));
+        }
+
+        return roles;
+    }
+
+    private static void addRoles(Collection<String> roles, Object claim) {
+        if (claim instanceof String role) {
+            roles.add(role);
+        } else if (claim instanceof Collection<?> claimValues) {
+            claimValues.stream().filter(String.class::isInstance).map(String.class::cast).forEach(roles::add);
+        }
     }
 
     private static List<GrantedAuthority> mapRolesToGrantedAuthorities(Collection<String> roles) {

@@ -24,14 +24,24 @@ springdoc:
   api-docs:
     enabled: false
 ---
-feign:
+resilience4j:
   circuitbreaker:
-    enabled: true
-  # client:
-  #   config:
-  #     default:
-  #       connectTimeout: 5000
-  #       readTimeout: 5000
+    configs:
+      default:
+        sliding-window-type: COUNT_BASED
+        sliding-window-size: 5
+        minimum-number-of-calls: 5
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 10s
+        permitted-number-of-calls-in-half-open-state: 2
+        automatic-transition-from-open-to-half-open-enabled: true
+        register-health-indicator: false
+  timelimiter:
+    configs:
+      default:
+        timeout-duration: 4s
+        cancel-running-future: true
+
 management:
   endpoints:
     web:
@@ -50,6 +60,9 @@ management:
           - threaddump
           - caches
           - liquibase
+          - metrics
+          - circuitbreakers
+          - circuitbreakerevents
   endpoint:
     health:
       show-details: when_authorized
@@ -102,17 +115,25 @@ spring:
   application:
     name: feedService
   cloud:
+    openfeign:
+      circuitbreaker:
+        enabled: true
+      client:
+        config:
+          default:
+            connectTimeout: 1500
+            readTimeout: 3000
     consul:
       discovery:
         healthCheckPath: /management/health
-        instanceId: feedservice:${spring.application.instance-id:${random.value}}
+        instanceId: feedservice:${spring.application.instance-id:${HOSTNAME:${server.port}}}
         service-name: feedservice
       config:
         watch:
           enabled: false
   docker:
     compose:
-      enabled: true
+      enabled: false
       lifecycle-management: start-only
       file: src/main/docker/mariadb.yml
   profiles:
@@ -122,7 +143,6 @@ spring:
     active: '@spring.profiles.active@'
     group:
       dev:
-        - secret-samples
         - kafka
         - api-docs
         # Uncomment to activate TLS for the dev profile

@@ -1,7 +1,7 @@
 spring:
   cloud:
     function:
-      definition: kafkaConsumer;kafkaProducer
+      definition: processMediaCleanup;kafkaConsumer
     stream:
       kafka:
         binder:
@@ -9,6 +9,10 @@ spring:
           auto-create-topics: true
           brokers: localhost:9092
       bindings:
+        processMediaCleanup-in-0:
+          destination: media-cleanup-topic
+          content-type: application/json
+          group: media-service
         binding-out-0:
           content-type: text/plain
           group: media-service
@@ -16,6 +20,4 @@ spring:
           destination: sse-topic
           content-type: text/plain
           group: media-service
-        kafkaProducer-out-0:
-          content-type: text/plain
-          group: media-service
+

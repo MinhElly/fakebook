@@ -1,0 +1,51 @@
+{
+  "annotations": {
+    "changelogDate": "20260914113000"
+  },
+  "applications": ["commentService"],
+  "clientRootFolder": "commentService",
+  "databaseType": "sql",
+  "dto": "mapstruct",
+  "entityTableName": "comment_reaction",
+  "fields": [
+    {
+      "fieldName": "id",
+      "fieldType": "UUID"
+    },
+    {
+      "fieldName": "userId",
+      "fieldType": "UUID",
+      "fieldValidateRules": ["required"]
+    },
+    {
+      "fieldName": "reactionType",
+      "fieldType": "ReactionType",
+      "fieldValidateRules": ["required"],
+      "fieldValues": "LIKE,LOVE,HAHA,WOW,SAD,ANGRY"
+    },
+    {
+      "fieldName": "createdAt",
+      "fieldType": "Instant",
+      "fieldValidateRules": ["required"]
+    },
+    {
+      "fieldName": "updatedAt",
+      "fieldType": "Instant"
+    }
+  ],
+  "jpaMetamodelFiltering": true,
+  "microserviceName": "commentService",
+  "name": "CommentReaction",
+  "pagination": "pagination",
+  "relationships": [
+    {
+      "otherEntityName": "comment",
+      "relationshipName": "comment",
+      "relationshipSide": "left",
+      "relationshipType": "many-to-one",
+      "relationshipValidateRules": ["required"]
+    }
+  ],
+  "searchEngine": "no",
+  "service": "serviceClass"
+}

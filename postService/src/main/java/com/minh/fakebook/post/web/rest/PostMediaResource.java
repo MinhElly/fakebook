@@ -16,6 +16,7 @@ import java.util.Optional;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -155,7 +156,7 @@ public class PostMediaResource {
     @GetMapping("")
     public ResponseEntity<List<PostMediaDTO>> getAllPostMedias(
         PostMediaCriteria criteria,
-        @org.springdoc.core.annotations.ParameterObject Pageable pageable
+        @ParameterObject Pageable pageable
     ) {
         LOG.debug("REST request to get PostMedias by criteria: {}", criteria);
 

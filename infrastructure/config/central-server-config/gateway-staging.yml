@@ -1,0 +1,33 @@
+logging:
+  level:
+    com.minh.fakebook.gateway: INFO
+
+server:
+  port: 8080
+
+spring:
+  r2dbc:
+    username: ${FAKEBOOK_DB_USERNAME}
+    password: ${FAKEBOOK_DB_PASSWORD}
+  liquibase:
+    contexts: prod
+  security:
+    oauth2:
+      client:
+        registration:
+          oidc:
+            client-id: ${FAKEBOOK_OIDC_GATEWAY_CLIENT_ID}
+            client-secret: ${FAKEBOOK_OIDC_GATEWAY_CLIENT_SECRET}
+
+jhipster:
+  cors:
+    allowed-origins: '${STAGING_FRONTEND_URL:https://staging.fakebook.com},http://*.nip.io,https://*.nip.io,http://localhost:9000,http://localhost:8080,http://localhost:5173'
+    allowed-methods: '*'
+    allowed-headers: '*'
+    allow-credentials: true
+    max-age: 1800
+  gateway:
+    rate-limiting:
+      enabled: true
+      limit: 5000
+      duration-in-seconds: 3600

@@ -35,9 +35,14 @@ yarn-error.log*
 **/.tmp/
 **/.cache/
 
-# OS / System files
+# OS / Environment & Security files
 .env
-.env.local
+.env.*
+!.env*.example
+infrastructure/nginx/certs/
+infrastructure/nginx/nginx.conf
+*.pem
+*.key
 *.tmp
 
 # Coverage & Test reports

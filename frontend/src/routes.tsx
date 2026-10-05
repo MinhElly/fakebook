@@ -1,0 +1,28 @@
+import { createBrowserRouter } from "react-router";
+import MainLayout from "@/layouts/MainLayout";
+import HomePage from "@/pages/HomePage";
+import ProfilePage from "@/pages/ProfilePage";
+import FriendsPage from "@/pages/FriendsPage";
+import UserProfilePage from "@/pages/UserProfilePage";
+import SearchPage from "@/pages/SearchPage";
+import LoginPage from "@/pages/LoginPage";
+import RegisterPage from "@/pages/RegisterPage";
+import SavedPage from "@/pages/SavedPage";
+
+export const router = createBrowserRouter([
+  {
+    path: "/",
+    Component: MainLayout,
+    children: [
+      { index: true, Component: HomePage },
+      { path: "profile", Component: ProfilePage },
+      { path: "friends", Component: FriendsPage },
+      { path: "search", Component: SearchPage },
+      { path: "profile/:userId", Component: UserProfilePage },
+      { path: "saved", Component: SavedPage },
+    ],
+  },
+  { path: "/login", Component: LoginPage },
+  { path: "/register", Component: RegisterPage },
+]);
+

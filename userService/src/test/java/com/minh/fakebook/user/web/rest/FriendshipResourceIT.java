@@ -12,6 +12,7 @@ import com.minh.fakebook.user.IntegrationTest;
 import com.minh.fakebook.user.domain.Friendship;
 import com.minh.fakebook.user.domain.UserProfile;
 import com.minh.fakebook.user.repository.FriendshipRepository;
+import com.minh.fakebook.user.security.AuthoritiesConstants;
 import com.minh.fakebook.user.service.dto.FriendshipDTO;
 import com.minh.fakebook.user.service.mapper.FriendshipMapper;
 import jakarta.persistence.EntityManager;
@@ -33,7 +34,7 @@ import tools.jackson.databind.ObjectMapper;
  */
 @IntegrationTest
 @AutoConfigureMockMvc
-@WithMockUser
+@WithMockUser(authorities = AuthoritiesConstants.ADMIN)
 class FriendshipResourceIT {
 
     private static final Instant DEFAULT_CREATED_AT = Instant.ofEpochMilli(0L);
@@ -144,6 +145,20 @@ class FriendshipResourceIT {
         assertFriendshipUpdatableFieldsEquals(returnedFriendship, getPersistedFriendship(returnedFriendship));
 
         insertedFriendship = returnedFriendship;
+    }
+
+    @Test
+    @Transactional
+    void createDuplicateFriendshipReturnsConflict() throws Exception {
+        insertedFriendship = friendshipRepository.saveAndFlush(friendship);
+        FriendshipDTO duplicate = friendshipMapper.toDto(createEntity(em));
+
+        restFriendshipMockMvc
+            .perform(
+                post(ENTITY_API_URL).with(csrf()).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(duplicate))
+            )
+            .andExpect(status().isConflict())
+            .andExpect(jsonPath("$.message").value("error.dataIntegrityConflict"));
     }
 
     @Test

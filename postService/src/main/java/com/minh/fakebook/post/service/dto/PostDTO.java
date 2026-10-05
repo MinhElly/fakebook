@@ -6,8 +6,7 @@ import jakarta.persistence.Lob;
 import jakarta.validation.constraints.*;
 import java.io.Serializable;
 import java.time.Instant;
-import java.util.Objects;
-import java.util.UUID;
+import java.util.*;
 
 /**
  * A DTO for the {@link com.minh.fakebook.post.domain.Post} entity.
@@ -17,7 +16,7 @@ public class PostDTO implements Serializable {
 
     private UUID id;
 
-    @NotNull
+    
     private UUID authorId;
 
     @Lob
@@ -26,10 +25,10 @@ public class PostDTO implements Serializable {
     @NotNull
     private PostVisibility visibility;
 
-    @NotNull
+    
     private PostStatus status;
 
-    @NotNull
+    
     private Instant createdAt;
 
     private Instant updatedAt;
@@ -88,6 +87,26 @@ public class PostDTO implements Serializable {
 
     public void setUpdatedAt(Instant updatedAt) {
         this.updatedAt = updatedAt;
+    }
+
+    private List<UUID> mediaIds;
+
+    public List<UUID> getMediaIds() {
+        return mediaIds;
+    }
+
+    public void setMediaIds(List<UUID> mediaIds) {
+        this.mediaIds = mediaIds;
+    }
+
+    private Set<UUID> taggedUserIds = new HashSet<>();
+
+    public Set<UUID> getTaggedUserIds() {
+        return taggedUserIds;
+    }
+
+    public void setTaggedUserIds(Set<UUID> taggedUserIds) {
+        this.taggedUserIds = taggedUserIds;
     }
 
     @Override

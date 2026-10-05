@@ -36,10 +36,7 @@ public class PostMediaService {
      * @return the persisted entity.
      */
     public PostMediaDTO save(PostMediaDTO postMediaDTO) {
-        LOG.debug("Request to save PostMedia : {}", postMediaDTO);
-        PostMedia postMedia = postMediaMapper.toEntity(postMediaDTO);
-        postMedia = postMediaRepository.save(postMedia);
-        return postMediaMapper.toDto(postMedia);
+        throw new UnsupportedOperationException("Error: Media mappings must be updated through the Post API.");
     }
 
     /**
@@ -49,10 +46,7 @@ public class PostMediaService {
      * @return the persisted entity.
      */
     public PostMediaDTO update(PostMediaDTO postMediaDTO) {
-        LOG.debug("Request to update PostMedia : {}", postMediaDTO);
-        PostMedia postMedia = postMediaMapper.toEntity(postMediaDTO);
-        postMedia = postMediaRepository.save(postMedia);
-        return postMediaMapper.toDto(postMedia);
+        throw new UnsupportedOperationException("Error: Media mappings must be updated through the Post API.");
     }
 
     /**
@@ -62,18 +56,10 @@ public class PostMediaService {
      * @return the persisted entity.
      */
     public Optional<PostMediaDTO> partialUpdate(PostMediaDTO postMediaDTO) {
-        LOG.debug("Request to partially update PostMedia : {}", postMediaDTO);
-
-        return postMediaRepository
-            .findById(postMediaDTO.getId())
-            .map(existingPostMedia -> {
-                postMediaMapper.partialUpdate(existingPostMedia, postMediaDTO);
-
-                return existingPostMedia;
-            })
-            .map(postMediaRepository::save)
-            .map(postMediaMapper::toDto);
+        throw new UnsupportedOperationException("Error: Media mappings must be updated through the Post API.");
     }
+
+     
 
     /**
      * Get one postMedia by id.
@@ -93,7 +79,6 @@ public class PostMediaService {
      * @param id the id of the entity.
      */
     public void delete(UUID id) {
-        LOG.debug("Request to delete PostMedia : {}", id);
-        postMediaRepository.deleteById(id);
+        throw new UnsupportedOperationException("Error: Media mappings must be deleted through the Post API.");
     }
 }

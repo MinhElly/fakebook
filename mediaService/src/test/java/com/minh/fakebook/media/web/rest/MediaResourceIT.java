@@ -5,6 +5,7 @@ import static com.minh.fakebook.media.web.rest.TestUtil.createUpdateProxyForBean
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.hasItem;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
@@ -14,6 +15,7 @@ import com.minh.fakebook.media.domain.enumeration.MediaStatus;
 import com.minh.fakebook.media.domain.enumeration.MediaType;
 import com.minh.fakebook.media.domain.enumeration.StorageProvider;
 import com.minh.fakebook.media.repository.MediaRepository;
+import com.minh.fakebook.media.security.AuthoritiesConstants;
 import com.minh.fakebook.media.service.dto.MediaDTO;
 import com.minh.fakebook.media.service.mapper.MediaMapper;
 import jakarta.persistence.EntityManager;
@@ -24,7 +26,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
-import org.springframework.http.MediaType;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
@@ -157,7 +159,7 @@ class MediaResourceIT {
         MediaDTO mediaDTO = mediaMapper.toDto(media);
         var returnedMediaDTO = om.readValue(
             restMediaMockMvc
-                .perform(post(ENTITY_API_URL).with(csrf()).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(mediaDTO)))
+                .perform(post(ENTITY_API_URL).with(csrf()).contentType(org.springframework.http.MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(mediaDTO)))
                 .andExpect(status().isCreated())
                 .andReturn()
                 .getResponse()
@@ -184,7 +186,7 @@ class MediaResourceIT {
 
         // An entity with an existing ID cannot be created, so this API call must fail
         restMediaMockMvc
-            .perform(post(ENTITY_API_URL).with(csrf()).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(mediaDTO)))
+            .perform(post(ENTITY_API_URL).with(csrf()).contentType(org.springframework.http.MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(mediaDTO)))
             .andExpect(status().isBadRequest());
 
         // Validate the Media in the database
@@ -202,7 +204,7 @@ class MediaResourceIT {
         MediaDTO mediaDTO = mediaMapper.toDto(media);
 
         restMediaMockMvc
-            .perform(post(ENTITY_API_URL).with(csrf()).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(mediaDTO)))
+            .perform(post(ENTITY_API_URL).with(csrf()).contentType(org.springframework.http.MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(mediaDTO)))
             .andExpect(status().isBadRequest());
 
         assertSameRepositoryCount(databaseSizeBeforeTest);
@@ -219,7 +221,7 @@ class MediaResourceIT {
         MediaDTO mediaDTO = mediaMapper.toDto(media);
 
         restMediaMockMvc
-            .perform(post(ENTITY_API_URL).with(csrf()).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(mediaDTO)))
+            .perform(post(ENTITY_API_URL).with(csrf()).contentType(org.springframework.http.MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(mediaDTO)))
             .andExpect(status().isBadRequest());
 
         assertSameRepositoryCount(databaseSizeBeforeTest);
@@ -236,7 +238,7 @@ class MediaResourceIT {
         MediaDTO mediaDTO = mediaMapper.toDto(media);
 
         restMediaMockMvc
-            .perform(post(ENTITY_API_URL).with(csrf()).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(mediaDTO)))
+            .perform(post(ENTITY_API_URL).with(csrf()).contentType(org.springframework.http.MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(mediaDTO)))
             .andExpect(status().isBadRequest());
 
         assertSameRepositoryCount(databaseSizeBeforeTest);
@@ -253,7 +255,7 @@ class MediaResourceIT {
         MediaDTO mediaDTO = mediaMapper.toDto(media);
 
         restMediaMockMvc
-            .perform(post(ENTITY_API_URL).with(csrf()).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(mediaDTO)))
+            .perform(post(ENTITY_API_URL).with(csrf()).contentType(org.springframework.http.MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(mediaDTO)))
             .andExpect(status().isBadRequest());
 
         assertSameRepositoryCount(databaseSizeBeforeTest);
@@ -270,7 +272,7 @@ class MediaResourceIT {
         MediaDTO mediaDTO = mediaMapper.toDto(media);
 
         restMediaMockMvc
-            .perform(post(ENTITY_API_URL).with(csrf()).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(mediaDTO)))
+            .perform(post(ENTITY_API_URL).with(csrf()).contentType(org.springframework.http.MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(mediaDTO)))
             .andExpect(status().isBadRequest());
 
         assertSameRepositoryCount(databaseSizeBeforeTest);
@@ -287,7 +289,7 @@ class MediaResourceIT {
         MediaDTO mediaDTO = mediaMapper.toDto(media);
 
         restMediaMockMvc
-            .perform(post(ENTITY_API_URL).with(csrf()).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(mediaDTO)))
+            .perform(post(ENTITY_API_URL).with(csrf()).contentType(org.springframework.http.MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(mediaDTO)))
             .andExpect(status().isBadRequest());
 
         assertSameRepositoryCount(databaseSizeBeforeTest);
@@ -304,7 +306,7 @@ class MediaResourceIT {
         MediaDTO mediaDTO = mediaMapper.toDto(media);
 
         restMediaMockMvc
-            .perform(post(ENTITY_API_URL).with(csrf()).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(mediaDTO)))
+            .perform(post(ENTITY_API_URL).with(csrf()).contentType(org.springframework.http.MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(mediaDTO)))
             .andExpect(status().isBadRequest());
 
         assertSameRepositoryCount(databaseSizeBeforeTest);
@@ -321,7 +323,7 @@ class MediaResourceIT {
         MediaDTO mediaDTO = mediaMapper.toDto(media);
 
         restMediaMockMvc
-            .perform(post(ENTITY_API_URL).with(csrf()).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(mediaDTO)))
+            .perform(post(ENTITY_API_URL).with(csrf()).contentType(org.springframework.http.MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(mediaDTO)))
             .andExpect(status().isBadRequest());
 
         assertSameRepositoryCount(databaseSizeBeforeTest);
@@ -338,7 +340,7 @@ class MediaResourceIT {
         MediaDTO mediaDTO = mediaMapper.toDto(media);
 
         restMediaMockMvc
-            .perform(post(ENTITY_API_URL).with(csrf()).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(mediaDTO)))
+            .perform(post(ENTITY_API_URL).with(csrf()).contentType(org.springframework.http.MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(mediaDTO)))
             .andExpect(status().isBadRequest());
 
         assertSameRepositoryCount(databaseSizeBeforeTest);
@@ -355,7 +357,7 @@ class MediaResourceIT {
         MediaDTO mediaDTO = mediaMapper.toDto(media);
 
         restMediaMockMvc
-            .perform(post(ENTITY_API_URL).with(csrf()).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(mediaDTO)))
+            .perform(post(ENTITY_API_URL).with(csrf()).contentType(org.springframework.http.MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(mediaDTO)))
             .andExpect(status().isBadRequest());
 
         assertSameRepositoryCount(databaseSizeBeforeTest);
@@ -371,7 +373,7 @@ class MediaResourceIT {
         restMediaMockMvc
             .perform(get(ENTITY_API_URL + "?sort=id,desc"))
             .andExpect(status().isOk())
-            .andExpect(content().contentType(MediaType.APPLICATION_JSON_VALUE))
+            .andExpect(content().contentType(org.springframework.http.MediaType.APPLICATION_JSON_VALUE))
             .andExpect(jsonPath("$.[*].id").value(hasItem(media.getId().toString())))
             .andExpect(jsonPath("$.[*].ownerId").value(hasItem(DEFAULT_OWNER_ID.toString())))
             .andExpect(jsonPath("$.[*].fileName").value(hasItem(DEFAULT_FILE_NAME)))
@@ -396,7 +398,7 @@ class MediaResourceIT {
         restMediaMockMvc
             .perform(get(ENTITY_API_URL_ID, media.getId()))
             .andExpect(status().isOk())
-            .andExpect(content().contentType(MediaType.APPLICATION_JSON_VALUE))
+            .andExpect(content().contentType(org.springframework.http.MediaType.APPLICATION_JSON_VALUE))
             .andExpect(jsonPath("$.id").value(media.getId().toString()))
             .andExpect(jsonPath("$.ownerId").value(DEFAULT_OWNER_ID.toString()))
             .andExpect(jsonPath("$.fileName").value(DEFAULT_FILE_NAME))
@@ -887,7 +889,7 @@ class MediaResourceIT {
         restMediaMockMvc
             .perform(get(ENTITY_API_URL + "?sort=id,desc&" + filter))
             .andExpect(status().isOk())
-            .andExpect(content().contentType(MediaType.APPLICATION_JSON_VALUE))
+            .andExpect(content().contentType(org.springframework.http.MediaType.APPLICATION_JSON_VALUE))
             .andExpect(jsonPath("$.[*].id").value(hasItem(media.getId().toString())))
             .andExpect(jsonPath("$.[*].ownerId").value(hasItem(DEFAULT_OWNER_ID.toString())))
             .andExpect(jsonPath("$.[*].fileName").value(hasItem(DEFAULT_FILE_NAME)))
@@ -905,7 +907,7 @@ class MediaResourceIT {
         restMediaMockMvc
             .perform(get(ENTITY_API_URL + "/count?sort=id,desc&" + filter))
             .andExpect(status().isOk())
-            .andExpect(content().contentType(MediaType.APPLICATION_JSON_VALUE))
+            .andExpect(content().contentType(org.springframework.http.MediaType.APPLICATION_JSON_VALUE))
             .andExpect(content().string("1"));
     }
 
@@ -916,7 +918,7 @@ class MediaResourceIT {
         restMediaMockMvc
             .perform(get(ENTITY_API_URL + "?sort=id,desc&" + filter))
             .andExpect(status().isOk())
-            .andExpect(content().contentType(MediaType.APPLICATION_JSON_VALUE))
+            .andExpect(content().contentType(org.springframework.http.MediaType.APPLICATION_JSON_VALUE))
             .andExpect(jsonPath("$").isArray())
             .andExpect(jsonPath("$").isEmpty());
 
@@ -924,7 +926,7 @@ class MediaResourceIT {
         restMediaMockMvc
             .perform(get(ENTITY_API_URL + "/count?sort=id,desc&" + filter))
             .andExpect(status().isOk())
-            .andExpect(content().contentType(MediaType.APPLICATION_JSON_VALUE))
+            .andExpect(content().contentType(org.springframework.http.MediaType.APPLICATION_JSON_VALUE))
             .andExpect(content().string("0"));
     }
 
@@ -965,7 +967,7 @@ class MediaResourceIT {
             .perform(
                 put(ENTITY_API_URL_ID, mediaDTO.getId())
                     .with(csrf())
-                    .contentType(MediaType.APPLICATION_JSON)
+                    .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
                     .content(om.writeValueAsBytes(mediaDTO))
             )
             .andExpect(status().isOk());
@@ -989,7 +991,7 @@ class MediaResourceIT {
             .perform(
                 put(ENTITY_API_URL_ID, mediaDTO.getId())
                     .with(csrf())
-                    .contentType(MediaType.APPLICATION_JSON)
+                    .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
                     .content(om.writeValueAsBytes(mediaDTO))
             )
             .andExpect(status().isBadRequest());
@@ -1012,7 +1014,7 @@ class MediaResourceIT {
             .perform(
                 put(ENTITY_API_URL_ID, UUID.randomUUID())
                     .with(csrf())
-                    .contentType(MediaType.APPLICATION_JSON)
+                    .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
                     .content(om.writeValueAsBytes(mediaDTO))
             )
             .andExpect(status().isBadRequest());
@@ -1032,7 +1034,7 @@ class MediaResourceIT {
 
         // If url ID doesn't match entity ID, it will throw BadRequestAlertException
         restMediaMockMvc
-            .perform(put(ENTITY_API_URL).with(csrf()).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(mediaDTO)))
+            .perform(put(ENTITY_API_URL).with(csrf()).contentType(org.springframework.http.MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(mediaDTO)))
             .andExpect(status().isMethodNotAllowed());
 
         // Validate the Media in the database
@@ -1182,11 +1184,63 @@ class MediaResourceIT {
 
         // Delete the media
         restMediaMockMvc
-            .perform(delete(ENTITY_API_URL_ID, media.getId().toString()).with(csrf()).accept(MediaType.APPLICATION_JSON))
+            .perform(
+                delete(ENTITY_API_URL_ID, media.getId().toString())
+                    .with(jwt().jwt(jwt -> jwt.subject(media.getOwnerId().toString())))
+                    .with(csrf())
+                    .accept(org.springframework.http.MediaType.APPLICATION_JSON)
+            )
             .andExpect(status().isNoContent());
 
-        // Validate the database contains one less item
-        assertDecrementedRepositoryCount(databaseSizeBeforeDelete);
+        // Validate the media was soft deleted
+        assertSameRepositoryCount(databaseSizeBeforeDelete);
+        Media persistedMedia = mediaRepository.findById(insertedMedia.getId()).orElseThrow();
+        assertThat(persistedMedia.getStatus()).isEqualTo(MediaStatus.DELETED);
+        assertThat(persistedMedia.getUpdatedAt()).isAfter(DEFAULT_UPDATED_AT);
+    }
+
+    @Test
+    @Transactional
+    void deleteMediaByNonOwnerIsForbidden() throws Exception {
+        insertedMedia = mediaRepository.saveAndFlush(media);
+
+        long databaseSizeBeforeDelete = getRepositoryCount();
+
+        restMediaMockMvc
+            .perform(
+                delete(ENTITY_API_URL_ID, media.getId().toString())
+                    .with(jwt().jwt(jwt -> jwt.subject(UUID.randomUUID().toString())))
+                    .with(csrf())
+                    .accept(org.springframework.http.MediaType.APPLICATION_JSON)
+            )
+            .andExpect(status().isForbidden());
+
+        assertSameRepositoryCount(databaseSizeBeforeDelete);
+        assertThat(mediaRepository.findById(insertedMedia.getId()).orElseThrow().getStatus()).isEqualTo(MediaStatus.ACTIVE);
+    }
+
+    @Test
+    @Transactional
+    void deleteMediaByAdmin() throws Exception {
+        insertedMedia = mediaRepository.saveAndFlush(media);
+
+        long databaseSizeBeforeDelete = getRepositoryCount();
+
+        restMediaMockMvc
+            .perform(
+                delete(ENTITY_API_URL_ID, media.getId().toString())
+                    .with(
+                        jwt()
+                            .jwt(jwt -> jwt.subject(UUID.randomUUID().toString()))
+                            .authorities(new SimpleGrantedAuthority(AuthoritiesConstants.ADMIN))
+                    )
+                    .with(csrf())
+                    .accept(org.springframework.http.MediaType.APPLICATION_JSON)
+            )
+            .andExpect(status().isNoContent());
+
+        assertSameRepositoryCount(databaseSizeBeforeDelete);
+        assertThat(mediaRepository.findById(insertedMedia.getId()).orElseThrow().getStatus()).isEqualTo(MediaStatus.DELETED);
     }
 
     protected long getRepositoryCount() {

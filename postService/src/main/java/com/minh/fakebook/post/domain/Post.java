@@ -7,15 +7,21 @@ import jakarta.validation.constraints.*;
 import java.io.Serial;
 import java.io.Serializable;
 import java.time.Instant;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.UUID;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
+
+import org.hibernate.annotations.Cache;
+import org.hibernate.annotations.CacheConcurrencyStrategy;
 
 /**
  * A Post.
  */
 @Entity
 @Table(name = "posts")
+@Cache(usage = CacheConcurrencyStrategy.READ_WRITE)
 @SuppressWarnings("common-java:DuplicatedBlocks")
 public class Post implements Serializable {
 
@@ -34,7 +40,7 @@ public class Post implements Serializable {
     private UUID authorId;
 
     @Lob
-    @Column(name = "content")
+    @Column(name = "content", columnDefinition = "longtext")
     private String content;
 
     @NotNull
@@ -53,6 +59,20 @@ public class Post implements Serializable {
 
     @Column(name = "updated_at")
     private Instant updatedAt;
+
+    @ElementCollection(fetch = FetchType.LAZY)
+    @CollectionTable(name = "post_tagged_users", joinColumns = @JoinColumn(name = "post_id"))
+    @Column(name = "user_id", length = 36)
+    @JdbcTypeCode(SqlTypes.VARCHAR)
+    private Set<UUID> taggedUserIds = new HashSet<>();
+
+    public Set<UUID> getTaggedUserIds() {
+        return taggedUserIds;
+    }
+
+    public void setTaggedUserIds(Set<UUID> taggedUserIds) {
+        this.taggedUserIds = taggedUserIds;
+    }
 
     // jhipster-needle-entity-add-field - JHipster will add fields here
 

@@ -4,17 +4,21 @@ import jakarta.persistence.Lob;
 import jakarta.validation.constraints.*;
 import java.io.Serializable;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.Objects;
 import java.util.UUID;
+
+import io.swagger.v3.oas.annotations.media.Schema;
 
 /**
  * A DTO for the {@link com.minh.fakebook.user.domain.UserProfile} entity.
  */
 @SuppressWarnings("common-java:DuplicatedBlocks")
 public class UserProfileDTO implements Serializable {
-
+    @Schema(accessMode = Schema.AccessMode.READ_ONLY)
     private UUID id;
-
+    
+    @Schema(accessMode = Schema.AccessMode.READ_ONLY)
     @NotNull
     @Size(max = 50)
     private String username;
@@ -26,13 +30,32 @@ public class UserProfileDTO implements Serializable {
     @Lob
     private String bio;
 
+    private LocalDate birthday;
+
+    @Size(max = 20)
+    private String gender;
+
+    @Size(max = 255)
+    private String location;
+
+    @Size(max = 255)
+    private String education;
+
+    @Size(max = 255)
+    private String work;
+
+    @Size(max = 50)
+    private String relationship;
+
     private UUID avatarMediaId;
 
     private UUID coverMediaId;
 
+    @Schema(accessMode = Schema.AccessMode.READ_ONLY)
     @NotNull
     private Instant createdAt;
 
+    @Schema(accessMode = Schema.AccessMode.READ_ONLY)
     private Instant updatedAt;
 
     public UUID getId() {
@@ -65,6 +88,54 @@ public class UserProfileDTO implements Serializable {
 
     public void setBio(String bio) {
         this.bio = bio;
+    }
+
+    public LocalDate getBirthday() {
+        return birthday;
+    }
+
+    public void setBirthday(LocalDate birthday) {
+        this.birthday = birthday;
+    }
+
+    public String getGender() {
+        return gender;
+    }
+
+    public void setGender(String gender) {
+        this.gender = gender;
+    }
+
+    public String getLocation() {
+        return location;
+    }
+
+    public void setLocation(String location) {
+        this.location = location;
+    }
+
+    public String getEducation() {
+        return education;
+    }
+
+    public void setEducation(String education) {
+        this.education = education;
+    }
+
+    public String getWork() {
+        return work;
+    }
+
+    public void setWork(String work) {
+        this.work = work;
+    }
+
+    public String getRelationship() {
+        return relationship;
+    }
+
+    public void setRelationship(String relationship) {
+        this.relationship = relationship;
     }
 
     public UUID getAvatarMediaId() {

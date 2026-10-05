@@ -1,0 +1,14 @@
+logging:
+  level:
+    com.minh.fakebook.auth: INFO
+
+server:
+  port: 8081
+
+spring:
+  datasource:
+    type: com.zaxxer.hikari.HikariDataSource
+    username: ${FAKEBOOK_DB_USERNAME}
+    password: ${FAKEBOOK_DB_PASSWORD}
+  liquibase:
+    contexts: prod

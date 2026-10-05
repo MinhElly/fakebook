@@ -16,19 +16,25 @@ import java.util.Optional;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 import tech.jhipster.web.util.HeaderUtil;
 import tech.jhipster.web.util.PaginationUtil;
 import tech.jhipster.web.util.ResponseUtil;
+import com.minh.fakebook.media.domain.enumeration.MediaPurpose;
+import org.springframework.http.MediaType;
+import com.minh.fakebook.media.domain.Media;
 
 /**
- * REST controller for managing {@link com.minh.fakebook.media.domain.Media}.
+ * REST controller for managing {@link Media}.
  */
 @RestController
 @RequestMapping("/api/media")
@@ -151,7 +157,7 @@ public class MediaResource {
     @GetMapping("")
     public ResponseEntity<List<MediaDTO>> getAllMedias(
         MediaCriteria criteria,
-        @org.springdoc.core.annotations.ParameterObject Pageable pageable
+        @ParameterObject Pageable pageable
     ) {
         LOG.debug("REST request to get Medias by criteria: {}", criteria);
 
@@ -196,7 +202,50 @@ public class MediaResource {
         LOG.debug("REST request to delete Media : {}", id);
         mediaService.delete(id);
         return ResponseEntity.noContent()
-            .headers(HeaderUtil.createEntityDeletionAlert(applicationName, true, ENTITY_NAME, id.toString()))
-            .build();
+                .headers(HeaderUtil.createEntityDeletionAlert(applicationName, true, ENTITY_NAME, id.toString()))
+                .build();
+    }
+
+    /**
+     * {@code POST  /medias/upload} : Upload a new media file (Image/Video).
+     *
+     * @param file the multipart file to upload.
+     * @return the {@link ResponseEntity} with status {@code 201 (Created)} and with body the new mediaDTO.
+     */
+    @PostMapping(value = "/upload", consumes = { "multipart/form-data" })
+    public ResponseEntity<MediaDTO> uploadMedia(
+        @RequestParam("file") MultipartFile file,
+                @RequestParam(value = "purpose", defaultValue = "GENERAL") MediaPurpose purpose )
+                throws URISyntaxException {
+        LOG.debug("REST request to upload Media file: {}", file.getOriginalFilename());
+        MediaDTO result = mediaService.uploadMedia(file, purpose);
+        return ResponseEntity.created(new URI("/api/media/" + result.getId())).body(result);
+    }
+
+    @GetMapping("/{id}/file")
+    public ResponseEntity<?> getMediaFile(@PathVariable("id") UUID id) {
+        LOG.debug("REST request to get Media file : {}", id);
+        Optional<MediaDTO> mediaDTO = mediaService.findOne(id);
+        if (mediaDTO.isPresent() && mediaDTO.orElseThrow().getUrl() != null) {
+            String url = mediaDTO.orElseThrow().getUrl();
+            if (url.startsWith("data:")) {
+                try {
+                    String[] parts = url.split(",");
+                    String header = parts[0];
+                    String base64Data = parts[1];
+                    String mimeType = header.substring(header.indexOf(":") + 1, header.indexOf(";"));
+                    byte[] imageBytes = java.util.Base64.getDecoder().decode(base64Data);
+                    return ResponseEntity.ok()
+                            .contentType(org.springframework.http.MediaType.parseMediaType(mimeType))
+                            .body(imageBytes);
+                } catch (Exception e) {
+                    LOG.error("Failed to parse base64 data URL", e);
+                    return ResponseEntity.internalServerError().build();
+                }
+            } else {
+                return ResponseEntity.status(HttpStatus.FOUND).location(URI.create(url)).build();
+            }
+        }
+        return ResponseEntity.notFound().build();
     }
 }

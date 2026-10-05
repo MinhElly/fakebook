@@ -24,10 +24,18 @@ public class MediaServiceKafkaResource {
     }
 
     @PostMapping("/publish")
-    public void publish(@RequestParam("message") String message) {
-        LOG.debug("REST request the message : {} to send to Kafka topic ", message);
-        streamBridge.send(PRODUCER_BINDING_NAME, message);
-    }
+        public void publish(@RequestParam("message") String message) {
+            LOG.debug("REST request the message : {} to send to Kafka topic ",
+  message);
+            boolean isSent = streamBridge.send(PRODUCER_BINDING_NAME, message);
+            if (!isSent) {
+                LOG.error("Failed to publish message to Kafka topic: {}",
+  PRODUCER_BINDING_NAME);
+                throw new RuntimeException("Failed to publish message to Kafka broker");
+            }
+            LOG.info("Successfully published message to Kafka topic: {}",
+  PRODUCER_BINDING_NAME);
+        }
 
     @GetMapping("/register")
     public ResponseBodyEmitter register(Principal principal) {

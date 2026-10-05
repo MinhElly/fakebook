@@ -3,11 +3,20 @@ package com.minh.fakebook.user.service;
 import com.minh.fakebook.user.domain.Friendship;
 import com.minh.fakebook.user.repository.FriendshipRepository;
 import com.minh.fakebook.user.service.dto.FriendshipDTO;
+import com.minh.fakebook.user.service.dto.events.FriendshipUpdatedEvent;
 import com.minh.fakebook.user.service.mapper.FriendshipMapper;
+
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.Caching;
+import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -24,9 +33,12 @@ public class FriendshipService {
 
     private final FriendshipMapper friendshipMapper;
 
-    public FriendshipService(FriendshipRepository friendshipRepository, FriendshipMapper friendshipMapper) {
+    private final ApplicationEventPublisher applicationEventPublisher;
+
+    public FriendshipService(FriendshipRepository friendshipRepository, FriendshipMapper friendshipMapper, ApplicationEventPublisher applicationEventPublisher) {
         this.friendshipRepository = friendshipRepository;
         this.friendshipMapper = friendshipMapper;
+        this.applicationEventPublisher = applicationEventPublisher;
     }
 
     /**
@@ -38,7 +50,7 @@ public class FriendshipService {
     public FriendshipDTO save(FriendshipDTO friendshipDTO) {
         LOG.debug("Request to save Friendship : {}", friendshipDTO);
         Friendship friendship = friendshipMapper.toEntity(friendshipDTO);
-        friendship = friendshipRepository.save(friendship);
+        friendship = friendshipRepository.saveAndFlush(friendship);
         return friendshipMapper.toDto(friendship);
     }
 
@@ -51,7 +63,7 @@ public class FriendshipService {
     public FriendshipDTO update(FriendshipDTO friendshipDTO) {
         LOG.debug("Request to update Friendship : {}", friendshipDTO);
         Friendship friendship = friendshipMapper.toEntity(friendshipDTO);
-        friendship = friendshipRepository.save(friendship);
+        friendship = friendshipRepository.saveAndFlush(friendship);
         return friendshipMapper.toDto(friendship);
     }
 
@@ -95,5 +107,38 @@ public class FriendshipService {
     public void delete(UUID id) {
         LOG.debug("Request to delete Friendship : {}", id);
         friendshipRepository.deleteById(id);
+    }
+    @Caching(evict = {
+        @CacheEvict(value = "userFriends", allEntries = true),
+        @CacheEvict(value = "friendSuggestions", allEntries = true)
+    })
+    public void unFriend(UUID currentUserId, UUID friendUserId ){
+        if(currentUserId.equals(friendUserId)){
+            throw new IllegalArgumentException("Cannot unfriend yourself");
+        }
+        if(!friendshipRepository.existsFriendship(currentUserId, friendUserId)){
+            throw new IllegalStateException("You are not friend with this user");
+        }
+        friendshipRepository.deleteFriendship(currentUserId, friendUserId);
+        applicationEventPublisher.publishEvent(FriendshipUpdatedEvent.deleted(currentUserId, friendUserId));
+        LOG.info("Scheduled FRIENDSHIP_DELETED event between {} and {}", currentUserId, friendUserId);
+
+    }
+    @Cacheable (value = "userFriends", key = "#userId.toString() + '_' + #pageable.pageNumber + '_' + #pageable.pageSize")
+    public Page<FriendshipDTO> getMyFriendsList(UUID userId, Pageable pageable){
+        return friendshipRepository.findByUserId(userId, pageable).map(friendshipMapper::toDto);
+    }
+    @Cacheable(value = "userFriends", key = "#userId.toString() + '_' + #pageable.pageNumber + '_' + #pageable.pageSize")
+    public Page<FriendshipDTO> getUserFriendsList(UUID userId, Pageable pageable){
+        return friendshipRepository.findByUserId(userId, pageable).map(friendshipMapper::toDto);
+    }
+    @Transactional(readOnly = true)
+    public boolean areFriends(UUID userId1, UUID userId2) {
+        return friendshipRepository.existsByUserIdAndFriendId(userId1, userId2);
+    }
+
+    @Transactional(readOnly = true)
+    public List<UUID> getFriendIdsByUserId(UUID userId) {
+        return friendshipRepository.findFriendIdsByUserId(userId);
     }
 }

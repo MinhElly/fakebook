@@ -29,6 +29,16 @@ public class CommentDTO implements Serializable {
 
     private CommentDTO parentComment;
 
+    private java.time.Instant createdAt;
+
+    public java.time.Instant getCreatedAt() {
+        return createdAt;
+    }
+
+    public void setCreatedAt(java.time.Instant createdAt) {
+        this.createdAt = createdAt;
+    }
+
     public UUID getId() {
         return id;
     }

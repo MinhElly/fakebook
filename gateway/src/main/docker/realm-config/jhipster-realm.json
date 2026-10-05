@@ -1,21 +1,31 @@
 {
   "id": "jhipster",
   "realm": "jhipster",
-  "displayName": "JHipster",
-  "displayNameHtml": "<div class=\"kc-logo-text\"><span>JHipster</span></div>",
+  "displayName": "Fakebook",
+  "displayNameHtml": "Fakebook",
+  "loginTheme": "fakebook",
+  "smtpServer": {
+    "host": "${env.KEYCLOAK_SMTP_HOST:localhost}",
+    "port": "${env.KEYCLOAK_SMTP_PORT:1025}",
+    "from": "${env.KEYCLOAK_SMTP_FROM:no-reply@fakebook.com}",
+    "fromDisplayName": "Fakebook Security",
+    "auth": "${env.KEYCLOAK_SMTP_AUTH:false}",
+    "ssl": "false",
+    "starttls": "false"
+  },
   "identityProviders": [
     {
       "alias": "google",
       "displayName": "Google",
       "providerId": "google",
       "enabled": true,
-      "updateProfileFirstLoginMode": "on",
+      "updateProfileFirstLoginMode": "off",
       "trustEmail": true,
       "storeToken": false,
       "addReadTokenRoleOnCreate": false,
       "authenticateByDefault": false,
       "linkOnly": false,
-      "firstBrokerLoginFlowId": "first broker login",
+      "firstBrokerLoginFlowAlias": "",
       "config": {
         "client_id": "${env.KEYCLOAK_GOOGLE_CLIENT_ID:}",
         "client_secret": "${env.KEYCLOAK_GOOGLE_CLIENT_SECRET:}",
@@ -56,7 +66,7 @@
   "verifyEmail": false,
   "loginWithEmailAllowed": true,
   "duplicateEmailsAllowed": false,
-  "resetPasswordAllowed": false,
+  "resetPasswordAllowed": true,
   "editUsernameAllowed": false,
   "bruteForceProtected": false,
   "permanentLockout": false,
@@ -665,7 +675,6 @@
       "enabled": true,
       "alwaysDisplayInConsole": false,
       "clientAuthenticatorType": "client-secret",
-      "secret": "internal",
       "redirectUris": [],
       "webOrigins": [],
       "notBefore": 0,
@@ -882,19 +891,20 @@
       "clientAuthenticatorType": "client-secret",
       "secret": "web_app",
       "redirectUris": [
-        "dev.localhost.ionic:*",
-        "http://127.0.0.1:*",
-        "http://localhost:*",
-        "https://127.0.0.1:*",
-        "https://localhost:*",
-        "https://oauth.pstmn.io/v1/callback"
+        "http://localhost:8080/*",
+        "http://localhost:5173/*",
+        "http://localhost:9000/*"
       ],
-      "webOrigins": ["*"],
+      "webOrigins": [
+      "http://localhost:8080",
+      "http://localhost:5173",
+      "http://localhost:9000"
+    ],
       "notBefore": 0,
       "bearerOnly": false,
       "consentRequired": false,
       "standardFlowEnabled": true,
-      "implicitFlowEnabled": true,
+      "implicitFlowEnabled": false,
       "directAccessGrantsEnabled": false,
       "serviceAccountsEnabled": false,
       "publicClient": true,
@@ -1500,13 +1510,11 @@
     "xXSSProtection": "1; mode=block",
     "strictTransportSecurity": "max-age=31536000; includeSubDomains"
   },
-  "smtpServer": {},
   "eventsEnabled": false,
   "eventsListeners": ["jboss-logging"],
   "enabledEventTypes": [],
   "adminEventsEnabled": false,
   "adminEventsDetailsEnabled": false,
-  "identityProviders": [],
   "identityProviderMappers": [],
   "components": {
     "org.keycloak.services.clientregistration.policy.ClientRegistrationPolicy": [

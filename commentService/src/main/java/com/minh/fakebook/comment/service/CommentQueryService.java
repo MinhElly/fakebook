@@ -3,6 +3,8 @@ package com.minh.fakebook.comment.service;
 import com.minh.fakebook.comment.domain.*; // for static metamodels
 import com.minh.fakebook.comment.domain.Comment;
 import com.minh.fakebook.comment.repository.CommentRepository;
+import com.minh.fakebook.comment.security.AuthoritiesConstants;
+import com.minh.fakebook.comment.security.SecurityUtils;
 import com.minh.fakebook.comment.service.criteria.CommentCriteria;
 import com.minh.fakebook.comment.service.dto.CommentDTO;
 import com.minh.fakebook.comment.service.mapper.CommentMapper;
@@ -15,6 +17,7 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import tech.jhipster.service.QueryService;
+import java.util.List;
 
 /**
  * Service for executing complex queries for {@link Comment} entities in the database.
@@ -32,9 +35,16 @@ public class CommentQueryService extends QueryService<Comment> {
 
     private final CommentMapper commentMapper;
 
-    public CommentQueryService(CommentRepository commentRepository, CommentMapper commentMapper) {
+    private final CommentViewAuthorizationService authorizationService;
+
+    public CommentQueryService(
+        CommentRepository commentRepository,
+        CommentMapper commentMapper,
+        CommentViewAuthorizationService authorizationService
+    ) {
         this.commentRepository = commentRepository;
         this.commentMapper = commentMapper;
+        this.authorizationService = authorizationService;
     }
 
     /**
@@ -46,6 +56,7 @@ public class CommentQueryService extends QueryService<Comment> {
     @Transactional(readOnly = true)
     public Page<CommentDTO> findByCriteria(CommentCriteria criteria, Pageable page) {
         LOG.debug("find by criteria : {}, page: {}", criteria, page);
+        verifyViewPermission(criteria);
         final Specification<Comment> specification = createSpecification(criteria);
         return commentRepository.findAll(specification, page).map(commentMapper::toDto);
     }
@@ -58,6 +69,7 @@ public class CommentQueryService extends QueryService<Comment> {
     @Transactional(readOnly = true)
     public long countByCriteria(CommentCriteria criteria) {
         LOG.debug("count by criteria : {}", criteria);
+        verifyViewPermission(criteria);
         final Specification<Comment> specification = createSpecification(criteria);
         return commentRepository.count(specification);
     }
@@ -91,5 +103,16 @@ public class CommentQueryService extends QueryService<Comment> {
             );
         }
         return specification;
+    }
+
+    private void verifyViewPermission(CommentCriteria criteria) {
+        if (SecurityUtils.hasCurrentUserThisAuthority(AuthoritiesConstants.ADMIN)) {
+            return;
+        }
+        if (criteria == null || criteria.getPostId() == null || criteria.getPostId().getEquals()
+            == null) {
+            throw new org.springframework.security.access.AccessDeniedException("User must provide a specific postId to view comments.");
+        }
+        authorizationService.verifyCanView(List.of(criteria.getPostId().getEquals()));
     }
 }

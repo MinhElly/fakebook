@@ -1,6 +1,6 @@
 services:
   keycloak:
-    image: quay.io/keycloak/keycloak:26.7.3
+    image: quay.io/keycloak/keycloak:26.7.2-1
     container_name: fakebook-keycloak
 
     command:
@@ -19,8 +19,26 @@ services:
     volumes:
       - keycloak_data:/opt/keycloak/data
       - ../../gateway/src/main/docker/realm-config:/opt/keycloak/data/import:ro
+      - ./themes:/opt/keycloak/themes:ro
 
     restart: unless-stopped
+
+  keycloak-config:
+    image: quay.io/keycloak/keycloak:26.7.2-1
+    container_name: fakebook-keycloak-config
+    entrypoint: ['/bin/bash', '/opt/keycloak/configure-google-idp.sh']
+    environment:
+      KEYCLOAK_INTERNAL_URL: http://keycloak:8080
+      KEYCLOAK_REALM: jhipster
+      KEYCLOAK_SYNC_ADMIN_USERNAME: ${KEYCLOAK_ADMIN}
+      KEYCLOAK_SYNC_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD}
+      KEYCLOAK_GOOGLE_CLIENT_ID: ${KEYCLOAK_GOOGLE_CLIENT_ID:-}
+      KEYCLOAK_GOOGLE_CLIENT_SECRET: ${KEYCLOAK_GOOGLE_CLIENT_SECRET:-}
+    volumes:
+      - ./configure-google-idp.sh:/opt/keycloak/configure-google-idp.sh:ro
+    depends_on:
+      - keycloak
+    restart: 'no'
 
 volumes:
   keycloak_data:
