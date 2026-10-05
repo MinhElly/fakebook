@@ -10,10 +10,6 @@ spring:
     type: com.zaxxer.hikari.HikariDataSource
     username: ${FAKEBOOK_DB_USERNAME}
     password: ${FAKEBOOK_DB_PASSWORD}
-  data:
-    redis:
-      host: ${REDIS_HOST:redis}
-      port: ${REDIS_PORT:6379}
   liquibase:
     contexts: prod
   security:
@@ -29,9 +25,3 @@ spring:
             client-secret: ${FAKEBOOK_OIDC_CLIENT_SECRET}
             authorization-grant-type: client_credentials
             scope: openid
-
-jhipster:
-  cache:
-    redis:
-      server: redis://${REDIS_HOST:redis}:${REDIS_PORT:6379}
-      cluster: false

@@ -12,3 +12,10 @@ spring:
     password: ${FAKEBOOK_DB_PASSWORD}
   liquibase:
     contexts: prod
+
+# Redisson/Hibernate L2 consumes jhipster.cache.redis.server, independently of Spring Data Redis.
+jhipster:
+  cache:
+    redis:
+      server: ${REDIS_URL:redis://${REDIS_HOST:redis}:${REDIS_PORT:6379}}
+      cluster: false
