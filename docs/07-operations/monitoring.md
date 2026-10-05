@@ -20,7 +20,6 @@ Fakebook sử dụng **Micrometer Tracing**, **Brave** và **OpenZipkin 3.6.1** 
 Tracing được cấu hình cho toàn bộ bảy ứng dụng backend:
 
 - `gateway`;
-- `authService`;
 - `userService`;
 - `postService`;
 - `mediaService`;

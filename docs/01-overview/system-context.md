@@ -51,5 +51,5 @@ flowchart TB
    - **Keycloak IAM**: Công khai các endpoint OIDC (`/realms/jhipster/protocol/openid-connect/*`) để client thực hiện xác thực và refresh token.
    - **API Gateway**: Công khai endpoint `/services/**` và `/api/**` để nhận các yêu cầu nghiệp vụ.
 2. **Vùng nội bộ (Private / Docker Network)**:
-   - Toàn bộ các microservices (`userService`, `postService`, `commentService`, `mediaService`, `feedService`, `authService`) không mở cổng trực tiếp ra ngoài Internet trong môi trường Staging/Production. Mọi luồng vào đều bắt buộc phải qua Gateway hoặc Nginx.
+   - Toàn bộ các microservices (`userService`, `postService`, `commentService`, `mediaService`, `feedService`) không mở cổng trực tiếp ra ngoài Internet trong môi trường Staging/Production. Mọi luồng vào đều bắt buộc phải qua Gateway hoặc Nginx.
    - Các dịch vụ nền tảng: **Consul**, **Kafka Broker**, **MariaDB Server**, **Redis**, **Zipkin** nằm hoàn toàn trong mạng nội bộ.

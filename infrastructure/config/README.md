@@ -9,7 +9,6 @@ The loader follows the Spring Cloud Consul naming convention:
 - `application.yml` -> `config/application/data`
 - `application-dev.yml` -> `config/application-dev/data`
 - `gateway-dev.yml` -> `config/gateway-dev/data`
-- `authService-dev.yml` -> `config/authService-dev/data`
 
 Secrets are referenced through environment variables and are not stored here.
 Backend services use `bootstrap.yml` to locate Consul before loading these files.

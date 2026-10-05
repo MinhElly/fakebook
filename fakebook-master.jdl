@@ -47,41 +47,6 @@ application {
 
 
 // ---------------------------------------------------------------------------
-// 2. Auth Service
-//
-// Keycloak remains the real Identity Provider.
-// This service must NOT store passwords or duplicate Keycloak credentials.
-// It can later contain orchestration/integration APIs for:
-// - logout
-// - change password
-// - forgot/reset password
-// - social-login related integration
-// - Keycloak Admin API operations when needed
-// ---------------------------------------------------------------------------
-application {
-    config {
-        baseName authService
-        applicationType microservice
-        packageName com.minh.fakebook.auth
-        authenticationType oauth2
-
-        databaseType sql
-        devDatabaseType mariadb
-        prodDatabaseType mariadb
-
-        serviceDiscoveryType consul
-        messageBroker kafka
-        cacheProvider no
-
-        buildTool maven
-        clientFramework no
-        skipClient true
-        serverPort 8081
-    }
-}
-
-
-// ---------------------------------------------------------------------------
 // 3. User Service
 // MariaDB entities:
 // - USER_PROFILES

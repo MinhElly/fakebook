@@ -1,5 +1,7 @@
 # ADR-001: Microservices Architecture with Database-per-Service
 
+> Cập nhật 2026-10-05: Auth Service và các thư mục gốc performance, postman, runtime-logs, scripts đã được loại bỏ. Nội dung bên dưới là bằng chứng/quyết định lịch sử; các đường dẫn cũ không còn là hướng dẫn vận hành hiện tại.
+
 ## Trạng thái
 **Accepted**
 

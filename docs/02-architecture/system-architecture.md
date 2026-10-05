@@ -32,7 +32,6 @@ flowchart TD
         CommentService["Comment Service (:8085)<br/>Spring Boot / JDBC: commentservice<br/>Comments, Reactions, PostCache"]
         MediaService["Media Service (:8084)<br/>Spring Boot / JDBC: mediaservice<br/>Cloudinary Metadata & Upload"]
         FeedService["Feed Service (:8086)<br/>Spring Boot / JDBC: feedservice<br/>Personalized News Feed"]
-        AuthService["Auth Service (:8081)<br/>Spring Boot / JDBC: authservice<br/>JHipster Skeleton Service"]
     end
 
     subgraph Storage_Caching["Storage & Caching Tier"]
@@ -68,7 +67,6 @@ flowchart TD
     Gateway -->|"Route: /services/commentservice/**"| CommentService
     Gateway -->|"Route: /services/mediaservice/**"| MediaService
     Gateway -->|"Route: /services/feedservice/**"| FeedService
-    Gateway -->|"Route: /services/authservice/**"| AuthService
 
     %% Central Config
     ConfigLoader -->|"Populate KV"| Consul
@@ -81,7 +79,6 @@ flowchart TD
     CommentService -->|"HikariCP"| MariaDB
     MediaService -->|"HikariCP"| MariaDB
     FeedService -->|"HikariCP"| MariaDB
-    AuthService -->|"HikariCP"| MariaDB
     Keycloak -->|"JDBC"| MariaDB
 
     %% Redis Cache
@@ -144,13 +141,12 @@ flowchart TD
   - Các service tải cấu hình này trong giai đoạn bootstrap của Spring Cloud. Tính năng dynamic config watch được tắt (`watch.enabled: false`) để tránh reload cấu hình runtime ngoài ý muốn.
 
 ### 2.4 Tầng Microservices nghiệp vụ
-Hệ thống bao gồm 6 dịch vụ chính:
+Hệ thống bao gồm 5 dịch vụ nghiệp vụ phía sau Gateway:
 1. **User Service (8082)**: Quản lý User Profiles (ID khớp Keycloak UUID), lời mời kết bạn (FriendRequest), quan hệ bạn bè (Friendship), và quan hệ theo dõi (Follow).
 2. **Post Service (8083)**: Tạo, chỉnh sửa, xóa bài viết; đính kèm danh sách media IDs; quản lý reactions.
 3. **Comment Service (8085)**: Quản lý hệ thống bình luận đa cấp. Duy trì một bảng cache `post_cache` đồng bộ qua Kafka để kiểm tra tính hợp lệ của bài viết trước khi cho phép bình luận.
 4. **Media Service (8084)**: Tích hợp với Cloudinary API để quản lý URL tải lên, kích thước, định dạng và metadata media; lắng nghe Kafka để dọn dẹp ảnh mồ côi.
 5. **Feed Service (8086)**: Xây dựng bảng tin theo mô hình Fan-out on Write. Lắng nghe `post-events` từ Kafka, tra cứu bạn bè qua OpenFeign và lưu trữ feed vào cả MariaDB lẫn Redis ZSet.
-6. **Auth Service (8081)**: JHipster skeleton microservice kết nối database `authservice`. Hệ thống hiện xác thực trực tiếp qua Keycloak IAM.
 
 ### 2.5 Tầng Lưu trữ, Caching & Event Streaming
 - **MariaDB 12.3**: Triển khai theo mô hình Database-per-service. Mỗi service sở hữu một schema riêng. Trong môi trường staging, kết nối ra AWS RDS MariaDB thông qua TLS/SSL (chứng chỉ `rds-global-bundle.pem`).

@@ -71,18 +71,6 @@ docker compose --env-file .env.staging -f docker-compose-staging.yml logs -f --t
 
 ---
 
-## 4. Kiểm thử Khói tự động sau Triển khai (Post-Deployment Smoke Test)
+## 4. Kiểm thử sau Triển khai
 
-Sau khi toàn bộ container đã khởi động thành công, chạy script E2E Smoke Test để xác nhận luồng nghiệp vụ end-to-end:
-
-```bash
-# Nạp biến môi trường nội bộ
-export KEYCLOAK_URL="https://20-189-114-210.nip.io"
-export FAKEBOOK_OIDC_INTERNAL_CLIENT_ID="internal"
-export FAKEBOOK_OIDC_INTERNAL_CLIENT_SECRET="<YOUR_INTERNAL_SECRET>"
-
-# Chạy Smoke Test
-./scripts/e2e-smoke-test.sh https://20-189-114-210.nip.io
-```
-
-Nếu script trả về `🎉 FAKEBOOK E2E SMOKE TEST PASSED ALL CHECKS!`, hệ thống đã sẵn sàng phục vụ kiểm thử.
+Repository hiện không còn runner smoke test tự động. Sau khi container khởi động, kiểm tra login/callback/logout bằng normal-user, /api/account và các API nghiệp vụ qua Gateway; lưu evidence đã mask cùng commit SHA. Health check thành công chưa đủ để kết luận hệ thống sẵn sàng.

@@ -1,5 +1,7 @@
 # Source và Documentation Audit — 2026-10-02
 
+> Cập nhật 2026-10-05: Auth Service và các thư mục gốc performance, postman, runtime-logs, scripts đã được loại bỏ. Nội dung bên dưới là bằng chứng/quyết định lịch sử; các đường dẫn cũ không còn là hướng dẫn vận hành hiện tại.
+
 ## 1. Phạm vi và baseline
 
 - Working tree: `develop@575c738`, chậm hơn `origin/develop` 4 commit.

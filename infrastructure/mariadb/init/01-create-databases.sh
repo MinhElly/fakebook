@@ -10,8 +10,6 @@ fi
 mariadb --protocol=socket -uroot ${PASS_ARG} <<SQL
 CREATE DATABASE IF NOT EXISTS gateway
   CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-CREATE DATABASE IF NOT EXISTS auth_service
-  CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 CREATE DATABASE IF NOT EXISTS user_service
   CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 CREATE DATABASE IF NOT EXISTS media_service
@@ -41,7 +39,6 @@ SQL
 }
 
 create_user_if_set "gateway" "${GATEWAY_DB_USERNAME:-}" "${GATEWAY_DB_PASSWORD:-}"
-create_user_if_set "auth_service" "${AUTH_DB_USERNAME:-}" "${AUTH_DB_PASSWORD:-}"
 create_user_if_set "user_service" "${USER_DB_USERNAME:-}" "${USER_DB_PASSWORD:-}"
 create_user_if_set "post_service" "${POST_DB_USERNAME:-}" "${POST_DB_PASSWORD:-}"
 create_user_if_set "media_service" "${MEDIA_DB_USERNAME:-}" "${MEDIA_DB_PASSWORD:-}"

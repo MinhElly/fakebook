@@ -144,20 +144,7 @@ Tài liệu này đặc tả chi tiết từng microservice trong hệ thống F
 
 ---
 
-## 7. Auth Service (`authService`)
-
-- **Trách nhiệm**: JHipster Microservice boilerplate. Trong kiến trúc hiện tại, **Keycloak IAM** đảm nhiệm toàn bộ vai trò Identity Provider. Dịch vụ này hiện duy trì kết nối database riêng (`auth_service`), đăng ký Consul và sẵn sàng cho các nghiệp vụ mở rộng trong tương lai (Keycloak Admin API orchestration, custom credential flows).
-- **Framework / Runtime**: Spring Boot, Spring Data JPA, MariaDB driver.
-- **Port mặc định**: `8081` (Consul discovery ID: `authservice`)
-- **Database**: MariaDB schema `auth_service` (Local port 3307 / Staging AWS RDS TLS)
-- **Main APIs**:
-  - `/management/health`: Health endpoint.
-- **Authentication**: OAuth2 Resource Server.
-- **Health Check**: `GET http://localhost:8081/management/health`
-
----
-
-## 8. Frontend Application (`frontend`)
+## 7. Frontend Application (`frontend`)
 
 - **Trách nhiệm**: Giao diện người dùng Web SPA tương tác hoàn chỉnh. Hỗ trợ hiển thị News Feed thời gian thực, quản lý bài viết, bộ chọn emoji, gallery hình ảnh, quản lý bạn bè và kết nối với Keycloak để xác thực.
 - **Tech Stack**: React 19, Vite 8, TypeScript 5.7, Tailwind CSS v4, React Router 8, `keycloak-js`, Axios.

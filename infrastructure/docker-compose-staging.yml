@@ -241,47 +241,6 @@ services:
       start_period: 40s
     restart: "on-failure:5"
 
-  authservice:
-    image: ${DOCKER_REGISTRY_PREFIX:?DOCKER_REGISTRY_PREFIX is required}fakebook-authservice:${IMAGE_TAG:?IMAGE_TAG is required}
-    container_name: fakebook-authservice
-    extra_hosts:
-      - "${DOMAIN_NAME}:host-gateway"
-    environment:
-      SPRING_PROFILES_ACTIVE: "prod,staging"
-      SPRING_CLOUD_CONSUL_HOST: ${SPRING_CLOUD_CONSUL_HOST:-consul}
-      SPRING_CLOUD_CONSUL_PORT: ${SPRING_CLOUD_CONSUL_PORT:-8500}
-      SPRING_DOCKER_COMPOSE_ENABLED: "false"
-      MARIADB_HOST: ${MARIADB_HOST:?MARIADB_HOST is required}
-      MARIADB_PORT: ${MARIADB_PORT}
-      SPRING_DATASOURCE_URL: "jdbc:mariadb://${MARIADB_HOST:?MARIADB_HOST is required}:${MARIADB_PORT}/auth_service?useLegacyDatetimeCode=false&sslMode=verify-full&serverSslCert=${MARIADB_SSL_CERT_CONTAINER_PATH:-/run/secrets/rds-global-bundle.pem}"
-      SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: ${APP_DB_POOL_MIN_IDLE:-1}
-      SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: ${APP_DB_POOL_MAX_SIZE:-3}
-      FAKEBOOK_DB_USERNAME: ${AUTH_DB_USERNAME:?AUTH_DB_USERNAME is required}
-      FAKEBOOK_DB_PASSWORD: ${AUTH_DB_PASSWORD:?AUTH_DB_PASSWORD is required}
-      FAKEBOOK_OIDC_ISSUER_URI: ${FAKEBOOK_OIDC_ISSUER_URI}
-      FAKEBOOK_OIDC_CLIENT_ID: ${FAKEBOOK_OIDC_INTERNAL_CLIENT_ID:?FAKEBOOK_OIDC_INTERNAL_CLIENT_ID is required}
-      FAKEBOOK_OIDC_CLIENT_SECRET: ${FAKEBOOK_OIDC_INTERNAL_CLIENT_SECRET:?FAKEBOOK_OIDC_INTERNAL_CLIENT_SECRET is required}
-      JAVA_OPTS: "-Xmx512m -Xms256m -XX:+UseG1GC"
-    deploy:
-      resources:
-        limits:
-          memory: 768M
-    volumes:
-      - ${MARIADB_SSL_CERT_HOST_PATH:?MARIADB_SSL_CERT_HOST_PATH is required}:${MARIADB_SSL_CERT_CONTAINER_PATH:-/run/secrets/rds-global-bundle.pem}:ro
-    depends_on:
-      consul-config-loader:
-        condition: service_started
-      keycloak:
-        condition: service_healthy
-      keycloak-internal-client-config:
-        condition: service_completed_successfully
-    healthcheck:
-      test: ["CMD-SHELL", "bash -c 'exec 3<>/dev/tcp/127.0.0.1/8081; printf \"GET /management/health/liveness HTTP/1.0\\r\\nHost: localhost\\r\\n\\r\\n\" >&3; grep -q \"\\\"status\\\":\\\"UP\\\"\" <&3'"]
-      interval: 10s
-      timeout: 5s
-      retries: 20
-      start_period: 40s
-    restart: "on-failure:5"
 
   userservice:
     image: ${DOCKER_REGISTRY_PREFIX:?DOCKER_REGISTRY_PREFIX is required}fakebook-userservice:${IMAGE_TAG:?IMAGE_TAG is required}

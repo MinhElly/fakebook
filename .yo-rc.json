@@ -6,8 +6,7 @@
       "postService",
       "mediaService",
       "commentService",
-      "feedService",
-      "authService"
+      "feedService"
     ],
     "baseName": "workspaces",
     "defaultCommand": "workspaces",

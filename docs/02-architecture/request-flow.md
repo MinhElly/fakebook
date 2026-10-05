@@ -65,7 +65,7 @@ spring:
 
 ### Giải thích quy tắc:
 1. **Tiền tố chuẩn `/services/{serviceId}/`**:
-   - `serviceId` được định nghĩa bằng chữ thường (lower case) khớp với tên đăng ký trên Consul: `userservice`, `postservice`, `commentservice`, `mediaservice`, `feedservice`, `authservice`.
+   - `serviceId` được định nghĩa bằng chữ thường (lower case) khớp với tên đăng ký trên Consul: `userservice`, `postservice`, `commentservice`, `mediaservice`, `feedservice`.
 2. **Cơ chế cắt tiền tố (`StripPrefix=2`)**:
    - Phần `/services/{serviceId}` gồm 2 phần tử đường dẫn đầu tiên sẽ bị cắt bỏ trước khi chuyển tới microservice downstream.
    - Ví dụ:

@@ -1,7 +1,7 @@
 -- =============================================================================
 -- FAKEBOOK MONOREPO: AWS RDS MARIADB BOOTSTRAP SCRIPT
 -- File: infrastructure/mariadb/rds-bootstrap.sql
--- Description: Creates 8 isolated database schemas and dedicated microservice
+-- Description: Creates 7 isolated database schemas and dedicated microservice
 --              users with least-privilege access and SSL enforcement.
 -- Usage: Execute using RDS Master Admin account:
 --   mariadb -h <RDS_ENDPOINT> -P 13306 -u <ADMIN_USER> -p \
@@ -12,9 +12,6 @@
 -- 1. CREATE SCHEMAS (DATABASE-PER-SERVICE)
 -- -----------------------------------------------------------------------------
 CREATE DATABASE IF NOT EXISTS `gateway`
-  CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-
-CREATE DATABASE IF NOT EXISTS `auth_service`
   CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 CREATE DATABASE IF NOT EXISTS `user_service`
@@ -45,11 +42,6 @@ CREATE DATABASE IF NOT EXISTS `keycloak`
 CREATE USER IF NOT EXISTS 'gateway_user'@'%' IDENTIFIED BY 'fakebook@Gateway';
 ALTER USER 'gateway_user'@'%' IDENTIFIED BY 'fakebook@Gateway' REQUIRE SSL;
 GRANT ALL PRIVILEGES ON `gateway`.* TO 'gateway_user'@'%';
-
--- Auth Service User
-CREATE USER IF NOT EXISTS 'auth_user'@'%' IDENTIFIED BY 'fakebook@Auth';
-ALTER USER 'auth_user'@'%' IDENTIFIED BY 'fakebook@Auth' REQUIRE SSL;
-GRANT ALL PRIVILEGES ON `auth_service`.* TO 'auth_user'@'%';
 
 -- User Service User
 CREATE USER IF NOT EXISTS 'user_user'@'%' IDENTIFIED BY 'fakebook@User';

@@ -21,7 +21,6 @@ Hệ thống áp dụng nghiêm ngặt nguyên tắc **Database-per-Service**:
 | `comment_service` | `commentService` | Bảng `comments`, `comment_reactions`, `post_cache` |
 | `media_service` | `mediaService` | Bảng `media` (Cloudinary URLs, metadata) |
 | `feed_service` | `feedService` | Bảng `feed_items` (Bản ghi timeline lưu trữ lâu dài) |
-| `auth_service` | `authService` | Bảng của JHipster skeleton |
 | `keycloak` | `keycloak` | Dữ liệu nội bộ của Keycloak (Users, Credentials, Realms, Clients) |
 
 ---
@@ -30,7 +29,7 @@ Hệ thống áp dụng nghiêm ngặt nguyên tắc **Database-per-Service**:
 
 ### 2.1 Môi trường Cục bộ (Local Dev)
 - **Container**: `fakebook-mariadb` (hình ảnh `mariadb:12.3.3`) chạy trên port host `3307`.
-- **Khởi tạo tự động**: File `infrastructure/mariadb/init/01-create-databases.sh` tự động chạy khi container khởi tạo lần đầu để tạo đủ 8 database schemas và cấp quyền cho user `root`.
+- **Khởi tạo tự động**: File `infrastructure/mariadb/init/01-create-databases.sh` tự động chạy khi container khởi tạo lần đầu để tạo đủ 7 database schemas và cấp quyền cho user `root`.
 
 ### 2.2 Môi trường Staging (AWS RDS MariaDB Managed Database)
 - Không chạy MariaDB container trên máy chủ ảo Staging, mà sử dụng **AWS RDS MariaDB**.
@@ -52,7 +51,6 @@ AWS RDS có giới hạn tổng số lượng kết nối tối đa (`max_connec
 | Service | Driver | Min Idle | Max Pool Size | Ghi chú |
 | :--- | :--- | :---: | :---: | :--- |
 | `gateway` | R2DBC Connection Pool | 1 | 3 | Reactive non-blocking, tiêu tốn rất ít connection |
-| `authservice` | HikariCP | 1 | 3 | |
 | `userservice` | HikariCP | 1 | 3 | |
 | `postservice` | HikariCP | 1 | 3 | |
 | `mediaservice` | HikariCP | 1 | 3 | |

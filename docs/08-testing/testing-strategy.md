@@ -45,16 +45,7 @@ Tài liệu này đặc tả các tầng kiểm thử chất lượng mã nguồ
 
 ### 2.3 End-to-End Smoke Tests (Kiểm thử Khói Toàn diện)
 
-Gate ưu tiên là `scripts/e2e-normal-user-smoke-test.ps1`. Script yêu cầu token của user thật qua `FAKEBOOK_USER_ACCESS_TOKEN`, sau đó kiểm tra `/api/account`, profile `/me`, tạo/đọc/xóa post, comment summaries, chờ post xuất hiện tại `/api/feed/me` và xác minh một trace Zipkin gồm Gateway/User/Post/Comment/Feed.
-
-```powershell
-$env:FAKEBOOK_USER_ACCESS_TOKEN = '<normal-user-access-token>'
-.\scripts\e2e-normal-user-smoke-test.ps1 `
-  -BaseUrl 'http://localhost:8080' `
-  -ZipkinUrl 'http://localhost:9411'
-```
-
-`scripts/e2e-smoke-test.sh` là smoke cũ dùng client credentials `internal`. Nó chỉ kiểm tra HTTP status, không chứng minh normal-user ownership, `/api/account`, nội dung feed hay trace xuyên service. Tại source hiện tại script còn gọi generic `GET /api/user-profiles`, trong khi route này được method-security khóa cho admin; vì vậy không dùng kết quả script cũ làm gate phát hành cho tới khi contract/token được sửa.
+Các công cụ smoke test đã được loại bỏ khỏi repository; hiện chưa có runner E2E thay thế. Gate phát hành vẫn yêu cầu normal-user login/callback/logout, /api/account, profile /me, tạo/đọc/xóa post, comment summaries, feed propagation và một trace Zipkin gồm Gateway/User/Post/Comment/Feed. Kiểm tra thủ công qua Gateway và lưu evidence đã mask; health check hoặc client credentials không chứng minh luồng người dùng.
 
 ### 2.4 Giới hạn bằng chứng
 

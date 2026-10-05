@@ -19,7 +19,7 @@ GET /services/postservice/api/posts
  -> postservice nhận GET /api/posts
 ```
 
-Các `serviceId` hiện có: `authservice`, `userservice`, `postservice`, `mediaservice`, `commentservice`, `feedservice`. API cục bộ của Gateway dùng trực tiếp tiền tố `/api`.
+Các `serviceId` hiện có: `userservice`, `postservice`, `mediaservice`, `commentservice`, `feedservice`. API cục bộ của Gateway dùng trực tiếp tiền tố `/api`.
 
 ## 2. Xác thực, phân quyền và định dạng
 
@@ -140,11 +140,7 @@ CRUD generic create/update/patch tồn tại nhưng là API kỹ thuật; upload
 
 CRUD `/api/feed-items/**` chỉ dành cho `ROLE_ADMIN`.
 
-## 9. Auth Service (`authservice`)
-
-Auth Service hiện là JHipster skeleton, không sở hữu login/register business API. Keycloak là Identity Provider; các endpoint production có ý nghĩa của Auth Service hiện chủ yếu là `/management/health|info|prometheus`. Không gọi probe `/api/auth-service-kafka/**` từ frontend.
-
-## 10. OpenAPI
+## 9. OpenAPI
 
 - Các module dùng SpringDoc API starter, không dùng UI starter; không được giả định `swagger-ui/index.html` tồn tại.
 - `/v3/api-docs` bị tắt trừ khi profile `api-docs` được bật.
@@ -157,7 +153,7 @@ Ví dụ bật profile khi chạy một service:
 .\mvnw.cmd -ntp "-Dspring-boot.run.profiles=dev,api-docs" spring-boot:run
 ```
 
-## 11. Mã lỗi cần xử lý
+## 10. Mã lỗi cần xử lý
 
 | Status | Ý nghĩa thường gặp |
 |---:|---|

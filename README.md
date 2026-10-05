@@ -97,11 +97,8 @@ fakebook/
 ├── commentService/       # Quản lý bình luận & PostCache (Port 8085)
 ├── mediaService/         # Quản lý upload Cloudinary & dọn dẹp media (Port 8084)
 ├── feedService/          # Bảng tin cá nhân hóa & Redis Fan-out (Port 8086)
-├── authService/          # JHipster skeleton microservice (Port 8081)
 ├── frontend/             # Giao diện người dùng React 19 SPA
 ├── infrastructure/       # Docker Compose dev/staging, scripts & central config
-├── performance/          # Kịch bản kiểm thử tải k6 (http-baseline.js)
-├── scripts/              # E2E Smoke Test scripts (PowerShell & Bash)
 └── docs/                 # Toàn bộ tài liệu kỹ thuật chi tiết
 ```
 

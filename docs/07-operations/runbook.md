@@ -122,10 +122,7 @@ Khi một bản deploy mới gặp lỗi nghiêm trọng trên Staging:
    docker compose --env-file .env.staging -f docker-compose-staging.yml pull
    docker compose --env-file .env.staging -f docker-compose-staging.yml up -d
    ```
-4. Chạy lại smoke test:
-   ```bash
-   ./scripts/e2e-smoke-test.sh https://20-189-114-210.nip.io
-   ```
+4. Kiểm tra lại login/callback/logout, /api/account và các API nghiệp vụ bằng normal-user qua Gateway; lưu evidence đã mask. Repository hiện không còn runner smoke test tự động.
 
 ---
 

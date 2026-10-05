@@ -85,9 +85,6 @@ jobs:
           - service: gateway
             path: gateway
             image_name: fakebook-gateway
-          - service: authService
-            path: authService
-            image_name: fakebook-authservice
           - service: userService
             path: userService
             image_name: fakebook-userservice

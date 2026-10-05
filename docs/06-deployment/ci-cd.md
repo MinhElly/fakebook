@@ -17,8 +17,8 @@ flowchart TD
         NpmCI --> BuildFE["npm run build<br/>(Kiểm tra tính toàn vẹn bundle)"]
     end
     
-    subgraph Job2["Job: build-backend-services (Matrix 7 Microservices)"]
-        JDK["Set up JDK 21 Temurin & Cache Maven"] --> MatrixInit["Matrix: gateway, authService, userService,<br/>postService, mediaService, commentService, feedService"]
+    subgraph Job2["Job: build-backend-services (Matrix 6 Backend Components)"]
+        JDK["Set up JDK 21 Temurin & Cache Maven"] --> MatrixInit["Matrix: gateway, userService,<br/>postService, mediaService, commentService, feedService"]
         
         MatrixInit --> CheckEvent{"Là Pull Request<br/>hay Push?"}
         
@@ -44,9 +44,8 @@ flowchart TD
 - **Nhiệm vụ**: Chạy `npm ci` và `npm run build` để đảm bảo code React/TypeScript không bị lỗi cú pháp, thiếu type hoặc lỗi import trước khi merge.
 
 ### 2.2 Job `build-backend-services` (Matrix Build OCI Image)
-- **Cơ chế Matrix**: Chạy đồng thời 7 tác vụ độc lập cho 7 microservices:
+- **Cơ chế Matrix**: Chạy đồng thời 6 tác vụ độc lập cho Gateway và 5 microservices:
   - `gateway` -> `fakebook-gateway`
-  - `authService` -> `fakebook-authservice`
   - `userService` -> `fakebook-userservice`
   - `postService` -> `fakebook-postservice`
   - `mediaService` -> `fakebook-mediaservice`

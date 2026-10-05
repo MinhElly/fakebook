@@ -61,8 +61,6 @@ Tài liệu này tổng hợp toàn bộ các biến môi trường được s�
 | `MARIADB_SSL_CERT_CONTAINER_PATH` | Container mount | Không | `/run/secrets/rds-global-bundle.pem` | Đường dẫn chứng chỉ trong container |
 | `GATEWAY_DB_USERNAME` | `gateway` | **Có** | `gateway_user` | Tài khoản database cho Gateway |
 | `GATEWAY_DB_PASSWORD` | `gateway` | **Có** | `<REPLACE_ME>` | Mật khẩu database cho Gateway |
-| `AUTH_DB_USERNAME` | `authservice` | **Có** | `auth_user` | Tài khoản database cho AuthService |
-| `AUTH_DB_PASSWORD` | `authservice` | **Có** | `<REPLACE_ME>` | Mật khẩu database cho AuthService |
 | `USER_DB_USERNAME` | `userservice` | **Có** | `user_user` | Tài khoản database cho UserService |
 | `USER_DB_PASSWORD` | `userservice` | **Có** | `<REPLACE_ME>` | Mật khẩu database cho UserService |
 | `POST_DB_USERNAME` | `postservice` | **Có** | `post_user` | Tài khoản database cho PostService |

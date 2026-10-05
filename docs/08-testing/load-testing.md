@@ -1,98 +1,15 @@
 # Load & Performance Testing (Kiểm thử Tải & Hiệu năng)
 
-Tài liệu này đặc tả kịch bản kiểm thử tải bằng **k6** với script baseline `performance/k6/http-baseline.js` đã sẵn sàng trong kho mã nguồn, hỗ trợ đo lường độ trễ và khả năng chịu tải của các endpoint thông qua Gateway.
+Công cụ kiểm thử tải đã được loại bỏ khỏi repository ngày 2026-10-05. Hiện chưa có runner thay thế hoặc lệnh kiểm thử tải có thể chạy trực tiếp từ checkout.
 
----
+## Yêu cầu kiểm thử
 
-## 1. Kịch bản Baseline k6 (`http-baseline.js`)
+- Đo các endpoint nghiệp vụ qua Gateway, đặc biệt feed cá nhân, với token normal-user.
+- Cố định dataset, số người dùng đồng thời, thời gian chạy và môi trường/phần cứng; chạy warm-up riêng.
+- Kiểm tra HTTP status và nội dung nghiệp vụ, không chỉ độ trễ hoặc health endpoint.
+- Thu thập tỷ lệ lỗi, p50/p95/p99, throughput và mức sử dụng CPU/RAM/database pool.
+- Lưu raw summary, cấu hình chạy và commit SHA; mask token và dữ liệu nhạy cảm.
 
-Kịch bản baseline cho phép đo lường độ trễ và khả năng chịu tải của các endpoint thông qua Gateway:
+## Tiêu chí dự kiến
 
-```javascript
-import http from 'k6/http';
-import { check } from 'k6';
-
-const baseUrl = __ENV.BASE_URL || 'http://test.127.0.0.1.nip.io';
-const targetPath = __ENV.TARGET_PATH || '/healthz';
-const expectedStatus = Number(__ENV.EXPECTED_STATUS || '200');
-
-export const options = {
-  vus: Number(__ENV.VUS || '10'),
-  duration: __ENV.DURATION || '20s',
-  discardResponseBodies: true,
-  thresholds: {
-    http_req_failed: ['rate<0.01'], // Tỷ lệ lỗi phải dưới 1%
-    http_req_duration: ['p(95)<500', 'p(99)<1000'], // 95% request dưới 500ms, 99% dưới 1s
-  },
-};
-
-export default function () {
-  const headers = {};
-  if (__ENV.AUTH_TOKEN) {
-    headers.Authorization = `Bearer ${__ENV.AUTH_TOKEN}`;
-  }
-
-  const response = http.get(`${baseUrl}${targetPath}`, {
-    headers,
-    tags: { endpoint: targetPath },
-  });
-
-  check(response, {
-    [`status is ${expectedStatus}`]: res => res.status === expectedStatus,
-  });
-}
-```
-
----
-
-## 2. Các tham số cấu hình khi chạy
-
-| Biến môi trường | Mặc định | Mô tả |
-| :--- | :--- | :--- |
-| `BASE_URL` | `http://test.127.0.0.1.nip.io` | URL gốc của Gateway cần test |
-| `TARGET_PATH`| `/healthz` | Đường dẫn endpoint kiểm thử (ví dụ: `/services/feedservice/api/feed/me`) |
-| `VUS` | `10` | Số lượng Virtual Users chạy đồng thời |
-| `DURATION` | `20s` | Thời gian duy trì tải (ví dụ: `30s`, `1m`) |
-| `AUTH_TOKEN` | *(để trống)* | Bearer Token JWT nếu endpoint yêu cầu xác thực |
-| `EXPECTED_STATUS`| `200` | Mã HTTP mong đợi |
-
----
-
-## 3. Câu lệnh thực thi k6 mẫu
-
-### Cài đặt k6 (nếu chưa có):
-- Windows (Chocolatey / Winget): `winget install k6`
-- Linux (Ubuntu): `sudo apt-get install k6`
-
-### Chạy kiểm thử tải Endpoint Gateway Health:
-```bash
-k6 run -e BASE_URL="http://localhost:8080" -e TARGET_PATH="/management/health" -e VUS=20 -e DURATION=30s performance/k6/http-baseline.js
-```
-
-### Chạy kiểm thử tải Feed Service có xác thực Bearer Token:
-```bash
-k6 run \
-  -e BASE_URL="http://localhost:8080" \
-  -e TARGET_PATH="/services/feedservice/api/feed/me" \
-  -e AUTH_TOKEN="<YOUR_ACCESS_TOKEN>" \
-  -e VUS=50 \
-  -e DURATION=1m \
-  performance/k6/http-baseline.js
-```
-
----
-
-## 4. Diễn giải các chỉ số kết quả (Metrics Interpretation)
-
-- **`http_req_failed`**: Tỷ lệ request thất bại (HTTP status không khớp hoặc connection timeout). Tiêu chuẩn: `< 1%`.
-- **`http_req_duration (p50)`**: Thời gian phản hồi trung vị (50% người dùng nhận kết quả nhanh hơn mức này).
-- **`http_req_duration (p95)`**: 95% số lượng request có thời gian phản hồi thấp hơn ngưỡng này. Tiêu chuẩn: `< 500ms`.
-- **`http_req_duration (p99)`**: 99% số lượng request có thời gian phản hồi thấp hơn ngưỡng này (đo lường đuôi độ trễ - tail latency). Tiêu chuẩn: `< 1000ms`.
-- **`http_reqs (RPS)`**: Số lượng request hoàn thành trên mỗi giây (Throughput).
-
-## 5. Gate trước khi dùng trong CI
-
-1. Tạo và review `performance/k6/http-baseline.js` đúng với mẫu trên.
-2. Dùng token normal-user cho `/api/feed/me`; không dùng client-credentials để suy ra hành vi người dùng.
-3. Chạy warm-up riêng, cố định dataset và ghi rõ môi trường/phần cứng.
-4. Lưu raw summary cùng commit SHA; không công bố ngưỡng p95/p99 là đạt khi chưa có run artifact.
+Tỷ lệ lỗi dưới 1%, p95 dưới 500 ms và p99 dưới 1000 ms là ngưỡng mục tiêu cần xác nhận theo workload. Chưa có run artifact để kết luận đạt SLO. Cần chuẩn bị và review công cụ kiểm thử tải trước khi đưa gate này vào CI.

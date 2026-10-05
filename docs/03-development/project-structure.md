@@ -11,7 +11,6 @@ fakebook/
 ├── .github/                      # CI/CD Workflows (GitHub Actions)
 │   └── workflows/ci.yml         # Pipeline build frontend & Jib push backend image lên GHCR
 │
-├── authService/                  # JHipster skeleton microservice (Port 8081)
 ├── commentService/               # Comment & PostCache microservice (Port 8085)
 ├── feedService/                  # Personalized Feed & Redis Fanout microservice (Port 8086)
 ├── gateway/                      # Spring Cloud Gateway WebFlux (Port 8080)
@@ -35,16 +34,9 @@ fakebook/
 │   ├── config/
 │   │   └── central-server-config/# Cấu hình tập trung nạp vào Consul KV Store
 │   ├── keycloak/                 # Scripts tự động cấu hình Internal Client & Google IDP
-│   ├── mariadb/init/             # Script SQL tự động khởi tạo 8 schema database
+│   ├── mariadb/init/             # Script SQL tự động khởi tạo 7 schema database
 │   ├── nginx/                    # Nginx reverse proxy config & certbot SSL challenge
 │   └── certs/                    # Chứng chỉ RDS CA (global-bundle.pem)
-│
-├── performance/                  # Kịch bản kiểm thử hiệu năng
-│   └── k6/http-baseline.js       # Load test baseline cho API Gateway & Microservices
-│
-├── scripts/                      # Utility scripts
-│   ├── e2e-normal-user-smoke-test.ps1 # E2E smoke test với normal user token, feed & Zipkin trace
-│   └── e2e-smoke-test.sh         # Script kiểm thử khói legacy (Client Credentials)
 │
 ├── docs/                         # Toàn bộ tài liệu kỹ thuật của dự án
 ├── fakebook-master.jdl           # JHipster Domain Language file mô tả toàn bộ entity
