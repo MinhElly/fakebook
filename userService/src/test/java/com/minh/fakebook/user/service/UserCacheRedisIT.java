@@ -28,6 +28,7 @@ class UserCacheRedisIT {
     @Autowired private UserProfileRepository profiles;
     @Autowired private FriendRequestService requests;
     @Autowired private FollowService follows;
+    @Autowired private FriendshipService friendships;
     @Autowired private UserProfileService profileService;
     @Autowired private CacheManager caches;
 
@@ -54,11 +55,22 @@ class UserCacheRedisIT {
         assertThat(requests.getReceivedPendingRequests(receiver, descending)).isEmpty();
         follows.followUser(sender, receiver);
         follows.getFollowingList(sender, ascending);
+        request = requests.sendFriendRequest(sender, receiver);
+        requests.acceptFriendRequest(request.getId(), receiver);
+        assertThat(friendships.areFriends(sender, receiver)).isTrue();
+        friendships.getMyFriendsList(sender, ascending);
+        friendships.getMyFriendsList(receiver, descending);
         var dto = profileService.findOne(receiver).orElseThrow();
         dto.setDisplayName("Changed profile");
         profileService.update(dto);
         assertThat(follows.getFollowingList(sender, ascending).getContent().getFirst().getFollowing().getDisplayName())
             .isEqualTo("Changed profile");
+        assertThat(friendships.getMyFriendsList(sender, ascending).getContent().getFirst().getFriend().getDisplayName())
+            .isEqualTo("Changed profile");
+        friendships.unFriend(sender, receiver);
+        assertThat(friendships.areFriends(sender, receiver)).isFalse();
+        assertThat(friendships.getMyFriendsList(sender, ascending)).isEmpty();
+        assertThat(friendships.getMyFriendsList(receiver, descending)).isEmpty();
         REDIS.stop();
         assertThat(requests.getSentPendingRequests(sender, ascending)).isEmpty();
         assertThat(follows.getFollowingList(sender, descending).getTotalElements()).isEqualTo(1);
