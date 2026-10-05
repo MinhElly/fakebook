@@ -22,7 +22,7 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.cloud.openfeign.EnableFeignClients;
 
 @SpringBootApplication()
-@EnableFeignClients
+@EnableFeignClients(clients = { com.minh.fakebook.post.client.UserServiceClient.class, com.minh.fakebook.post.client.MediaServiceClient.class })
 @EnableScheduling
 @EnableConfigurationProperties({ LiquibaseProperties.class, ApplicationProperties.class })
 public class PostServiceApp {
