@@ -36,7 +36,7 @@ flowchart TD
 
     subgraph Storage_Caching["Storage & Caching Tier"]
         MariaDB[("MariaDB Server (:3307 Local / AWS RDS Staging)<br/>Separate Schemas per Service")]
-        Redis[("Redis (:6379)<br/>Cacheable: UserProfiles<br/>Sorted Sets: feed:user:{id}")]
+        Redis[("Redis (:6379)<br/>Cacheable: UserProfiles")]
     end
 
     subgraph Event_Streaming["Asynchronous Messaging Tier"]
@@ -83,7 +83,6 @@ flowchart TD
 
     %% Redis Cache
     UserService <-->|"Spring Cache"| Redis
-    FeedService <-->|"ZSet Timeline Cache"| Redis
 
     %% Kafka Streaming
     PostService -->|"Publish: post-events"| Kafka

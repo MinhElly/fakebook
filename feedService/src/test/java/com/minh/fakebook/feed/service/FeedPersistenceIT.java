@@ -27,8 +27,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.PageRequest;
-import org.springframework.data.redis.core.StringRedisTemplate;
-import org.springframework.data.redis.core.ZSetOperations;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 @IntegrationTest
@@ -48,22 +46,10 @@ class FeedPersistenceIT {
     @MockitoBean
     private UserServiceClient userServiceClient;
 
-    @MockitoBean
-    private StringRedisTemplate redisTemplate;
-
-    @SuppressWarnings("unchecked")
-    private final ZSetOperations<String, String> zSetOperations = org.mockito.Mockito.mock(ZSetOperations.class);
-
-    @BeforeEach
-    void setUp() {
-        when(redisTemplate.opsForZSet()).thenReturn(zSetOperations);
-        when(zSetOperations.add(anyString(), anyString(), anyDouble())).thenReturn(true);
-    }
-
     @AfterEach
     void cleanUp() {
         feedItemRepository.deleteAll();
-        reset(userServiceClient, redisTemplate, zSetOperations);
+        reset(userServiceClient);
     }
 
     @Test
@@ -87,28 +73,6 @@ class FeedPersistenceIT {
                 assertThat(item.getAuthorId()).isEqualTo(authorId);
                 assertThat(item.getVisibility()).isEqualTo("PUBLIC");
             });
-    }
-
-    @Test
-    void redisFailurePropagatesAfterMariaDbCommitAndRetryRemainsIdempotent() {
-        UUID authorId = UUID.randomUUID();
-        UUID postId = UUID.randomUUID();
-        PostCreatedEvent event = postCreatedEvent(postId, authorId, "PRIVATE");
-        doThrow(new IllegalStateException("Redis unavailable"))
-            .when(zSetOperations)
-            .add("feed:user:" + authorId, postId.toString(), CREATED_AT.toEpochMilli());
-
-        assertThatThrownBy(() -> feedFanoutService.processPostCreated(event)).isInstanceOf(IllegalStateException.class);
-        assertThat(feedItemRepository.findByPostId(postId)).hasSize(1);
-
-        reset(zSetOperations);
-        when(redisTemplate.opsForZSet()).thenReturn(zSetOperations);
-        when(zSetOperations.add(anyString(), anyString(), anyDouble())).thenReturn(true);
-
-        assertThatCode(() -> feedFanoutService.processPostCreated(event)).doesNotThrowAnyException();
-        assertThat(feedItemRepository.findByPostId(postId)).hasSize(1);
-        verify(userServiceClient, never()).getUserFriendsList(authorId);
-        verify(userServiceClient, never()).getUserFollowersList(authorId);
     }
 
     @Test
@@ -144,7 +108,6 @@ class FeedPersistenceIT {
             .hasCause(rootCause);
 
         assertThat(feedItemRepository.findByPostId(postId)).isEmpty();
-        verify(zSetOperations, never()).add(anyString(), anyString(), anyDouble());
     }
 
     @Test
@@ -157,7 +120,6 @@ class FeedPersistenceIT {
         assertThatCode(() -> feedFanoutService.processPostDeleted(postId)).doesNotThrowAnyException();
 
         assertThat(feedItemRepository.findByPostId(postId)).isEmpty();
-        verify(zSetOperations).remove("feed:user:" + userId, postId.toString());
     }
 
     @Test
@@ -186,8 +148,6 @@ class FeedPersistenceIT {
             });
         verify(userServiceClient, never()).getUserFriendsList(authorId);
         verify(userServiceClient, never()).getUserFollowersList(authorId);
-        verify(zSetOperations).remove("feed:user:" + friendId, postId.toString());
-        verify(zSetOperations).add("feed:user:" + authorId, postId.toString(), CREATED_AT.plusSeconds(60).toEpochMilli());
     }
 
     @Test
@@ -257,12 +217,10 @@ class FeedPersistenceIT {
                 assertThat(item.getPostId()).isEqualTo(postId);
                 assertThat(item.getCreatedAt()).isEqualTo(CREATED_AT);
             });
-        verify(zSetOperations, org.mockito.Mockito.times(2))
-            .add("feed:user:" + recipientId, postId.toString(), CREATED_AT.toEpochMilli());
     }
 
     @Test
-    void unfriendingRemovesOnlyFriendsProjectionFromMariaDbAndRedis() {
+    void unfriendingRemovesOnlyFriendsProjectionFromMariaDb() {
         UUID recipientId = UUID.randomUUID();
         UUID authorId = UUID.randomUUID();
         UUID friendsPostId = UUID.randomUUID();
@@ -288,8 +246,6 @@ class FeedPersistenceIT {
 
         assertThat(feedItemRepository.findByPostId(friendsPostId)).isEmpty();
         assertThat(feedItemRepository.findByPostId(publicPostId)).hasSize(1);
-        verify(zSetOperations).remove("feed:user:" + recipientId, friendsPostId.toString());
-        verify(zSetOperations, never()).remove("feed:user:" + recipientId, publicPostId.toString());
     }
 
     private PostCreatedEvent postCreatedEvent(UUID postId, UUID authorId, String visibility) {

@@ -6,8 +6,6 @@ import java.io.Serial;
 import java.io.Serializable;
 import java.time.Instant;
 import java.util.UUID;
-import org.hibernate.annotations.Cache;
-import org.hibernate.annotations.CacheConcurrencyStrategy;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
@@ -16,7 +14,6 @@ import org.hibernate.type.SqlTypes;
  */
 @Entity
 @Table(name = "feed_items")
-@Cache(usage = CacheConcurrencyStrategy.READ_WRITE)
 @SuppressWarnings("common-java:DuplicatedBlocks")
 public class FeedItem implements Serializable {
 

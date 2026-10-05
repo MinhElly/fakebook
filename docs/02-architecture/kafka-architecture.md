@@ -10,8 +10,8 @@ Tài liệu này đặc tả toàn bộ hệ thống sự kiện bất đồng b
 | :--- | :--- | :--- | :--- | :--- | :--- |
 | **`post-events`** | `postService` | `feedService` | `feed-service-post-sync` | Phân phối bài viết mới vào feed của bạn bè & followers (Fan-out). | **DLQ**: `post-events-feed-dlt`<br/>Max attempts: 3, Backoff: 1000ms (x2.0) |
 | **`post-events`** | `postService` | `commentService` | `comment-service-post-sync` | Đồng bộ dữ liệu bài viết vào bảng `post_cache` cục bộ để validate khi tạo comment. | **DLQ**: `post-events-dlt`<br/>Max attempts: 3 |
-| **`media-cleanup-topic`** | `postService`<br/>`userService` | `mediaService` | `media-service` | Xóa ảnh/video trên Cloudinary và trong database khi bài viết bị xóa hoặc khi user đổi avatar/cover. | Mặc định retry của Spring Cloud Stream |
-| **`friendship-events`** | `userService` | *(Chưa có consumer)* | - | Thông báo trạng thái kết bạn thay đổi (sẵn sàng tích hợp thông báo real-time sau này). | - |
+| **`media-cleanup-topic`** | `postService`<br/>`userService` | `mediaService` | `media-service` | Xóa ảnh/video trên Cloudinary và trong database khi bài viết bị xóa hoặc khi user đổi avatar/cover. | `media-cleanup-dlt`; 3 attempts, backoff 1s x2 |
+| **`friendship-events`** | `userService` | `feedService` | `feed-service-friendship-sync` | Backfill FRIENDS hai chiều khi accept, prune FRIENDS khi unfriend. | `friendship-events-feed-dlt`; 3 attempts |
 
 ---
 
@@ -28,7 +28,6 @@ sequenceDiagram
     participant CommentService as Comment Service (:8085)
     participant UserService as User Service (:8082)
     participant MariaDB_Feed as MariaDB (feed_service)
-    participant Redis_Feed as Redis ZSet (feed:user:*)
     participant MariaDB_Comment as MariaDB (comment_service.post_cache)
 
     Author->>PostService: POST /api/posts/create (Tạo bài viết mới)
@@ -47,9 +46,6 @@ sequenceDiagram
             FeedService->>MariaDB_Feed: INSERT IGNORE INTO feed_items (...)
         end
         
-        Note over FeedService: Sau khi Transaction MariaDB Commit:
-        FeedService->>Redis_Feed: ZADD feed:user:{id} score=createdAt postId
-        FeedService->>Redis_Feed: ZREMRANGEBYRANK feed:user:{id} 0 -501 (Cắt tỉa 500 bài)
     and Luồng cập nhật Cache bình luận
         Kafka->>CommentService: Tiêu thụ event từ post-events (Group: comment-service-post-sync)
         CommentService->>MariaDB_Comment: INSERT INTO post_cache (...) ON DUPLICATE KEY UPDATE
@@ -80,7 +76,7 @@ Các message trên topic `post-events` tuân thủ chuẩn `EventEnvelope`:
 Các loại `eventType`:
 - `POST_CREATED`: Bài viết mới được xuất bản -> Feed fan-out, PostCache insert.
 - `POST_UPDATED`: Cập nhật nội dung hoặc đổi quyền riêng tư (`PRIVATE` / `INACTIVE` -> kích hoạt xóa khỏi feed bạn bè).
-- `POST_DELETED`: Xóa bài viết -> Xóa feed items trong MariaDB & Redis, xóa khỏi `post_cache`, đồng thời phát event lên `media-cleanup-topic`.
+- `POST_DELETED`: Xóa bài viết -> Xóa feed items trong MariaDB, xóa khỏi `post_cache`, đồng thời phát event lên `media-cleanup-topic`.
 
 ---
 
@@ -108,6 +104,6 @@ Các loại `eventType`:
                 auto-commit-offset: false
   ```
 - **Hành vi khi có lỗi**:
-  1. Khi việc xử lý event thất bại (ví dụ: mất kết nối tạm thời sang User Service hoặc Redis), consumer thử lại tối đa 3 lần với khoảng thời gian chờ tăng dần (1s -> 2s -> 4s).
+  1. Khi việc xử lý event thất bại (ví dụ: mất kết nối tạm thời sang User Service hoặc MariaDB), consumer thử lại tối đa 3 lần với khoảng thời gian chờ tăng dần (1s -> 2s -> 4s).
   2. Nếu sau 3 lần vẫn thất bại, message tự động được đẩy vào Dead Letter Topic (`post-events-feed-dlt`) để tránh làm tắc nghẽn offset của partition chính.
   3. Quản trị viên có thể kiểm tra các message lỗi trên DLQ thông qua **Kafka UI** tại `http://localhost:8088`.

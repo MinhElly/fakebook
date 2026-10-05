@@ -13,10 +13,9 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.PageRequest;
-import org.springframework.data.redis.core.StringRedisTemplate;
 
 @IntegrationTest
-class UserFeedCacheIT {
+class UserFeedDatabaseIT {
 
     @Autowired
     private UserFeedService userFeedService;
@@ -24,21 +23,32 @@ class UserFeedCacheIT {
     @Autowired
     private FeedItemRepository feedItemRepository;
 
-    @Autowired
-    private StringRedisTemplate redisTemplate;
 
+    @Autowired
+    private org.springframework.jdbc.core.JdbcTemplate jdbc;
+
+    @Test
+    void existingTimelineIndexSupportsTheReadQuery() {
+        testUserId = UUID.randomUUID();
+        feedItemRepository.saveAndFlush(feedItem(testUserId, UUID.randomUUID(), Instant.now()));
+        var indexes = jdbc.queryForList("SHOW INDEX FROM feed_items WHERE Key_name = 'idx_feed_items_user_created_post'");
+        assertThat(indexes).extracting(row -> row.get("Column_name")).containsExactly("user_id", "created_at", "post_id");
+        var plan = jdbc.queryForList(
+            "EXPLAIN SELECT * FROM feed_items WHERE user_id = ? ORDER BY created_at DESC, post_id DESC LIMIT 20",
+            testUserId.toString());
+        org.slf4j.LoggerFactory.getLogger(getClass()).info("Feed timeline EXPLAIN: {}", plan);
+        assertThat(plan).hasSize(1);
+        assertThat(plan.getFirst().get("possible_keys").toString()).contains("idx_feed_items_user_created_post");
+    }
     private UUID testUserId;
 
     @AfterEach
     void cleanUp() {
         feedItemRepository.deleteAll();
-        if (testUserId != null) {
-            redisTemplate.delete(feedKey(testUserId));
-        }
     }
 
     @Test
-    void cacheMissWarmsRedisAndTheNextReadPreservesTimelineOrder() {
+    void repeatedReadsPreserveDatabaseTimelineOrder() {
         testUserId = UUID.randomUUID();
         UUID lowerPostId = UUID.fromString("00000000-0000-0000-0000-000000000001");
         UUID higherPostId = UUID.fromString("ffffffff-ffff-ffff-ffff-ffffffffffff");
@@ -49,24 +59,44 @@ class UserFeedCacheIT {
                 feedItem(testUserId, higherPostId, createdAt)
             )
         );
-        redisTemplate.delete(feedKey(testUserId));
 
         var firstRead = userFeedService.getUserFeed(testUserId, PageRequest.of(0, 20));
 
         assertThat(firstRead.getContent()).extracting(FeedItemDTO::getPostId).containsExactly(higherPostId, lowerPostId);
-        assertThat(redisTemplate.opsForZSet().reverseRange(feedKey(testUserId), 0, -1))
-            .containsExactly(higherPostId.toString(), lowerPostId.toString());
 
         var secondRead = userFeedService.getUserFeed(testUserId, PageRequest.of(0, 20));
 
         assertThat(secondRead.getContent()).extracting(FeedItemDTO::getPostId).containsExactly(higherPostId, lowerPostId);
+    }
+    @Test
+    void databaseReadReturnsAllProjectedItems() {
+        testUserId = UUID.randomUUID();
+        UUID olderPostId = UUID.randomUUID();
+        UUID newerPostId = UUID.randomUUID();
+        Instant olderTime = Instant.parse("2026-10-05T01:00:00Z");
+        Instant newerTime = olderTime.plusSeconds(60);
+
+        feedItemRepository.saveAllAndFlush(
+            List.of(
+                feedItem(testUserId, olderPostId, olderTime),
+                feedItem(testUserId, newerPostId, newerTime)
+            )
+        );
+
+
+
+        var result = userFeedService.getUserFeed(
+            testUserId,
+            PageRequest.of(0, 20)
+        );
+
+        assertThat(result.getContent())
+            .extracting(FeedItemDTO::getPostId)
+            .containsExactly(newerPostId, olderPostId);
     }
 
     private FeedItem feedItem(UUID userId, UUID postId, Instant createdAt) {
         return new FeedItem().userId(userId).postId(postId).createdAt(createdAt);
     }
 
-    private String feedKey(UUID userId) {
-        return "feed:user:" + userId;
-    }
 }

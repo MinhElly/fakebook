@@ -2,7 +2,6 @@ package com.minh.fakebook.feed;
 
 import com.minh.fakebook.feed.config.AsyncSyncConfiguration;
 import com.minh.fakebook.feed.config.DatabaseTestcontainer;
-import com.minh.fakebook.feed.config.RedisTestContainer;
 import com.minh.fakebook.feed.config.TestSecurityConfiguration;
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
@@ -22,7 +21,6 @@ import org.springframework.boot.test.context.SpringBootTest;
         TestSecurityConfiguration.class,
         com.minh.fakebook.feed.config.JacksonHibernateConfiguration.class,
         DatabaseTestcontainer.class,
-        RedisTestContainer.class,
     }
 )
 public @interface IntegrationTest {}

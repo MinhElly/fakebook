@@ -5,11 +5,8 @@ import com.minh.fakebook.feed.repository.FeedItemRepository;
 import com.minh.fakebook.feed.client.dto.FeedPostReferenceDTO;
 import java.util.List;
 import java.util.UUID;
-import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.transaction.support.TransactionSynchronization;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 @Service
 public class FriendshipFeedProjectionService {
@@ -17,11 +14,9 @@ public class FriendshipFeedProjectionService {
     private static final String FRIENDS_VISIBILITY = "FRIENDS";
 
     private final FeedItemRepository feedItemRepository;
-    private final StringRedisTemplate redisTemplate;
 
-    public FriendshipFeedProjectionService(FeedItemRepository feedItemRepository, StringRedisTemplate redisTemplate) {
+    public FriendshipFeedProjectionService(FeedItemRepository feedItemRepository) {
         this.feedItemRepository = feedItemRepository;
-        this.redisTemplate = redisTemplate;
     }
 
     @Transactional
@@ -38,30 +33,12 @@ public class FriendshipFeedProjectionService {
             );
         }
 
-        runAfterCommit(() -> {
-            for (FeedPostReferenceDTO post : posts) {
-                redisTemplate
-                    .opsForZSet()
-                    .add(feedKey(recipientId), post.postId().toString(), post.createdAt().toEpochMilli());
-            }
-            redisTemplate.opsForZSet().removeRange(feedKey(recipientId), 0, -501);
-        });
     }
 
     @Transactional
     public void removeFriendsPosts(UUID recipientId, UUID authorId) {
-        List<FeedItem> items = feedItemRepository.findByUserIdAndAuthorIdAndVisibility(
-            recipientId,
-            authorId,
-            FRIENDS_VISIBILITY
-        );
         feedItemRepository.deleteByUserIdAndAuthorIdAndVisibility(recipientId, authorId, FRIENDS_VISIBILITY);
 
-        runAfterCommit(() -> {
-            for (FeedItem item : items) {
-                redisTemplate.opsForZSet().remove(feedKey(recipientId), item.getPostId().toString());
-            }
-        });
     }
 
     private void validatePost(FeedPostReferenceDTO post, UUID expectedAuthorId) {
@@ -77,22 +54,4 @@ public class FriendshipFeedProjectionService {
         }
     }
 
-    private void runAfterCommit(Runnable update) {
-        if (TransactionSynchronizationManager.isSynchronizationActive()) {
-            TransactionSynchronizationManager.registerSynchronization(
-                new TransactionSynchronization() {
-                    @Override
-                    public void afterCommit() {
-                        update.run();
-                    }
-                }
-            );
-        } else {
-            update.run();
-        }
-    }
-
-    private String feedKey(UUID userId) {
-        return "feed:user:" + userId;
-    }
 }

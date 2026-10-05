@@ -125,20 +125,20 @@ Tài liệu này đặc tả chi tiết từng microservice trong hệ thống F
 ## 6. Feed Service (`feedService`)
 
 - **Trách nhiệm**: Xây dựng và phân phối bảng tin cá nhân hóa (Timeline) cho người dùng. Triển khai mô hình **Fan-out on Write**: khi nhận event bài viết mới, tự động phân phối bài viết vào danh sách Feed của bạn bè và followers.
-- **Framework / Runtime**: Spring Boot, Spring Data JPA, Spring Data Redis, OpenFeign, Spring Cloud Stream Kafka.
+- **Framework / Runtime**: Spring Boot, Spring Data JPA, OpenFeign, Spring Cloud Stream Kafka.
 - **Port mặc định**: `8086` (Consul discovery ID: `feedservice`)
 - **Database**: MariaDB schema `feed_service` (Local port 3307 / Staging AWS RDS TLS)
 - **Entities**: `FeedItem`.
 - **Cache / Storage**:
-  - **Redis Sorted Sets (ZSet)**: Khóa `feed:user:{userId}`, member là `postId`, score là `createdAt (epoch millisecond)`. Tự động cắt tỉa giữ lại tối đa 500 bài viết mới nhất (`removeRange(key, 0, -501)`).
+  - MariaDB projection `feed_items`; không còn Redis timeline hoặc Hibernate L2.
 - **Kafka**:
   - **Produces**: Không có.
   - **Consumes**:
-    - `post-events` (binding: `processPostEvent-in-0`, group: `feed-service-post-sync`, DLQ: `post-events-feed-dlt`): Tiêu thụ event tạo bài, cập nhật quyền riêng tư hoặc xóa bài viết để cập nhật đồng thời MariaDB và Redis.
+    - `post-events` (binding: `processPostEvent-in-0`, group: `feed-service-post-sync`, DLQ: `post-events-feed-dlt`): Tiêu thụ event tạo bài, cập nhật quyền riêng tư hoặc xóa bài viết để cập nhật projection MariaDB.
 - **Main APIs**:
-  - `GET /api/feed/me`: Lấy bảng tin của người dùng hiện tại (Redis ZSet, warm/fallback từ MariaDB/Post Service khi cần).
+  - `GET /api/feed/me`: Lấy bảng tin của người dùng hiện tại (đọc projection MariaDB, thứ tự created_at DESC, post_id DESC).
   - CRUD `/api/feed-items`: Chỉ `ROLE_ADMIN`, không phải contract frontend.
-- **Dependencies**: User Service (qua `UserServiceClient` để lấy bạn bè/followers), Consul, Kafka, Redis, MariaDB.
+- **Dependencies**: User Service (qua `UserServiceClient` để lấy bạn bè/followers), Consul, Kafka, MariaDB.
 - **Authentication**: OAuth2 Resource Server (Bearer JWT). Khi tiêu thụ Kafka không có user context, sử dụng `TokenRelayRequestInterceptor` với luồng OAuth2 Client Credentials (client ID `internal`) để gọi sang User Service.
 - **Health Check**: `GET http://localhost:8086/management/health`
 

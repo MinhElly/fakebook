@@ -30,7 +30,7 @@ flowchart TD
         
         I --> K[FeedService gọi Feign sang UserService lấy Friends & Followers]
         K --> L[Ghi FeedItem vào DB feedservice]
-        L --> M[Đẩy postId vào Redis ZSet feed:user:{id}]
+        L --> M[Commit projection MariaDB]
         
         J --> N[CommentService ghi hoặc cập nhật bản ghi post_cache]
     end

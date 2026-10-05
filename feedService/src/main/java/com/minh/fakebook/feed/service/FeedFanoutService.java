@@ -13,14 +13,11 @@ import java.util.Set;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.transaction.support.TransactionSynchronization;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 /**
- * Service for fanning out post events to users' news feeds (Redis ZSet + MariaDB).
+ * Service for projecting post events into users' MariaDB news feeds.
  */
 @Service
 public class FeedFanoutService {
@@ -28,16 +25,13 @@ public class FeedFanoutService {
     private static final Logger LOG = LoggerFactory.getLogger(FeedFanoutService.class);
 
     private final UserServiceClient userServiceClient;
-    private final StringRedisTemplate redisTemplate;
     private final FeedItemRepository feedItemRepository;
 
     public FeedFanoutService(
         UserServiceClient userServiceClient,
-        StringRedisTemplate redisTemplate,
         FeedItemRepository feedItemRepository
     ) {
         this.userServiceClient = userServiceClient;
-        this.redisTemplate = redisTemplate;
         this.feedItemRepository = feedItemRepository;
     }
 
@@ -62,7 +56,6 @@ public class FeedFanoutService {
             );
         }
 
-        updateRedisAfterCommit(targetUserIds, event.id(), createdAt);
 
         LOG.info("Fan-out for postId: {} completed. Processed {} recipients", event.id(), targetUserIds.size());
     }
@@ -73,12 +66,8 @@ public class FeedFanoutService {
     @Transactional
     public void processPostDeleted(UUID postId) {
         LOG.debug("Removing feed items for deleted postId: {}", postId);
-        List<FeedItem> items = feedItemRepository.findByPostId(postId);
-        Set<UUID> recipientIds = new LinkedHashSet<>();
-        items.forEach(item -> recipientIds.add(item.getUserId()));
         feedItemRepository.deleteByPostId(postId);
-        removeFromRedisAfterCommit(recipientIds, postId);
-        LOG.info("Successfully deleted DB and Redis feed items for post {}", postId);
+        LOG.info("Successfully deleted database feed items for post {}", postId);
     }
 
     /**
@@ -94,9 +83,6 @@ public class FeedFanoutService {
         }
 
         Set<UUID> targetUserIds = resolveTargetUserIds(event.authorId(), event.visibility());
-        List<FeedItem> existingItems = feedItemRepository.findByPostId(event.id());
-        Set<UUID> previousRecipientIds = new LinkedHashSet<>();
-        existingItems.forEach(item -> previousRecipientIds.add(item.getUserId()));
 
         feedItemRepository.deleteByPostId(event.id());
         Instant updatedAt = event.updatedAt() != null ? event.updatedAt() : Instant.now();
@@ -111,7 +97,6 @@ public class FeedFanoutService {
             );
         }
 
-        replaceRedisAfterCommit(previousRecipientIds, targetUserIds, event.id(), updatedAt);
     }
 
     private Set<UUID> resolveTargetUserIds(UUID authorId, String visibility) {
@@ -132,60 +117,6 @@ public class FeedFanoutService {
         }
 
         return targetUserIds;
-    }
-
-    private void updateRedisAfterCommit(Set<UUID> recipientIds, UUID postId, Instant createdAt) {
-        runAfterCommit(() -> updateRedis(recipientIds, postId, createdAt));
-    }
-
-    private void removeFromRedisAfterCommit(Set<UUID> recipientIds, UUID postId) {
-        runAfterCommit(() -> removeFromRedis(recipientIds, postId));
-    }
-
-    private void replaceRedisAfterCommit(
-        Set<UUID> previousRecipientIds,
-        Set<UUID> targetRecipientIds,
-        UUID postId,
-        Instant updatedAt
-    ) {
-        runAfterCommit(() -> {
-            removeFromRedis(previousRecipientIds, postId);
-            updateRedis(targetRecipientIds, postId, updatedAt);
-        });
-    }
-
-    private void runAfterCommit(Runnable update) {
-        if (TransactionSynchronizationManager.isSynchronizationActive()) {
-            TransactionSynchronizationManager.registerSynchronization(
-                new TransactionSynchronization() {
-                    @Override
-                    public void afterCommit() {
-                        update.run();
-                    }
-                }
-            );
-        } else {
-            update.run();
-        }
-    }
-
-    private void removeFromRedis(Set<UUID> recipientIds, UUID postId) {
-        for (UUID recipientId : recipientIds) {
-            redisTemplate.opsForZSet().remove(feedKey(recipientId), postId.toString());
-        }
-    }
-
-    private void updateRedis(Set<UUID> recipientIds, UUID postId, Instant createdAt) {
-        double score = createdAt.toEpochMilli();
-        for (UUID recipientId : recipientIds) {
-            String redisKey = feedKey(recipientId);
-            redisTemplate.opsForZSet().add(redisKey, postId.toString(), score);
-            redisTemplate.opsForZSet().removeRange(redisKey, 0, -501);
-        }
-    }
-
-    private String feedKey(UUID userId) {
-        return "feed:user:" + userId;
     }
 
 }
