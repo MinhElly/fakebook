@@ -1,24 +1,31 @@
 spring:
   cloud:
     function:
-      definition: kafkaConsumer;reactionEventConsumer;friendRequestEventConsumer;commentEventConsumer
+      definition: reactionEventConsumer;friendRequestEventConsumer;commentEventConsumer
     stream:
       kafka:
         binder:
           replicationFactor: 1
           auto-create-topics: true
           brokers: localhost:9092
+        bindings:
+          reactionEventConsumer-in-0:
+            consumer:
+              enable-dlq: true
+              dlq-name: post-reaction-events-gateway-dlt
+          friendRequestEventConsumer-in-0:
+            consumer:
+              enable-dlq: true
+              dlq-name: friend-request-events-gateway-dlt
+          commentEventConsumer-in-0:
+            consumer:
+              enable-dlq: true
+              dlq-name: comment-events-gateway-dlt
       bindings:
-        binding-out-0:
-          content-type: text/plain
-          group: gateway
-        kafkaConsumer-in-0:
-          destination: sse-topic
-          content-type: text/plain
-          group: gateway
         reactionEventConsumer-in-0:
           destination: post-reaction-events
           content-type: application/json
+          group: gateway
           consumer:
             max-attempts: 3
             back-off-initial-interval: 1000
@@ -26,6 +33,7 @@ spring:
         friendRequestEventConsumer-in-0:
           destination: friend-request-events
           content-type: application/json
+          group: gateway
           consumer:
             max-attempts: 3
             back-off-initial-interval: 1000

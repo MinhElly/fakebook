@@ -17,7 +17,7 @@ public class FriendRequestEventConsumerConfiguration {
     public Consumer<FriendRequestGatewayEvent> friendRequestEventConsumer(RealtimeEventHub eventHub) {
         return event -> {
             if (event == null || !"FRIEND_REQUEST_CREATED".equals(event.eventType()) || event.data() == null) {
-                return;
+                throw new IllegalArgumentException("Invalid FriendRequest event payload");
             }
             if (
                 event.eventId() == null ||
@@ -26,7 +26,7 @@ public class FriendRequestEventConsumerConfiguration {
                 event.data().receiverId() == null
             ) {
                 LOG.warn("Incomplete friend request realtime event {}", event.eventId());
-                return;
+                throw new IllegalArgumentException("Invalid FriendRequest event payload");
             }
 
             eventHub.publish(

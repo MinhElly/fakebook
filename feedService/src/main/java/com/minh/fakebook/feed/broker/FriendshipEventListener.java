@@ -28,7 +28,7 @@ public class FriendshipEventListener implements Consumer<FriendshipUpdatedEvent>
         switch (event.eventType()) {
             case "FRIENDSHIP_CREATED" -> friendshipFeedService.processCreated(userId, friendId);
             case "FRIENDSHIP_DELETED" -> friendshipFeedService.processDeleted(userId, friendId);
-            default -> LOG.warn("Ignoring unsupported friendship event type {} for event {}", event.eventType(), event.eventId());
+            default -> throw new IllegalArgumentException("Unsupported friendship event type: " + event.eventType());
         }
     }
 

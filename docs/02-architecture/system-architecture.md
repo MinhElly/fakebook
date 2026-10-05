@@ -40,7 +40,7 @@ flowchart TD
     end
 
     subgraph Event_Streaming["Asynchronous Messaging Tier"]
-        Kafka["Apache Kafka Native (:9092 Local / :29092)<br/>Topics: post-events, media-cleanup-topic,<br/>friendship-events-topic, DLQ"]
+        Kafka["Apache Kafka Native (:9092 Local / :29092)<br/>Topics: post-events, media-cleanup-topic,<br/>friendship-events, DLQ"]
         KafkaUI["Kafka UI (:8088)<br/>Topic & Consumer Management"]
     end
 
@@ -88,7 +88,7 @@ flowchart TD
     %% Kafka Streaming
     PostService -->|"Publish: post-events"| Kafka
     PostService -->|"Publish: media-cleanup-topic"| Kafka
-    UserService -->|"Publish: friendship-events-topic"| Kafka
+    UserService -->|"Publish: friendship-events"| Kafka
     UserService -->|"Publish: media-cleanup-topic"| Kafka
     Kafka -->|"Consume: post-events"| FeedService
     Kafka -->|"Consume: post-events"| CommentService

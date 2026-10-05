@@ -30,8 +30,7 @@ public class PostEventListener implements Consumer<String> {
     @Override
     public void accept(String payload) {
         if (payload == null || payload.isBlank()) {
-            LOG.warn("Ignoring empty or null post even payload");
-            return;
+            throw new IllegalArgumentException("Post event payload must not be empty");
         }
         LOG.debug("Received post event payload: {}", payload);
         try {
@@ -45,8 +44,7 @@ public class PostEventListener implements Consumer<String> {
             }
 
             if (!root.has("id") || root.get("id").isNull()) {
-                LOG.warn("Ignoring invalid post event payload without 'id': {}", payload);
-                return;
+                throw new IllegalArgumentException("Post event payload requires id");
             }
             UUID postId = UUID.fromString(root.get("id").asString());
             String eventType = eventTypeStr.isEmpty() && root.has("eventType") &&

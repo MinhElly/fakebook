@@ -18,17 +18,17 @@ public class ReactionEventConsumerConfiguration {
     public Consumer<GatewayEventEnvelope> reactionEventConsumer(RealtimeEventHub eventHub) {
         return envelope -> {
             if (envelope == null || !"POST_REACTION_CHANGED".equals(envelope.eventType())) {
-                return;
+                throw new IllegalArgumentException("Invalid Reaction event payload");
             }
             Map<String, Object> data = envelope.data();
             if (data == null) {
                 LOG.warn("Reaction event {} has no data", envelope.eventId());
-                return;
+                throw new IllegalArgumentException("Invalid Reaction event payload");
             }
             Object rawPostId = data.get("postId");
             if (rawPostId == null) {
                 LOG.warn("Reaction event {} has no postId", envelope.eventId());
-                return;
+                throw new IllegalArgumentException("Invalid Reaction event payload");
             }
             try {
                 UUID postId = UUID.fromString(rawPostId.toString());
@@ -44,7 +44,7 @@ public class ReactionEventConsumerConfiguration {
                     )
                 );
             } catch (IllegalArgumentException e) {
-                LOG.warn("Invalid postId in reaction event {}", envelope.eventId());
+                throw new IllegalArgumentException("Invalid postId in event " + envelope.eventId(), e);
             }
         };
     }

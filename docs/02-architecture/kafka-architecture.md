@@ -11,7 +11,7 @@ Tài liệu này đặc tả toàn bộ hệ thống sự kiện bất đồng b
 | **`post-events`** | `postService` | `feedService` | `feed-service-post-sync` | Phân phối bài viết mới vào feed của bạn bè & followers (Fan-out). | **DLQ**: `post-events-feed-dlt`<br/>Max attempts: 3, Backoff: 1000ms (x2.0) |
 | **`post-events`** | `postService` | `commentService` | `comment-service-post-sync` | Đồng bộ dữ liệu bài viết vào bảng `post_cache` cục bộ để validate khi tạo comment. | **DLQ**: `post-events-dlt`<br/>Max attempts: 3 |
 | **`media-cleanup-topic`** | `postService`<br/>`userService` | `mediaService` | `media-service` | Xóa ảnh/video trên Cloudinary và trong database khi bài viết bị xóa hoặc khi user đổi avatar/cover. | Mặc định retry của Spring Cloud Stream |
-| **`friendship-events-topic`** | `userService` | *(Chưa có consumer)* | - | Thông báo trạng thái kết bạn thay đổi (sẵn sàng tích hợp thông báo real-time sau này). | - |
+| **`friendship-events`** | `userService` | *(Chưa có consumer)* | - | Thông báo trạng thái kết bạn thay đổi (sẵn sàng tích hợp thông báo real-time sau này). | - |
 
 ---
 

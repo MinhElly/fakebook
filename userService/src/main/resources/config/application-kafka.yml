@@ -1,7 +1,5 @@
 spring:
   cloud:
-    function:
-      definition: kafkaConsumer
     stream:
       kafka:
         binder:
@@ -10,7 +8,7 @@ spring:
           brokers: localhost:9092
       bindings:
         friendshipEventsOut-out-0:
-          destination: friendship-events-topic
+          destination: friendship-events
           content-type: application/json
         friendRequestEventsOut-out-0:
           destination: friend-request-events
@@ -18,10 +16,3 @@ spring:
         mediaCleanupOut-out-0:
           destination: media-cleanup-topic
           content-type: application/json
-        binding-out-0:
-          content-type: text/plain
-          group: user-service
-        kafkaConsumer-in-0:
-          destination: sse-topic
-          content-type: text/plain
-          group: user-service

@@ -1,7 +1,7 @@
 spring:
   cloud:
     function:
-      definition: processPostEvent;processFriendshipEvent;kafkaConsumer
+      definition: processPostEvent;processFriendshipEvent
     stream:
       kafka:
         binder:
@@ -30,17 +30,10 @@ spring:
             back-off-initial-interval: 1000
             back-off-multiplier: 2.0
         processFriendshipEvent-in-0:
-          destination: friendship-events-topic
+          destination: friendship-events
           content-type: application/json
           group: feed-service-friendship-sync
           consumer:
             max-attempts: 3
             back-off-initial-interval: 1000
             back-off-multiplier: 2.0
-        binding-out-0:
-          content-type: text/plain
-          group: feed-service
-        kafkaConsumer-in-0:
-          destination: sse-topic
-          content-type: text/plain
-          group: feed-service

@@ -1,23 +1,26 @@
 spring:
   cloud:
     function:
-      definition: processMediaCleanup;kafkaConsumer
+      definition: processMediaCleanup
     stream:
       kafka:
         binder:
           replicationFactor: 1
           auto-create-topics: true
           brokers: localhost:9092
+        bindings:
+          processMediaCleanup-in-0:
+            consumer:
+              enable-dlq: true
+              dlq-name: media-cleanup-dlt
+              auto-commit-offset: false
       bindings:
         processMediaCleanup-in-0:
           destination: media-cleanup-topic
           content-type: application/json
           group: media-service
-        binding-out-0:
-          content-type: text/plain
-          group: media-service
-        kafkaConsumer-in-0:
-          destination: sse-topic
-          content-type: text/plain
-          group: media-service
+          consumer:
+            max-attempts: 3
+            back-off-initial-interval: 1000
+            back-off-multiplier: 2.0
 

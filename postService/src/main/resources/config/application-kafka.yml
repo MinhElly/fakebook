@@ -1,7 +1,5 @@
 spring:
   cloud:
-    function:
-      definition: kafkaConsumer
     stream:
       kafka:
         binder:
@@ -15,11 +13,3 @@ spring:
           content-type: application/json
           producer:
             use-native-encoding: true
-        binding-out-0:
-          destination: post-events
-          content-type: text/plain
-          group: post-service
-        kafkaConsumer-in-0:
-          destination: sse-topic
-          content-type: text/plain
-          group: post-service

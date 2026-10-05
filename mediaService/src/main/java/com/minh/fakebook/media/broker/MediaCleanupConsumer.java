@@ -27,6 +27,9 @@ import java.util.function.Consumer;
         public void accept(String payload) {
             try {
                 JsonNode node = objectMapper.readTree(payload);
+                if (node == null || !node.has("mediaId") || node.get("mediaId").isNull()) {
+                    throw new IllegalArgumentException("Media cleanup payload requires mediaId");
+                }
                 if (node.has("mediaId") && !node.get("mediaId").isNull()) {
                     UUID mediaId = UUID.fromString(node.get("mediaId").asString());
                     LOG.info("Received media cleanup event for mediaId: {}",mediaId);

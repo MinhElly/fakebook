@@ -19,17 +19,17 @@ public class CommentEventConsumerConfiguration {
         return envelope -> {
             LOG.info("Received comment event from Kafka: {}", envelope);
             if (envelope == null || !"COMMENT_CHANGED".equals(envelope.eventType())) {
-                return;
+                throw new IllegalArgumentException("Invalid Comment event payload");
             }
             Map<String, Object> data = envelope.data();
             if (data == null) {
                 LOG.warn("Comment event {} has no data", envelope.eventId());
-                return;
+                throw new IllegalArgumentException("Invalid Comment event payload");
             }
             Object rawPostId = data.get("postId");
             if (rawPostId == null) {
                 LOG.warn("Comment event {} has no postId", envelope.eventId());
-                return;
+                throw new IllegalArgumentException("Invalid Comment event payload");
             }
             try {
                 UUID postId = UUID.fromString(rawPostId.toString());
@@ -45,7 +45,7 @@ public class CommentEventConsumerConfiguration {
                     )
                 );
             } catch (IllegalArgumentException e) {
-                LOG.warn("Invalid postId in comment event {}", envelope.eventId());
+                throw new IllegalArgumentException("Invalid postId in event " + envelope.eventId(), e);
             }
         };
     }

@@ -201,6 +201,7 @@ public class MediaService {
             }
         } catch (Exception e) {
             LOG.error("Failed to delete physical media file with key: {}", media.getStorageKey(), e);
+            throw new IllegalStateException("Storage cleanup failed for media " + id, e);
         }
 
         // 2. Mark media status as DELETED

@@ -32,7 +32,7 @@ Tài liệu này đặc tả chi tiết từng microservice trong hệ thống F
 - **Cache**: Redis Cache (`@Cacheable(value = "userProfiles")` trong `UserProfileService`, `FriendshipService`, `FollowService`).
 - **Kafka**:
   - **Produces**:
-    - `friendship-events-topic` (binding: `friendshipEventsOut-out-0`): Phát sinh khi trạng thái kết bạn thay đổi.
+    - `friendship-events` (binding: `friendshipEventsOut-out-0`): Phát sinh khi trạng thái kết bạn thay đổi.
     - `media-cleanup-topic` (binding: `mediaCleanupOut-out-0`): Phát sinh khi avatar/cover cũ được thay thế để MediaService dọn dẹp trên Cloudinary.
   - **Consumes**: Không có consumer trực tiếp (chỉ có probe topic mặc định).
 - **Main APIs**:

@@ -60,6 +60,9 @@ public class CloudinaryStorageServiceImpl implements FileStorageService {
             return;
         }
         Map<?, ?> result = cloudinary.uploader().destroy(storageKey, ObjectUtils.emptyMap());
+        if (!"ok".equals(result.get("result")) && !"not found".equals(result.get("result"))) {
+            throw new IOException("Cloudinary did not confirm deletion for " + storageKey);
+        }
         LOG.debug("Cloudinary destroy result for key {}: {}", storageKey, result);
     }
 }

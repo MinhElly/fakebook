@@ -41,7 +41,7 @@ Các service có Feign (`userService`, `postService`, `commentService`, `feedSer
 |---|---|---|---|
 | Post outbox | `post-events` | Feed | Tạo/cập nhật/xóa projection MariaDB và Redis timeline. |
 | Post outbox | `post-events` | Comment | Đồng bộ `post_cache`. |
-| User outbox | `friendship-events-topic` | Feed | Cập nhật feed projection khi quan hệ bạn bè đổi. |
+| User outbox | `friendship-events` | Feed | Cập nhật feed projection khi quan hệ bạn bè đổi. |
 | User outbox | `friend-request-events` | Gateway | Phát realtime trạng thái lời mời kết bạn. |
 | Post/User outbox | `media-cleanup-topic` | Media | Dọn media không còn được tham chiếu. |
 | Post outbox | `post-reaction-events` | Gateway | Phát realtime reaction của post. |
