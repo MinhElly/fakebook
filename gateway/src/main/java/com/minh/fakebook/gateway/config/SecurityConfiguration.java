@@ -4,17 +4,13 @@ import static org.springframework.security.config.Customizer.withDefaults;
 import static org.springframework.security.oauth2.core.oidc.StandardClaimNames.PREFERRED_USERNAME;
 import static org.springframework.security.web.server.util.matcher.ServerWebExchangeMatchers.pathMatchers;
 
-import com.github.benmanes.caffeine.cache.Cache;
-import com.github.benmanes.caffeine.cache.Caffeine;
 import com.minh.fakebook.gateway.security.AuthoritiesConstants;
 import com.minh.fakebook.gateway.security.SecurityUtils;
 import com.minh.fakebook.gateway.security.oauth2.AudienceValidator;
 import com.minh.fakebook.gateway.web.filter.SpaWebFilter;
-import java.time.Duration;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.function.Consumer;
 import org.springframework.beans.factory.annotation.Value;
@@ -69,14 +65,6 @@ public class SecurityConfiguration {
     private String issuerUri;
 
     private final ReactiveClientRegistrationRepository clientRegistrationRepository;
-
-    // See https://github.com/jhipster/generator-jhipster/issues/18868
-    // We don't use a distributed cache or the user selected cache implementation here on purpose
-    private final Cache<String, Mono<Jwt>> users = Caffeine.newBuilder()
-        .maximumSize(10_000)
-        .expireAfterWrite(Duration.ofHours(1))
-        .recordStats()
-        .build();
 
     public SecurityConfiguration(ReactiveClientRegistrationRepository clientRegistrationRepository, JHipsterProperties jHipsterProperties) {
         this.clientRegistrationRepository = clientRegistrationRepository;
@@ -201,7 +189,6 @@ public class SecurityConfiguration {
             });
         };
     }
-
     @Bean
     ReactiveJwtDecoder jwtDecoder(ReactiveClientRegistrationRepository registrations) {
         Mono<ClientRegistration> clientRegistration = registrations.findByRegistrationId("oidc");
@@ -236,9 +223,8 @@ public class SecurityConfiguration {
                 if (jwt.hasClaim("given_name") && jwt.hasClaim("family_name")) {
                     return Mono.just(jwt);
                 }
-                // Get user info from `users` cache if present
-                return Optional.ofNullable(users.getIfPresent(jwt.getSubject())).orElseGet(() ->
-                    WebClient.create()
+                // Enrich the current validated token; never reuse another token for this subject.
+                return WebClient.create()
                         .get()
                         .uri(userInfoUri)
                         .headers(headers -> headers.setBearerAuth(token))
@@ -267,11 +253,7 @@ public class SecurityConfiguration {
                                 })
                                 .claims(claims -> claims.putAll(jwt.getClaims()))
                                 .build()
-                        )
-                        // Retrieve user info from OAuth provider if not already loaded
-                        // Put user info into the `users` cache
-                        .doOnNext(newJwt -> users.put(jwt.getSubject(), Mono.just(newJwt)))
-                );
+                        );
             }
         };
     }

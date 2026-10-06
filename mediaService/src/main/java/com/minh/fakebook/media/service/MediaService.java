@@ -276,6 +276,8 @@ public class MediaService {
 
         } catch (AccessDeniedException | IllegalArgumentException e) {
             throw e;
+        } catch (StorageServiceUnavailableException e) {
+            throw e;
         } catch (Exception e) {
             LOG.error("Failed to upload file", e);
             throw new RuntimeException("Error: Could not upload file.", e);

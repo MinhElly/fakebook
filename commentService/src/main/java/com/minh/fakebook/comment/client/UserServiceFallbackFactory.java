@@ -14,8 +14,15 @@ public class UserServiceFallbackFactory implements FallbackFactory<UserServiceCl
     @Override
     public UserServiceClient create(Throwable cause) {
         return (userId1, userId2) -> {
-            LOG.error("User Service unavailable while checking friendship between {} and {}", userId1, userId2, cause);
-            throw new DownstreamServiceUnavailableException("User Service", "checking friendship", cause);
+            RuntimeException failure = DownstreamFailureMapper.map("User Service", "checking friendship", cause);
+            if (failure instanceof org.springframework.web.server.ResponseStatusException) {
+                LOG.debug("User Service rejected friendship check between {} and {}", userId1, userId2);
+            } else if (DownstreamFailureMapper.isCircuitOpen(cause)) {
+                LOG.warn("User Service Circuit Breaker is OPEN while checking friendship between {} and {}", userId1, userId2);
+            } else {
+                LOG.error("User Service unavailable while checking friendship between {} and {}", userId1, userId2, cause);
+            }
+            throw failure;
         };
     }
 }

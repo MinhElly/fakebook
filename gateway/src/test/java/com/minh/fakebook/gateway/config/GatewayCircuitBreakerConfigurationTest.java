@@ -4,11 +4,15 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import java.time.Duration;
 import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.context.properties.bind.Bindable;
 import org.springframework.boot.context.properties.bind.Binder;
+import org.springframework.boot.context.properties.source.MapConfigurationPropertySource;
 import org.springframework.boot.test.context.ConfigDataApplicationContextInitializer;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
+import org.springframework.cloud.gateway.filter.factory.SpringCloudCircuitBreakerFilterFactory;
+import org.springframework.expression.spel.standard.SpelExpressionParser;
 
 class GatewayCircuitBreakerConfigurationTest {
 
@@ -31,8 +35,20 @@ class GatewayCircuitBreakerConfigurationTest {
                 .isEqualTo("CircuitBreaker");
             assertThat(environment.getProperty(GATEWAY_PREFIX + ".discovery.locator.filters[0].args.name"))
                 .isEqualTo("serviceId");
+            assertThat(environment.getProperty(GATEWAY_PREFIX + ".discovery.locator.filters[0].args.statusCodes"))
+                .isEqualTo("'500,502,503,504'");
             assertThat(environment.getProperty(GATEWAY_PREFIX + ".discovery.locator.filters[0].args.resumeWithoutError"))
-                .isEqualTo("'true'");
+                .isEqualTo("'false'");
+            String statusCodesExpression = environment.getProperty(
+                GATEWAY_PREFIX + ".discovery.locator.filters[0].args.statusCodes"
+            );
+            String evaluatedStatusCodes = new SpelExpressionParser().parseExpression(statusCodesExpression).getValue(String.class);
+            var filterConfig = new Binder(
+                new MapConfigurationPropertySource(Map.of("circuit.statusCodes", evaluatedStatusCodes))
+            )
+                .bind("circuit", Bindable.of(SpringCloudCircuitBreakerFilterFactory.Config.class))
+                .orElseThrow(() -> new IllegalStateException("Gateway status codes cannot be bound"));
+            assertThat(filterConfig.getStatusCodes()).containsExactlyInAnyOrder("500", "502", "503", "504");
             assertThat(environment.getProperty(GATEWAY_PREFIX + ".discovery.locator.filters[1]"))
                 .isEqualTo("StripPrefix=2");
         });

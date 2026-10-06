@@ -14,8 +14,15 @@ public class MediaServiceClientFallbackFactory implements FallbackFactory<MediaS
     @Override
     public MediaServiceClient create(Throwable cause) {
         return mediaId -> {
-            LOG.error("Media Service unavailable while validating media {}", mediaId, cause);
-            throw new DownstreamServiceUnavailableException("Media Service", "validating media " + mediaId, cause);
+            RuntimeException failure = DownstreamFailureMapper.map("Media Service", "validating media " + mediaId, cause);
+            if (failure instanceof org.springframework.web.server.ResponseStatusException) {
+                LOG.debug("Media Service rejected validation request for media {}", mediaId);
+            } else if (DownstreamFailureMapper.isCircuitOpen(cause)) {
+                LOG.warn("Media Service Circuit Breaker is OPEN while validating media {}", mediaId);
+            } else {
+                LOG.error("Media Service unavailable while validating media {}", mediaId, cause);
+            }
+            throw failure;
         };
     }
 }

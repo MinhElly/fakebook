@@ -28,7 +28,12 @@ public class UserServiceFallbackFactory implements FallbackFactory<UserServiceCl
     }
 
     private UserServiceUnavailableException unavailable(String operation, UUID userId, Throwable cause) {
-        LOG.error("User Service unavailable during {} lookup for user {}", operation, userId, cause);
+        FeignFailureHandler.rethrowClientError(cause);
+        if (FeignFailureHandler.isCircuitOpen(cause)) {
+            LOG.warn("User Service Circuit Breaker is OPEN during {} lookup for user {}", operation, userId);
+        } else {
+            LOG.error("User Service unavailable during {} lookup for user {}", operation, userId, cause);
+        }
         return new UserServiceUnavailableException(
             "User Service unavailable during " + operation + " lookup for user " + userId,
             cause

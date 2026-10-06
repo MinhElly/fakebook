@@ -18,7 +18,12 @@ public class PostServiceFallbackFactory implements FallbackFactory<PostServiceCl
         return new PostServiceClient() {
             @Override
             public List<FeedPostReferenceDTO> getRecentFriendsPosts(UUID authorId, int limit) {
-                LOG.error("Post Service unavailable during friendship feed backfill for author {}", authorId, cause);
+                FeignFailureHandler.rethrowClientError(cause);
+                if (FeignFailureHandler.isCircuitOpen(cause)) {
+                    LOG.warn("Post Service Circuit Breaker is OPEN during friendship feed backfill for author {}", authorId);
+                } else {
+                    LOG.error("Post Service unavailable during friendship feed backfill for author {}", authorId, cause);
+                }
                 throw new PostServiceUnavailableException(
                     "Post Service unavailable during friendship feed backfill for author " + authorId,
                     cause

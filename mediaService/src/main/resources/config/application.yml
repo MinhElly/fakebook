@@ -24,6 +24,22 @@ springdoc:
   api-docs:
     enabled: false
 ---
+resilience4j:
+  circuitbreaker:
+    configs:
+      default:
+        sliding-window-type: COUNT_BASED
+        sliding-window-size: 5
+        minimum-number-of-calls: 5
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 10s
+        permitted-number-of-calls-in-half-open-state: 2
+        automatic-transition-from-open-to-half-open-enabled: true
+        register-health-indicator: false
+    instances:
+      cloudinary:
+        base-config: default
+
 management:
   endpoints:
     web:
@@ -38,7 +54,10 @@ management:
           - jhiopenapigroups
           - logfile
           - loggers
+          - metrics
           - prometheus
+          - circuitbreakers
+          - circuitbreakerevents
           - threaddump
           - liquibase
   endpoint:

@@ -151,7 +151,8 @@ spring:
                 - name: CircuitBreaker
                   args:
                     name: serviceId
-                    resumeWithoutError: "'true'"
+                    statusCodes: "'500,502,503,504'"
+                    resumeWithoutError: "'false'"
                 - StripPrefix=2
           httpclient:
             connect-timeout: 1500

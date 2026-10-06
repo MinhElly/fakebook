@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Fakebook detailed architecture and authorization</title>
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&amp;family=Inter:wght@400;500;600;700&amp;family=Geist+Mono:wght@400;500;600&amp;display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --paper: #f0f2f5;
+      --paper-2: #e4e6eb;
+      --surface: #ffffff;
+      --ink: #1c1e21;
+      --muted: #65676b;
+      --soft: #8a8d91;
+      --rule: rgba(28,30,33,.14);
+      --accent: #1877f2;
+      --accent-tint: rgba(24,119,242,.08);
+      --security: #b85450;
+      --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+      --font-serif: 'Instrument Serif', Georgia, serif;
+      --font-mono: 'Geist Mono', ui-monospace, monospace;
+    }
+    body { background: var(--paper); color: var(--ink); font-family: var(--font-sans); padding: 3rem 2rem 5rem; }
+    main { width: 100%; max-width: 1280px; min-width: 0; margin: 0 auto; }
+    .eyebrow { color: var(--muted); font: 500 .66rem/1 var(--font-mono); letter-spacing: .18em; text-transform: uppercase; margin-bottom: .5rem; }
+    h1 { font: 400 clamp(2rem, 3vw, 3rem)/1.05 var(--font-serif); letter-spacing: -.025em; margin-bottom: .5rem; }
+    .dek { color: var(--muted); max-width: 780px; line-height: 1.6; margin-bottom: 3rem; }
+    section { margin-top: 3.5rem; }
+    section:first-of-type { margin-top: 0; }
+    h2 { font: 400 1.8rem/1.15 var(--font-serif); margin-bottom: .4rem; }
+    .section-note { color: var(--muted); line-height: 1.55; margin-bottom: 1.25rem; max-width: 900px; }
+    .diagram-container { width: 100%; overflow-x: auto; }
+    svg { width: 100%; min-width: 1280px; display: block; }
+    .facts { display: grid; grid-template-columns: 1.15fr .95fr .9fr; gap: 1rem; margin-top: 1.25rem; }
+    .fact { background: var(--surface); border: 1px solid var(--rule); border-radius: 6px; padding: 1rem 1.1rem; }
+    .fact h3 { font-size: .9rem; margin-bottom: .45rem; }
+    .fact p, .fact li { color: var(--muted); font-size: .82rem; line-height: 1.55; }
+    .fact ul { padding-left: 1.1rem; }
+    footer { margin-top: 3rem; border-top: 1px solid var(--rule); padding-top: 1rem; color: var(--muted); font: 400 .7rem/1.5 var(--font-mono); }
+    @media (max-width: 760px) { .facts { grid-template-columns: 1fr; } }
+    @media print {
+      body { padding: 1rem; }
+      .diagram-container { overflow-x: visible; }
+      svg { min-width: 0; }
+      section { break-inside: avoid; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <p class="eyebrow">Architecture · Authorization · Data flow</p>
+    <h1>Fakebook, request to persistence</h1>
+    <p class="dek">Three source-grounded views explain how the React client authenticates, how the gateway and services enforce identity, how synchronous service calls are relayed, and how durable data and asynchronous events move through the system.</p>
+
+    <section>
+      <p class="eyebrow">01 · Sequence</p>
+      <h2>Authentication and an authorized API request</h2>
+      <p class="section-note">Keycloak issues the JWT; the frontend refreshes and attaches it; the gateway validates and routes it; the target service validates it again and applies endpoint and ownership rules.</p>
+      <div class="diagram-container">
+        <svg viewBox="0 0 1280 720" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="auth-flow-title auth-flow-desc">
+          <title id="auth-flow-title">Fakebook OAuth and JWT authorization flow</title>
+          <desc id="auth-flow-desc">A sequence showing Keycloak login, JWT attachment, gateway validation, token relay, downstream authorization, persistence access, rejection, and realtime SSE delivery.</desc>
+          <defs>
+            <marker id="auth-call" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0,8 3,0 6" fill="#1877f2"/></marker>
+            <marker id="auth-return" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0,8 3,0 6" fill="#65676b"/></marker>
+            <marker id="auth-success" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0,8 3,0 6" fill="#1877f2"/></marker>
+            <marker id="auth-open" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polyline points="0 0,8 3,0 6" fill="none" stroke="#65676b" stroke-width="1.2"/></marker>
+          </defs>
+          <rect width="1280" height="720" fill="#f0f2f5"/>
+
+          <!-- Lifelines -->
+          <line x1="120" y1="104" x2="120" y2="648" stroke="rgba(28,30,33,.20)" stroke-width="1" stroke-dasharray="3,3"/>
+          <line x1="360" y1="104" x2="360" y2="648" stroke="rgba(28,30,33,.20)" stroke-width="1" stroke-dasharray="3,3"/>
+          <line x1="620" y1="104" x2="620" y2="648" stroke="rgba(28,30,33,.20)" stroke-width="1" stroke-dasharray="3,3"/>
+          <line x1="880" y1="104" x2="880" y2="648" stroke="rgba(28,30,33,.20)" stroke-width="1" stroke-dasharray="3,3"/>
+          <line x1="1120" y1="104" x2="1120" y2="648" stroke="rgba(28,30,33,.20)" stroke-width="1" stroke-dasharray="3,3"/>
+
+          <!-- Activation bars -->
+          <rect x="356" y="136" width="8" height="48" fill="rgba(28,30,33,.06)" stroke="#65676b" stroke-width=".8"/>
+          <rect x="616" y="216" width="8" height="388" fill="rgba(24,119,242,.06)" stroke="#1877f2" stroke-width=".8"/>
+          <rect x="876" y="384" width="8" height="128" fill="rgba(28,30,33,.06)" stroke="#65676b" stroke-width=".8"/>
+          <rect x="1116" y="424" width="8" height="48" fill="rgba(28,30,33,.06)" stroke="#65676b" stroke-width=".8"/>
+
+          <!-- Messages -->
+          <line x1="120" y1="144" x2="360" y2="144" stroke="#1877f2" stroke-width="1.2" marker-end="url(#auth-call)"/>
+          <line x1="360" y1="184" x2="120" y2="184" stroke="#65676b" stroke-width="1" stroke-dasharray="5,4" marker-end="url(#auth-return)"/>
+          <line x1="620" y1="224" x2="360" y2="224" stroke="#65676b" stroke-width="1" marker-end="url(#auth-return)"/>
+          <line x1="360" y1="264" x2="620" y2="264" stroke="#65676b" stroke-width="1" stroke-dasharray="5,4" marker-end="url(#auth-return)"/>
+          <line x1="120" y1="312" x2="620" y2="312" stroke="#1877f2" stroke-width="1.2" marker-end="url(#auth-call)"/>
+
+          <!-- ALT fragment -->
+          <rect x="80" y="340" width="1080" height="276" rx="4" fill="rgba(28,30,33,.02)" stroke="rgba(28,30,33,.22)" stroke-width="1"/>
+          <rect x="80" y="340" width="40" height="16" rx="2" fill="#f0f2f5" stroke="rgba(28,30,33,.22)" stroke-width="1"/>
+          <text x="100" y="352" fill="#65676b" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing=".12em">ALT</text>
+          <text x="132" y="372" fill="#65676b" font-size="8" font-family="'Geist Mono', monospace">[JWT valid + route allowed]</text>
+          <line x1="88" y1="548" x2="1152" y2="548" stroke="rgba(28,30,33,.20)" stroke-width="1" stroke-dasharray="4,3"/>
+          <text x="96" y="572" fill="#65676b" font-size="8" font-family="'Geist Mono', monospace">[invalid token, insufficient role, or forbidden resource]</text>
+
+          <line x1="620" y1="392" x2="880" y2="392" stroke="#1877f2" stroke-width="1.2" marker-end="url(#auth-call)"/>
+          <line x1="880" y1="432" x2="1120" y2="432" stroke="#65676b" stroke-width="1" marker-end="url(#auth-return)"/>
+          <line x1="1120" y1="468" x2="880" y2="468" stroke="#65676b" stroke-width="1" stroke-dasharray="5,4" marker-end="url(#auth-return)"/>
+          <line x1="880" y1="504" x2="620" y2="504" stroke="#65676b" stroke-width="1" stroke-dasharray="5,4" marker-end="url(#auth-return)"/>
+          <line x1="620" y1="528" x2="120" y2="528" stroke="#1877f2" stroke-width="1.4" marker-end="url(#auth-success)"/>
+          <line x1="620" y1="596" x2="120" y2="596" stroke="#b85450" stroke-width="1" stroke-dasharray="5,4" marker-end="url(#auth-return)"/>
+          <line x1="620" y1="636" x2="120" y2="636" stroke="#65676b" stroke-width="1" stroke-dasharray="5,4" marker-end="url(#auth-open)"/>
+
+          <!-- Message labels -->
+          <g fill="#f0f2f5">
+            <rect x="172" y="120" width="136" height="16" rx="2"/><rect x="180" y="160" width="120" height="16" rx="2"/>
+            <rect x="420" y="200" width="140" height="16" rx="2"/><rect x="428" y="240" width="124" height="16" rx="2"/>
+            <rect x="292" y="288" width="156" height="16" rx="2"/><rect x="664" y="368" width="172" height="16" rx="2"/>
+            <rect x="924" y="408" width="152" height="16" rx="2"/><rect x="932" y="444" width="136" height="16" rx="2"/>
+            <rect x="684" y="480" width="132" height="16" rx="2"/><rect x="304" y="504" width="132" height="16" rx="2"/>
+            <rect x="300" y="572" width="140" height="16" rx="2"/><rect x="304" y="612" width="132" height="16" rx="2"/>
+          </g>
+          <g font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing=".04em">
+            <text x="240" y="132" fill="#1877f2">AUTH CODE + PKCE</text>
+            <text x="240" y="172" fill="#65676b">ACCESS TOKEN JWT</text>
+            <text x="490" y="212" fill="#65676b">OIDC METADATA / JWKS</text>
+            <text x="490" y="252" fill="#65676b">PUBLIC SIGNING KEYS</text>
+            <text x="370" y="300" fill="#1877f2">BEARER JWT + API CALL</text>
+            <text x="750" y="380" fill="#1877f2">TOKENRELAY + ROUTED PATH</text>
+            <text x="1000" y="420" fill="#65676b">SQL / CACHE ACCESS</text>
+            <text x="1000" y="456" fill="#65676b">ENTITY / CACHE RESULT</text>
+            <text x="750" y="492" fill="#65676b">AUTHORIZED RESULT</text>
+            <text x="370" y="516" fill="#1877f2">JSON / FILE RESPONSE</text>
+            <text x="370" y="584" fill="#b85450">401 UNAUTH / 403 FORBID</text>
+            <text x="370" y="624" fill="#65676b">SSE REALTIME EVENT</text>
+          </g>
+
+          <!-- Actors -->
+          <g font-family="'Inter', sans-serif" text-anchor="middle">
+            <rect x="40" y="40" width="160" height="64" rx="6" fill="rgba(101,103,107,.10)" stroke="#8a8d91"/>
+            <text x="120" y="68" fill="#1c1e21" font-size="12" font-weight="600">React Frontend</text><text x="120" y="86" fill="#65676b" font-size="9" font-family="'Geist Mono', monospace">keycloak-js · axios</text>
+            <rect x="280" y="40" width="160" height="64" rx="6" fill="rgba(184,84,80,.06)" stroke="rgba(184,84,80,.55)"/>
+            <text x="360" y="68" fill="#1c1e21" font-size="12" font-weight="600">Keycloak</text><text x="360" y="86" fill="#65676b" font-size="9" font-family="'Geist Mono', monospace">realm jhipster · web_app</text>
+            <rect x="540" y="40" width="160" height="64" rx="6" fill="rgba(24,119,242,.08)" stroke="#1877f2"/>
+            <text x="620" y="68" fill="#1c1e21" font-size="12" font-weight="600">API Gateway</text><text x="620" y="86" fill="#65676b" font-size="9" font-family="'Geist Mono', monospace">issuer · audience · roles</text>
+            <rect x="800" y="40" width="160" height="64" rx="6" fill="#ffffff" stroke="#1c1e21"/>
+            <text x="880" y="68" fill="#1c1e21" font-size="12" font-weight="600">Target Service</text><text x="880" y="86" fill="#65676b" font-size="9" font-family="'Geist Mono', monospace">JWT re-check · ownership</text>
+            <rect x="1040" y="40" width="160" height="64" rx="6" fill="rgba(28,30,33,.05)" stroke="#65676b"/>
+            <text x="1120" y="68" fill="#1c1e21" font-size="12" font-weight="600">Data Store</text><text x="1120" y="86" fill="#65676b" font-size="9" font-family="'Geist Mono', monospace">MariaDB or Redis</text>
+          </g>
+
+          <line x1="40" y1="672" x2="1240" y2="672" stroke="rgba(28,30,33,.14)" stroke-width=".8"/>
+          <text x="40" y="696" fill="#65676b" font-size="8" font-family="'Geist Mono', monospace" letter-spacing=".14em">JWT IS VALIDATED AT BOTH GATEWAY AND SERVICE · KEYCLOAK IS NOT CALLED FOR EVERY API REQUEST WHEN KEYS ARE CACHED</text>
+        </svg>
+      </div>
+    </section>
+
+    <section>
+      <p class="eyebrow">02 · Dependency graph</p>
+      <h2>Synchronous gateway and service-to-service calls</h2>
+      <p class="section-note">The gateway can route to every business service. OpenFeign calls carry the current user JWT where configured; Feed can obtain an internal client-credentials token when no user token exists.</p>
+      <div class="diagram-container">
+        <svg viewBox="0 0 1280 720" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="sync-map-title sync-map-desc">
+          <title id="sync-map-title">Fakebook synchronous service dependency graph</title>
+          <desc id="sync-map-desc">A ranked dependency graph showing gateway routes to five services and the current OpenFeign calls among User, Post, Comment, Feed, and Media services.</desc>
+          <defs><marker id="sync-arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0,8 3,0 6" fill="#65676b"/></marker><marker id="sync-link" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0,8 3,0 6" fill="#1877f2"/></marker></defs>
+          <rect width="1280" height="720" fill="#f0f2f5"/>
+
+          <!-- Gateway routes: five distinct attach points -->
+          <path d="M 576,96 V 112 H 88 Q 80,112 80,120 V 356 Q 80,364 88,364 H 160" fill="none" stroke="#1877f2" stroke-width="1" marker-end="url(#sync-link)"/>
+          <path d="M 608,96 V 136 H 248 Q 240,136 240,144 V 176" fill="none" stroke="#1877f2" stroke-width="1" marker-end="url(#sync-link)"/>
+          <path d="M 640,96 V 112 H 1192 Q 1200,112 1200,120 V 500 Q 1200,508 1192,508 H 720" fill="none" stroke="#1877f2" stroke-width="1" marker-end="url(#sync-link)"/>
+          <path d="M 672,96 V 136 H 1032 Q 1040,136 1040,144 V 176" fill="none" stroke="#1877f2" stroke-width="1" marker-end="url(#sync-link)"/>
+          <path d="M 704,96 V 160 H 1152 Q 1160,160 1160,168 V 356 Q 1160,364 1152,364 H 1120" fill="none" stroke="#1877f2" stroke-width="1" marker-end="url(#sync-link)"/>
+
+          <!-- Service dependencies -->
+          <line x1="240" y1="232" x2="240" y2="328" stroke="#65676b" stroke-width="1" marker-end="url(#sync-arrow)"/>
+          <path d="M 272,232 V 280 H 1032 Q 1040,280 1040,288 V 328" fill="none" stroke="#65676b" stroke-width="1" marker-end="url(#sync-arrow)"/>
+          <line x1="1040" y1="232" x2="1040" y2="328" stroke="#65676b" stroke-width="1" marker-end="url(#sync-arrow)"/>
+          <path d="M 1008,232 V 256 H 248 Q 240,256 240,264 V 328" fill="none" stroke="#65676b" stroke-width="1" marker-end="url(#sync-arrow)"/>
+          <line x1="960" y1="356" x2="320" y2="356" stroke="#65676b" stroke-width="1" marker-end="url(#sync-arrow)"/>
+          <path d="M 272,384 V 456 H 592 Q 600,456 600,464 V 480" fill="none" stroke="#65676b" stroke-width="1" marker-end="url(#sync-arrow)"/>
+          <path d="M 1008,384 V 432 H 688 Q 680,432 680,440 V 480" fill="none" stroke="#65676b" stroke-width="1" marker-end="url(#sync-arrow)"/>
+
+          <!-- Edge labels -->
+          <g fill="#f0f2f5"><rect x="420" y="112" width="120" height="16" rx="2"/><rect x="520" y="256" width="112" height="16" rx="2"/><rect x="520" y="332" width="112" height="16" rx="2"/><rect x="424" y="432" width="104" height="16" rx="2"/><rect x="744" y="408" width="104" height="16" rx="2"/></g>
+          <g fill="#65676b" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing=".04em">
+            <text x="480" y="124" fill="#1877f2">DISCOVERY ROUTES</text><text x="576" y="268">FEED → POST</text><text x="576" y="344">POST → USER</text><text x="476" y="444">USER → MEDIA</text><text x="796" y="420">POST → MEDIA</text>
+          </g>
+
+          <!-- Nodes -->
+          <g font-family="'Inter', sans-serif" text-anchor="middle">
+            <g><rect x="560" y="40" width="160" height="56" rx="6" fill="#ffffff" stroke="#1c1e21"/><rect x="680" y="48" width="28" height="12" rx="2" fill="#f0f2f5" stroke="rgba(28,30,33,.22)"/><text x="694" y="57" fill="#65676b" font-size="8" font-family="'Geist Mono', monospace">0 in</text><text x="640" y="68" fill="#1c1e21" font-size="12" font-weight="600">API Gateway</text><text x="640" y="84" fill="#65676b" font-size="9" font-family="'Geist Mono', monospace">5 routes · TokenRelay</text></g>
+            <g><rect x="160" y="176" width="160" height="56" rx="6" fill="#ffffff" stroke="#1c1e21"/><rect x="280" y="184" width="28" height="12" rx="2" fill="#f0f2f5" stroke="rgba(28,30,33,.22)"/><text x="294" y="193" fill="#65676b" font-size="8" font-family="'Geist Mono', monospace">1 in</text><text x="240" y="204" fill="#1c1e21" font-size="12" font-weight="600">Feed Service</text><text x="240" y="220" fill="#65676b" font-size="9" font-family="'Geist Mono', monospace">User + Post clients</text></g>
+            <g><rect x="960" y="176" width="160" height="56" rx="6" fill="#ffffff" stroke="#1c1e21"/><rect x="1080" y="184" width="28" height="12" rx="2" fill="#f0f2f5" stroke="rgba(28,30,33,.22)"/><text x="1094" y="193" fill="#65676b" font-size="8" font-family="'Geist Mono', monospace">1 in</text><text x="1040" y="204" fill="#1c1e21" font-size="12" font-weight="600">Comment Service</text><text x="1040" y="220" fill="#65676b" font-size="9" font-family="'Geist Mono', monospace">User + Post clients</text></g>
+            <g><rect x="160" y="328" width="160" height="56" rx="6" fill="#ffffff" stroke="#1c1e21"/><rect x="280" y="336" width="28" height="12" rx="2" fill="#f0f2f5" stroke="rgba(28,30,33,.22)"/><text x="294" y="345" fill="#65676b" font-size="8" font-family="'Geist Mono', monospace">4 in</text><text x="240" y="356" fill="#1c1e21" font-size="12" font-weight="600">User Service</text><text x="240" y="372" fill="#65676b" font-size="9" font-family="'Geist Mono', monospace">Media client</text></g>
+            <g><rect x="960" y="328" width="160" height="56" rx="6" fill="#ffffff" stroke="#1c1e21"/><rect x="1080" y="336" width="28" height="12" rx="2" fill="#f0f2f5" stroke="rgba(28,30,33,.22)"/><text x="1094" y="345" fill="#65676b" font-size="8" font-family="'Geist Mono', monospace">3 in</text><text x="1040" y="356" fill="#1c1e21" font-size="12" font-weight="600">Post Service</text><text x="1040" y="372" fill="#65676b" font-size="9" font-family="'Geist Mono', monospace">User + Media clients</text></g>
+            <g><rect x="560" y="480" width="160" height="56" rx="6" fill="rgba(28,30,33,.05)" stroke="#65676b"/><rect x="680" y="488" width="28" height="12" rx="2" fill="#f0f2f5" stroke="rgba(28,30,33,.22)"/><text x="694" y="497" fill="#65676b" font-size="8" font-family="'Geist Mono', monospace">3 in</text><text x="640" y="508" fill="#1c1e21" font-size="12" font-weight="600">Media Service</text><text x="640" y="524" fill="#65676b" font-size="9" font-family="'Geist Mono', monospace">leaf dependency</text></g>
+          </g>
+
+          <line x1="40" y1="620" x2="1240" y2="620" stroke="rgba(28,30,33,.14)" stroke-width=".8"/>
+          <text x="40" y="644" fill="#65676b" font-size="8" font-family="'Geist Mono', monospace" letter-spacing=".14em">LEGEND</text>
+          <line x1="40" y1="672" x2="80" y2="672" stroke="#1877f2" marker-end="url(#sync-link)"/><text x="92" y="675" fill="#65676b" font-size="9" font-family="'Inter', sans-serif">Gateway route</text>
+          <line x1="236" y1="672" x2="276" y2="672" stroke="#65676b" marker-end="url(#sync-arrow)"/><text x="288" y="675" fill="#65676b" font-size="9" font-family="'Inter', sans-serif">OpenFeign dependency</text>
+          <text x="484" y="675" fill="#65676b" font-size="9" font-family="'Geist Mono', monospace">User JWT relayed where configured · Feed may use internal client credentials</text>
+        </svg>
+      </div>
+    </section>
+
+    <section>
+      <p class="eyebrow">03 · Data flow</p>
+      <h2>Events, database ownership, and Redis caching</h2>
+      <p class="section-note">Each service persists its own schema. User Service uses Redis for profile and social-list read caches. Kafka carries projections, cleanup, and realtime signals without making the broker a source of truth.</p>
+      <div class="diagram-container">
+        <svg viewBox="0 0 1280 720" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="data-map-title data-map-desc">
+          <title id="data-map-title">Fakebook asynchronous events and data ownership</title>
+          <desc id="data-map-desc">Five services own separate MariaDB schemas, User Service uses Redis read caches, and User, Post, and Comment events pass through Kafka to Feed, Comment, and Media consumers.</desc>
+          <defs><marker id="data-arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0,8 3,0 6" fill="#65676b"/></marker><marker id="data-event" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polyline points="0 0,8 3,0 6" fill="none" stroke="#1877f2" stroke-width="1.2"/></marker></defs>
+          <rect width="1280" height="720" fill="#f0f2f5"/>
+
+          <!-- Kafka event flows above services -->
+          <path d="M 152,280 V 232 H 528 Q 536,232 536,224 V 120" fill="none" stroke="#1877f2" stroke-width="1" stroke-dasharray="5,4" marker-end="url(#data-event)"/>
+          <path d="M 376,280 V 216 H 544 Q 552,216 552,208 V 120" fill="none" stroke="#1877f2" stroke-width="1" stroke-dasharray="5,4" marker-end="url(#data-event)"/>
+          <line x1="584" y1="280" x2="584" y2="120" stroke="#1877f2" stroke-width="1" stroke-dasharray="5,4" marker-end="url(#data-event)"/>
+          <line x1="616" y1="120" x2="616" y2="280" stroke="#1877f2" stroke-width="1" stroke-dasharray="5,4" marker-end="url(#data-event)"/>
+          <path d="M 648,120 V 168 H 816 Q 824,168 824,176 V 280" fill="none" stroke="#1877f2" stroke-width="1" stroke-dasharray="5,4" marker-end="url(#data-event)"/>
+          <path d="M 680,92 H 1112 Q 1120,92 1120,100 V 248 Q 1120,256 1112,256 H 1064 Q 1056,256 1056,264 V 280" fill="none" stroke="#1877f2" stroke-width="1" stroke-dasharray="5,4" marker-end="url(#data-event)"/>
+
+          <!-- Persistence and cache flows below services -->
+          <line x1="184" y1="336" x2="184" y2="520" stroke="#65676b" stroke-width="1" marker-end="url(#data-arrow)"/>
+          <line x1="376" y1="336" x2="376" y2="520" stroke="#65676b" stroke-width="1" marker-end="url(#data-arrow)"/>
+          <line x1="600" y1="336" x2="600" y2="520" stroke="#65676b" stroke-width="1" marker-end="url(#data-arrow)"/>
+          <line x1="824" y1="336" x2="824" y2="520" stroke="#65676b" stroke-width="1" marker-end="url(#data-arrow)"/>
+          <line x1="1048" y1="336" x2="1048" y2="520" stroke="#65676b" stroke-width="1" marker-end="url(#data-arrow)"/>
+          <path d="M 120,336 V 428 Q 120,436 128,436 H 208" fill="none" stroke="#65676b" stroke-width="1" stroke-dasharray="5,4" marker-end="url(#data-arrow)"/>
+
+          <!-- Labels -->
+          <g fill="#f0f2f5"><rect x="252" y="192" width="120" height="16" rx="2"/><rect x="724" y="144" width="104" height="16" rx="2"/><rect x="420" y="392" width="104" height="16" rx="2"/><rect x="128" y="408" width="72" height="16" rx="2"/></g>
+          <g fill="#65676b" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing=".04em">
+            <text x="312" y="204" fill="#1877f2">PUBLISH EVENTS</text><text x="776" y="156" fill="#1877f2">CONSUME</text><text x="472" y="404">OWNED SCHEMA</text><text x="164" y="420">CACHE</text>
+          </g>
+
+          <!-- Kafka -->
+          <rect x="520" y="64" width="160" height="56" rx="6" fill="rgba(24,119,242,.08)" stroke="#1877f2"/>
+          <text x="600" y="88" fill="#1c1e21" font-size="12" font-weight="600" font-family="'Inter', sans-serif" text-anchor="middle">Kafka Event Bus</text>
+          <text x="600" y="106" fill="#65676b" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">post · friendship · cleanup</text>
+
+          <!-- Services -->
+          <g font-family="'Inter', sans-serif" text-anchor="middle">
+            <g><rect x="72" y="280" width="160" height="56" rx="6" fill="#ffffff" stroke="#1c1e21"/><text x="152" y="306" fill="#1c1e21" font-size="12" font-weight="600">User Service</text><text x="152" y="324" fill="#65676b" font-size="9" font-family="'Geist Mono', monospace">profiles · social graph</text></g>
+            <g><rect x="296" y="280" width="160" height="56" rx="6" fill="#ffffff" stroke="#1c1e21"/><text x="376" y="306" fill="#1c1e21" font-size="12" font-weight="600">Post Service</text><text x="376" y="324" fill="#65676b" font-size="9" font-family="'Geist Mono', monospace">posts · reactions</text></g>
+            <g><rect x="520" y="280" width="160" height="56" rx="6" fill="#ffffff" stroke="#1c1e21"/><text x="600" y="306" fill="#1c1e21" font-size="12" font-weight="600">Comment Service</text><text x="600" y="324" fill="#65676b" font-size="9" font-family="'Geist Mono', monospace">comments · post cache</text></g>
+            <g><rect x="744" y="280" width="160" height="56" rx="6" fill="#ffffff" stroke="#1c1e21"/><text x="824" y="306" fill="#1c1e21" font-size="12" font-weight="600">Feed Service</text><text x="824" y="324" fill="#65676b" font-size="9" font-family="'Geist Mono', monospace">feed_items projection</text></g>
+            <g><rect x="968" y="280" width="160" height="56" rx="6" fill="#ffffff" stroke="#1c1e21"/><text x="1048" y="306" fill="#1c1e21" font-size="12" font-weight="600">Media Service</text><text x="1048" y="324" fill="#65676b" font-size="9" font-family="'Geist Mono', monospace">metadata · cleanup</text></g>
+          </g>
+
+          <!-- Redis -->
+          <rect x="208" y="400" width="160" height="72" rx="6" fill="rgba(24,119,242,.08)" stroke="#1877f2"/>
+          <text x="288" y="432" fill="#1c1e21" font-size="12" font-weight="600" font-family="'Inter', sans-serif" text-anchor="middle">Redis</text>
+          <text x="288" y="452" fill="#65676b" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">profile · friends · follows</text>
+
+          <!-- MariaDB store with aligned ownership labels -->
+          <rect x="72" y="520" width="1112" height="104" rx="6" fill="rgba(28,30,33,.05)" stroke="#65676b"/>
+          <text x="628" y="548" fill="#1c1e21" font-size="12" font-weight="600" font-family="'Inter', sans-serif" text-anchor="middle">MariaDB · one owned schema per service</text>
+          <line x1="96" y1="560" x2="1160" y2="560" stroke="rgba(28,30,33,.14)" stroke-width=".8"/>
+          <g fill="#65676b" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">
+            <text x="184" y="588">userservice</text><text x="376" y="588">postservice</text><text x="600" y="588">commentservice</text><text x="824" y="588">feedservice</text><text x="1048" y="588">mediaservice</text>
+          </g>
+
+          <line x1="40" y1="652" x2="1240" y2="652" stroke="rgba(28,30,33,.14)" stroke-width=".8"/>
+          <line x1="40" y1="684" x2="80" y2="684" stroke="#1877f2" stroke-dasharray="5,4" marker-end="url(#data-event)"/><text x="92" y="687" fill="#65676b" font-size="9" font-family="'Inter', sans-serif">Async event</text>
+          <line x1="220" y1="684" x2="260" y2="684" stroke="#65676b" marker-end="url(#data-arrow)"/><text x="272" y="687" fill="#65676b" font-size="9" font-family="'Inter', sans-serif">Durable write/read</text>
+          <line x1="432" y1="684" x2="472" y2="684" stroke="#65676b" stroke-dasharray="5,4" marker-end="url(#data-arrow)"/><text x="484" y="687" fill="#65676b" font-size="9" font-family="'Inter', sans-serif">Cache access</text>
+          <text x="648" y="687" fill="#65676b" font-size="9" font-family="'Geist Mono', monospace">Kafka distributes changes; MariaDB remains authoritative</text>
+        </svg>
+      </div>
+    </section>
+
+    <div class="facts">
+      <article class="fact"><h3>Authorization checkpoints</h3><ul><li>Frontend refreshes the token before API calls.</li><li>Gateway validates issuer, audience, and authorities.</li><li>Services validate JWTs again and use <code>sub</code> for user identity.</li></ul></article>
+      <article class="fact"><h3>Sync interaction</h3><p>Gateway discovery routes use <code>/services/{serviceId}/**</code>. Feign calls cover friendship checks, post lookup, feed hydration/backfill, and media validation.</p></article>
+      <article class="fact"><h3>Data rule</h3><p>Each service owns its MariaDB schema. Redis accelerates selected User Service reads; cache failure does not replace the database as source of truth.</p></article>
+    </div>
+
+    <footer>Source scope: current Fakebook frontend, gateway security/routing, downstream SecurityConfiguration classes, Feign clients, Kafka bindings, cache configuration, and persistence mappings.</footer>
+  </main>
+</body>
+</html>

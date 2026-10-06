@@ -27,9 +27,16 @@ public class UserServiceClientFallbackFactory implements FallbackFactory<UserSer
         };
     }
 
-    private DownstreamServiceUnavailableException unavailable(String operation, Throwable cause) {
-        LOG.error("User Service unavailable during {}", operation, cause);
-        return new DownstreamServiceUnavailableException("User Service", operation, cause);
+    private RuntimeException unavailable(String operation, Throwable cause) {
+        RuntimeException failure = DownstreamFailureMapper.map("User Service", operation, cause);
+        if (failure instanceof org.springframework.web.server.ResponseStatusException) {
+            LOG.debug("User Service rejected request during {}", operation);
+        } else if (DownstreamFailureMapper.isCircuitOpen(cause)) {
+            LOG.warn("User Service Circuit Breaker is OPEN during {}", operation);
+        } else {
+            LOG.error("User Service unavailable during {}", operation, cause);
+        }
+        return failure;
     }
 }
 

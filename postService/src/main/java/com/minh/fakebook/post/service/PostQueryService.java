@@ -24,6 +24,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import tech.jhipster.service.QueryService;
 import com.minh.fakebook.post.client.UserServiceClient;
+import com.minh.fakebook.post.client.DownstreamServiceUnavailableException;
 import com.minh.fakebook.post.security.AuthoritiesConstants;
 import jakarta.persistence.criteria.Predicate;
 import java.util.ArrayList;
@@ -116,8 +117,8 @@ public class PostQueryService extends QueryService<Post> {
                 try {
                     fetchedFriendIds = userServiceClient
                             .getFriendIdsByUserId(UUID.fromString(jwtAuth.getToken().getSubject()));
-                } catch (Exception e) {
-                    LOG.error("Error fetching friend ids from userService", e);
+                } catch (DownstreamServiceUnavailableException e) {
+                    LOG.warn("User Service unavailable; returning public and owned posts only", e);
                 }
             }
         }

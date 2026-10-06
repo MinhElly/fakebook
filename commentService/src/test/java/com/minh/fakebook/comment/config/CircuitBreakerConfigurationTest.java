@@ -31,6 +31,10 @@ class CircuitBreakerConfigurationTest {
             assertThat(environment.getProperty("spring.cloud.openfeign.client.config.default.readTimeout", Integer.class)).isEqualTo(3000);
             assertThat(environment.getProperty("resilience4j.circuitbreaker.configs.default.sliding-window-size", Integer.class))
                 .isEqualTo(5);
+            List<String> ignoredExceptions = Binder.get(environment)
+                .bind("resilience4j.circuitbreaker.configs.default.ignore-exceptions", Bindable.listOf(String.class))
+                .orElseThrow(() -> new IllegalStateException("Ignored Circuit Breaker exceptions are missing"));
+            assertThat(ignoredExceptions).containsExactly("feign.FeignException$FeignClientException");
             Duration timeout = Binder.get(environment)
                 .bind("resilience4j.timelimiter.configs.default.timeout-duration", Duration.class)
                 .orElseThrow(() -> new IllegalStateException("Time limiter configuration is missing"));

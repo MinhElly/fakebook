@@ -14,8 +14,15 @@ public class PostFeignClientFallbackFactory implements FallbackFactory<PostFeign
     @Override
     public PostFeignClient create(Throwable cause) {
         return postId -> {
-            LOG.error("Post Service unavailable while loading post {}", postId, cause);
-            throw new DownstreamServiceUnavailableException("Post Service", "loading post " + postId, cause);
+            RuntimeException failure = DownstreamFailureMapper.map("Post Service", "loading post " + postId, cause);
+            if (failure instanceof org.springframework.web.server.ResponseStatusException) {
+                LOG.debug("Post Service rejected request while loading post {}", postId);
+            } else if (DownstreamFailureMapper.isCircuitOpen(cause)) {
+                LOG.warn("Post Service Circuit Breaker is OPEN while loading post {}", postId);
+            } else {
+                LOG.error("Post Service unavailable while loading post {}", postId, cause);
+            }
+            throw failure;
         };
     }
 }
