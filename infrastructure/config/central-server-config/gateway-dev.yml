@@ -3,7 +3,7 @@ logging:
     com.minh.fakebook.gateway: DEBUG
 
 server:
-  port: 8080
+  port: ${GATEWAY_PORT:8080}
 
 spring:
   r2dbc:

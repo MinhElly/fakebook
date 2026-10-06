@@ -10,7 +10,7 @@ Dự án mô phỏng các tính năng cốt lõi của mạng xã hội quy mô 
 - **Đăng tải bài viết (Post, Reaction & Saved Posts)**: Soạn thảo bài đăng với các chế độ hiển thị (PUBLIC, PRIVATE, FRIENDS), hỗ trợ tương tác cảm xúc và lưu trữ bài viết (Saved Posts). Tính năng Saved Posts đã được tích hợp hoàn chỉnh ở cả backend (Post Service) và frontend UI (SavedPage & bookmarks).
 - **Bình luận (Comments)**: Thảo luận trên bài viết, phản hồi bình luận phân cấp, đồng bộ dữ liệu bài viết qua Kafka read-model cache.
 - **Quản lý đa phương tiện (Media Storage)**: Tải lên hình ảnh/video qua Cloudinary CDN, lưu trữ metadata và cơ chế tự động dọn dẹp (cleanup) media mồ côi qua Kafka event.
-- **Bảng tin cá nhân hóa (Personalized News Feed)**: Kiến trúc Fan-out-on-write bất đồng bộ qua Kafka, lưu trữ dài hạn trên MariaDB và tăng tốc truy vấn bằng Redis In-Memory Sorted Sets.
+- **Bảng tin cá nhân hóa (Personalized News Feed)**: Kiến trúc Fan-out-on-write bất đồng bộ qua Kafka; projection và truy vấn timeline đều dùng MariaDB.
 
 ---
 
@@ -26,7 +26,7 @@ Dự án mô phỏng các tính năng cốt lõi của mạng xã hội quy mô 
 | **Message Broker** | Apache Kafka Native 4.3.1 (KRaft mode) | Xử lý streaming sự kiện bất đồng bộ, Fan-out bảng tin, dọn dẹp media |
 | **Databases** | MariaDB 12.3.3 (Local) / AWS RDS MariaDB (Staging) | Lưu trữ dữ liệu quan hệ theo mô hình Database-per-service |
 | **Database Migration** | Liquibase | Quản lý schema versioning per service |
-| **Cache & In-Memory** | Redis 8.10.1 (Redis Alpine) | Cache Spring `@Cacheable` cho User Service, Sorted Sets cho Feed Service |
+| **Cache & In-Memory** | Redis 8.10.1 (Redis Alpine) | Cache Spring `@Cacheable` cho User Service; MariaDB vẫn là nguồn dữ liệu chuẩn |
 | **Distributed Tracing** | OpenZipkin 3.6.1 + Micrometer Tracing | Thu thập và hiển thị trace request phân tán xuyên suốt các service |
 | **Reverse Proxy / Ingress** | Nginx 1.27 Alpine | TLS Termination (Let's Encrypt), proxy pass Keycloak & Gateway |
 | **Container & CI/CD** | Docker, Docker Compose, Jib Maven Plugin, GHCR, GitHub Actions | Đóng gói OCI image không cần Docker daemon, CI kiểm thử và push image |

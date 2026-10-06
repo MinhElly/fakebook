@@ -20,11 +20,10 @@ flowchart TD
     subgraph Job2["Job: build-backend-services (Matrix 6 Backend Components)"]
         JDK["Set up JDK 21 Temurin & Cache Maven"] --> MatrixInit["Matrix: gateway, userService,<br/>postService, mediaService, commentService, feedService"]
         
-        MatrixInit --> CheckEvent{"Là Pull Request<br/>hay Push?"}
-        
-        CheckEvent -- "Pull Request" --> PRCompile["Dry-run: ./mvnw clean compile -DskipTests<br/>(Kiểm tra cú pháp code)"]
-        
-        CheckEvent -- "Push (main / staging)" --> JibBuild["Maven Jib: ./mvnw clean package jib:build<br/>- Đóng gói OCI container image<br/>- Gán tag Git SHA & Branch name<br/>- Push lên GitHub Container Registry (ghcr.io)"]
+        MatrixInit --> Verify["./mvnw -ntp clean verify<br/>(unit + integration + Checkstyle)"]
+        Verify --> CheckEvent{"Push vào nhánh được bảo vệ?"}
+        CheckEvent -- "Có" --> JibBuild["Maven Jib: ./mvnw -ntp package jib:build -DskipTests<br/>- Đóng gói OCI container image sau verify<br/>- Gán tag sha-&lt;full-40-char-SHA&gt; và alias nhánh<br/>- Push lên GitHub Container Registry (ghcr.io)"]
+        CheckEvent -- "Không / Pull Request" --> Verified["Chỉ giữ kết quả verify"]
     end
     
     Parallel --> Job1
@@ -51,12 +50,13 @@ flowchart TD
   - `mediaService` -> `fakebook-mediaservice`
   - `commentService` -> `fakebook-commentservice`
   - `feedService` -> `fakebook-feedservice`
+- **Gate bắt buộc**: mọi Pull Request và push đều chạy `./mvnw -ntp clean verify` cho từng module.
 - **Công nghệ đóng gói (Google Maven Jib)**:
-  - Dự án sử dụng plugin **Jib** (`./mvnw compile jib:build`) thay vì `docker build`.
+  - Sau khi verify thành công trên push được bảo vệ, dự án dùng **Jib** (`./mvnw -ntp package jib:build -DskipTests`) thay vì `docker build`.
   - Ưu điểm: Đóng gói image OCI tiêu chuẩn trực tiếp từ bytecode Java mà không cần Docker daemon chạy trên runner, tận dụng cache tầng layer cực kỳ hiệu quả và tốc độ vượt trội.
 - **Quy tắc gắn Tag Image**:
   - Mỗi image được push lên registry: `ghcr.io/<owner>/fakebook-<servicename>`.
-  - Tag theo mã băm commit ngắn 7 ký tự: `:${SHORT_SHA}`.
+  - Tag bất biến theo đủ 40 ký tự commit: `:sha-${GITHUB_SHA}`.
   - Tag theo tên nhánh đã chuẩn hóa: `:${CLEAN_BRANCH}` (ví dụ: `:staging`).
   - Nếu nhánh là `main` hoặc `master`, gắn thêm tag `:latest` và `:main`.
 

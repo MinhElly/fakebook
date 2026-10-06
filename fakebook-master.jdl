@@ -8,7 +8,7 @@
 // - Consul for service discovery / centralized configuration
 // - Kafka for asynchronous messaging
 // - MariaDB database-per-service
-// - Redis cache for Feed Service
+// - Redis read cache for User Service; Feed remains MariaDB-authoritative
 //
 // IMPORTANT:
 // 1. Relationships are created only inside the same microservice/database.
@@ -67,7 +67,7 @@ application {
 
         serviceDiscoveryType consul
         messageBroker kafka
-        cacheProvider no
+        cacheProvider redis
 
         buildTool maven
         clientFramework no
@@ -176,9 +176,7 @@ application {
 // MariaDB:
 // - FEED_ITEMS
 //
-// Redis:
-// - generated/configured as cacheProvider redis
-// - concrete feed cache keys/structures are implemented in application code
+// Feed timelines are persisted and queried from MariaDB.
 // ---------------------------------------------------------------------------
 application {
     config {
@@ -193,7 +191,7 @@ application {
 
         serviceDiscoveryType consul
         messageBroker kafka
-        cacheProvider redis
+        cacheProvider no
 
         buildTool maven
         clientFramework no
@@ -424,7 +422,7 @@ entity Comment(comments) {
 //
 // userId -> Keycloak User UUID.
 // postId -> UUID owned by Post Service.
-// Redis is used as the read/cache layer; MariaDB remains persistent storage.
+// MariaDB is the authoritative read and persistence layer for feed timelines.
 entity FeedItem(feed_items) {
     id UUID
 

@@ -145,9 +145,9 @@ Hệ thống bao gồm 5 dịch vụ nghiệp vụ phía sau Gateway:
 2. **Post Service (8083)**: Tạo, chỉnh sửa, xóa bài viết; đính kèm danh sách media IDs; quản lý reactions.
 3. **Comment Service (8085)**: Quản lý hệ thống bình luận đa cấp. Duy trì một bảng cache `post_cache` đồng bộ qua Kafka để kiểm tra tính hợp lệ của bài viết trước khi cho phép bình luận.
 4. **Media Service (8084)**: Tích hợp với Cloudinary API để quản lý URL tải lên, kích thước, định dạng và metadata media; lắng nghe Kafka để dọn dẹp ảnh mồ côi.
-5. **Feed Service (8086)**: Xây dựng bảng tin theo mô hình Fan-out on Write. Lắng nghe `post-events` từ Kafka, tra cứu bạn bè qua OpenFeign và lưu trữ feed vào cả MariaDB lẫn Redis ZSet.
+5. **Feed Service (8086)**: Xây dựng bảng tin theo mô hình Fan-out on Write. Lắng nghe `post-events` từ Kafka, tra cứu bạn bè qua OpenFeign, rồi lưu và đọc projection `feed_items` trên MariaDB.
 
 ### 2.5 Tầng Lưu trữ, Caching & Event Streaming
 - **MariaDB 12.3**: Triển khai theo mô hình Database-per-service. Mỗi service sở hữu một schema riêng. Trong môi trường staging, kết nối ra AWS RDS MariaDB thông qua TLS/SSL (chứng chỉ `rds-global-bundle.pem`).
-- **Redis 8.1**: Sử dụng làm In-Memory Cache cho User Service (thông qua `@Cacheable`) và lưu trữ dòng thời gian bảng tin (Sorted Sets) cho Feed Service.
+- **Redis 8.1**: Sử dụng làm read cache cho User Service thông qua Spring Cache. Feed timeline không còn phụ thuộc Redis.
 - **Apache Kafka Native (KRaft mode)**: Đóng vai trò xương sống truyền thông bất đồng bộ giữa các microservice, tích hợp Dead Letter Queue (DLQ) và cơ chế thử lại tự động (retry back-off).

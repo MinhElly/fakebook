@@ -1,6 +1,6 @@
 # Source và Documentation Audit — 2026-10-05
 
-> Cập nhật 2026-10-05: Auth Service và các thư mục gốc performance, postman, runtime-logs, scripts đã được loại bỏ. Nội dung bên dưới là bằng chứng/quyết định lịch sử; các đường dẫn cũ không còn là hướng dẫn vận hành hiện tại.
+> Tài liệu lịch sử, đã được thay thế bởi `source-documentation-audit-2026-10-06.md`. Các topology, đường dẫn và kết luận runtime bên dưới không còn là hướng dẫn vận hành hiện tại.
 
 ## 1. Phạm vi và baseline
 

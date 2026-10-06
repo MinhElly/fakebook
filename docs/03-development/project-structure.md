@@ -12,7 +12,7 @@ fakebook/
 │   └── workflows/ci.yml         # Pipeline build frontend & Jib push backend image lên GHCR
 │
 ├── commentService/               # Comment & PostCache microservice (Port 8085)
-├── feedService/                  # Personalized Feed & Redis Fanout microservice (Port 8086)
+├── feedService/                  # Personalized Feed, MariaDB projection (Port 8086)
 ├── gateway/                      # Spring Cloud Gateway WebFlux (Port 8080)
 ├── mediaService/                 # Cloudinary Media upload & metadata microservice (Port 8084)
 ├── postService/                  # Post & Reactions microservice (Port 8083)
@@ -34,7 +34,7 @@ fakebook/
 │   ├── config/
 │   │   └── central-server-config/# Cấu hình tập trung nạp vào Consul KV Store
 │   ├── keycloak/                 # Scripts tự động cấu hình Internal Client & Google IDP
-│   ├── mariadb/init/             # Script SQL tự động khởi tạo 7 schema database
+│   ├── mariadb/init/             # Script SQL tự động khởi tạo các schema ứng dụng và Keycloak
 │   ├── nginx/                    # Nginx reverse proxy config & certbot SSL challenge
 │   └── certs/                    # Chứng chỉ RDS CA (global-bundle.pem)
 │

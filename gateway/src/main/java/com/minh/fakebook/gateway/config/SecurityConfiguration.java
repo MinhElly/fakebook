@@ -219,8 +219,14 @@ public class SecurityConfiguration {
             }
 
             private Mono<Jwt> enrich(String token, Jwt jwt) {
-                // Only look up user information if identity claims are missing
-                if (jwt.hasClaim("given_name") && jwt.hasClaim("family_name")) {
+                // Client-credentials tokens represent a service account. Keycloak deliberately
+                // rejects /userinfo for those tokens, while their signed JWT already contains
+                // the principal and authorities required by the gateway.
+                String preferredUsername = jwt.getClaimAsString(PREFERRED_USERNAME);
+                if (
+                    (preferredUsername != null && preferredUsername.startsWith("service-account-")) ||
+                    (jwt.hasClaim("given_name") && jwt.hasClaim("family_name"))
+                ) {
                     return Mono.just(jwt);
                 }
                 // Enrich the current validated token; never reuse another token for this subject.

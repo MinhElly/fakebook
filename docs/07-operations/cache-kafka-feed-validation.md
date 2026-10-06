@@ -1,4 +1,4 @@
-# Cache, Kafka và Feed — kiểm chứng ngày 2026-10-05
+# Cache, Kafka và Feed — kiểm chứng ngày 2026-10-06
 
 ## Source và gate local
 
@@ -7,12 +7,12 @@ và refactor package thành các commit riêng. HTTP/event field contracts đư�
 
 | Service | Unit tests | Integration tests | Kết quả |
 | --- | ---: | ---: | --- |
-| User | 83 | 134 | PASS |
-| Post | 68 | 52 | PASS |
-| Comment | 58 | 60 | PASS |
-| Feed | 53 | 56 | PASS |
-| Gateway | 36 | 42 | PASS |
-| Media | 40 | 90 | PASS |
+| User | 84 | 134 | PASS |
+| Post | 69 | 52 | PASS |
+| Comment | 59 | 60 | PASS |
+| Feed | 55 | 56 | PASS |
+| Gateway | 37 | 42 | PASS |
+| Media | 41 | 90 | PASS |
 
 Các gate dùng `mvnw.cmd -ntp clean verify` tại từng service, Checkstyle không có
 vi phạm, tests không failure/error/skip. User dùng thêm

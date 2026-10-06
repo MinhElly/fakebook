@@ -17,7 +17,7 @@ Mục tiêu của tracing là cung cấp cái nhìn xuyên suốt về luồng x
 
 Fakebook sử dụng **Micrometer Tracing**, **Brave** và **OpenZipkin 3.6.1** để triển khai distributed tracing. Micrometer Tracing cung cấp API instrumentation thống nhất, Brave tạo và truyền trace context, còn Zipkin thu thập, lưu trữ tạm thời và trực quan hóa các span.
 
-Tracing được cấu hình cho toàn bộ bảy ứng dụng backend:
+Tracing được cấu hình cho toàn bộ sáu ứng dụng backend:
 
 - `gateway`;
 - `userService`;
@@ -69,7 +69,7 @@ Kết quả audit hiện tại:
 
 | Mức bằng chứng | Trạng thái | Nội dung |
 |---|---|---|
-| Source/config | **Đạt** | Cả bảy ứng dụng có dependency tracing, Zipkin endpoint và cấu hình sampling; Kafka observation được bật; Post/User outbox có propagation context. |
+| Source/config | **Đạt** | Cả sáu ứng dụng có dependency tracing, Zipkin endpoint và cấu hình sampling; Kafka observation được bật; Post/User outbox có propagation context. |
 | Automated test | **Đạt** | Integration test kiểm tra `BraveTracer` và Zipkin sender; unit test kiểm tra capture và allowlist propagation header của outbox. |
 | Local runtime | **Đạt một phần** | Zipkin đã nhận span riêng lẻ từ Gateway, User, Post, Media, Comment và Feed. Auth Service hiện chưa chạy. |
 | Business trace xuyên service | **Chưa chứng minh** | Chưa lưu được một trace xác thực duy nhất đi qua Gateway, service nghiệp vụ, outbox/Kafka và consumer. |

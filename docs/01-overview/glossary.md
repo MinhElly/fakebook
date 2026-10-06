@@ -14,7 +14,7 @@ Bảng thuật ngữ chuẩn hóa các khái niệm kỹ thuật và thuật ng�
 | **Database-per-Service** | Pattern thiết kế kiến trúc: Mỗi microservice sở hữu một cơ sở dữ liệu/schema MariaDB riêng biệt (`gateway`, `user_service`, `post_service`, `comment_service`, `media_service`, `feed_service`). Tuyệt đối không query chéo database. |
 | **Liquibase** | Công cụ quản lý và thực thi migration cấu trúc cơ sở dữ liệu bằng các changelog YAML/XML, tự động chạy khi service khởi động. |
 | **Fan-out on Write (Push Model)** | Mô hình xây dựng bảng tin: Khi tác giả tạo một bài viết mới, hệ thống bắn event qua Kafka. Feed Service tiêu thụ event này, truy vấn danh sách bạn bè/followers rồi ghi bản ghi FeedItem vào database/cache của từng người nhận. |
-| **ZSet (Redis Sorted Set)** | Cấu trúc dữ liệu trong Redis lưu danh sách `postId` với `score` là timestamp (epoch millisecond). Cho phép phân trang bảng tin theo thời gian cực nhanh với độ phức tạp $O(\log(N) + M)$. |
+| **ZSet (Redis Sorted Set)** | Cấu trúc dữ liệu Redis từng được dùng cho Feed timeline; thiết kế hiện tại đã bỏ cơ chế này và đọc `feed_items` trực tiếp từ MariaDB. |
 | **DLQ (Dead Letter Queue)** | Hàng đợi chứa các message lỗi sau khi consumer đã thử lại (retry) vượt quá số lần cấu hình (ví dụ: `post-events-feed-dlt`). |
 | **Token Relay** | Kỹ thuật chuyển tiếp Authorization Header (Bearer JWT) từ Gateway xuống các microservice downstream thông qua bộ lọc `TokenRelayGatewayFilterFactory`. |
 | **M2M (Machine-to-Machine) Auth** | Cơ chế xác thực giữa các service mà không có sự hiện diện của người dùng (ví dụ: Kafka consumer gọi Feign client sang service khác). Sử dụng luồng OAuth2 `client_credentials` với client ID `internal`. |

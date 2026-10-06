@@ -56,7 +56,7 @@ Tài liệu này đặc tả chi tiết từng microservice trong hệ thống F
 - **Port mặc định**: `8083` (Consul discovery ID: `postservice`)
 - **Database**: MariaDB schema `post_service` (Local port 3307 / Staging AWS RDS TLS)
 - **Entities**: `Post`, `PostMedia`, `PostReaction`, `SavedPost` (bảng `saved_post`).
-- **Cache**: Không trực tiếp sử dụng Redis (ủy quyền cho FeedService).
+- **Cache**: Không trực tiếp sử dụng Redis; Feed projection là MariaDB-authoritative.
 - **Kafka**:
   - **Produces**:
     - `post-events` (binding: `binding-out-0`): Phát event khi bài viết được tạo (`POST_CREATED`), cập nhật (`POST_UPDATED`) hoặc xóa (`POST_DELETED`).

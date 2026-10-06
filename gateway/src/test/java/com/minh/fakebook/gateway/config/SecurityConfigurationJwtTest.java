@@ -110,6 +110,19 @@ class SecurityConfigurationJwtTest {
         assertThat(userInfoTokens).isEmpty();
     }
 
+    @Test
+    void doesNotRequestUserInfoForServiceAccountToken() throws Exception {
+        Instant expiry = Instant.now().plusSeconds(300).truncatedTo(java.time.temporal.ChronoUnit.SECONDS);
+        String token = serviceAccountToken(expiry);
+
+        Jwt decoded = decoder.decode(token).block(Duration.ofSeconds(10));
+
+        assertThat(decoded).isNotNull();
+        assertThat(decoded.getClaimAsString("preferred_username")).isEqualTo("service-account-internal");
+        assertThat(decoded.getClaimAsStringList("roles")).containsExactly("ROLE_INTERNAL");
+        assertThat(userInfoTokens).isEmpty();
+    }
+
     private String token(Instant expiry, String role, String tokenIssuer, String audience) throws Exception {
         JWTClaimsSet claims = new JWTClaimsSet.Builder()
             .subject("same-user")
@@ -118,6 +131,24 @@ class SecurityConfigurationJwtTest {
             .issueTime(Date.from(Instant.now().minusSeconds(600)))
             .expirationTime(Date.from(expiry))
             .claim("roles", List.of(role))
+            .build();
+        SignedJWT token = new SignedJWT(
+            new JWSHeader.Builder(JWSAlgorithm.RS256).type(JOSEObjectType.JWT).keyID(key.getKeyID()).build(),
+            claims
+        );
+        token.sign(new RSASSASigner(key));
+        return token.serialize();
+    }
+
+    private String serviceAccountToken(Instant expiry) throws Exception {
+        JWTClaimsSet claims = new JWTClaimsSet.Builder()
+            .subject("service-account-subject")
+            .issuer(issuer)
+            .audience("web_app")
+            .issueTime(Date.from(Instant.now().minusSeconds(60)))
+            .expirationTime(Date.from(expiry))
+            .claim("preferred_username", "service-account-internal")
+            .claim("roles", List.of("ROLE_INTERNAL"))
             .build();
         SignedJWT token = new SignedJWT(
             new JWSHeader.Builder(JWSAlgorithm.RS256).type(JOSEObjectType.JWT).keyID(key.getKeyID()).build(),
