@@ -52,3 +52,4 @@ infrastructure/nginx/nginx.conf
 # JHipster / Spring Boot specific
 **/target/*.jar
 **/target/*.war
+infrastructure/.local

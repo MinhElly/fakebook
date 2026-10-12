@@ -1,0 +1,121 @@
+server:
+  port: 8080
+
+spring:
+  config:
+    import: "classpath:config/application-k8s-common.yml"
+
+  r2dbc:
+    url: ${SPRING_R2DBC_URL}
+    username: ${FAKEBOOK_DB_USERNAME}
+    password: ${FAKEBOOK_DB_PASSWORD}
+
+  liquibase:
+    url: ${SPRING_LIQUIBASE_URL}
+    user: ${FAKEBOOK_DB_USERNAME}
+    password: ${FAKEBOOK_DB_PASSWORD}
+    contexts: prod
+
+  security:
+    oauth2:
+      client:
+        registration:
+          oidc:
+            client-id: ${FAKEBOOK_OIDC_GATEWAY_CLIENT_ID}
+            client-secret: ${FAKEBOOK_OIDC_GATEWAY_CLIENT_SECRET}
+
+  cloud:
+    gateway:
+      server:
+        webflux:
+          httpclient:
+            response-timeout: 10s
+          discovery:
+            locator:
+              enabled: false
+
+          routes:
+            - id: userservice
+              uri: ${USER_SERVICE_URL:http://userservice:8082}
+              predicates:
+                - Path=/services/userservice/**
+              filters:
+                - StripPrefix=2
+                - name: CircuitBreaker
+                  args:
+                    name: userservice
+                    statusCodes: "500,502,503,504"
+                    resumeWithoutError: false
+
+            - id: postservice
+              uri: ${POST_SERVICE_URL:http://postservice:8083}
+              predicates:
+                - Path=/services/postservice/**
+              filters:
+                - StripPrefix=2
+                - name: CircuitBreaker
+                  args:
+                    name: postservice
+                    statusCodes: "500,502,503,504"
+                    resumeWithoutError: false
+
+            - id: mediaservice
+              uri: ${MEDIA_SERVICE_URL:http://mediaservice:8084}
+              metadata:
+                response-timeout: 60000
+              predicates:
+                - Path=/services/mediaservice/**
+              filters:
+                - StripPrefix=2
+                - name: CircuitBreaker
+                  args:
+                    name: mediaservice
+                    statusCodes: "500,502,503,504"
+                    resumeWithoutError: false
+
+            - id: commentservice
+              uri: ${COMMENT_SERVICE_URL:http://commentservice:8085}
+              predicates:
+                - Path=/services/commentservice/**
+              filters:
+                - StripPrefix=2
+                - name: CircuitBreaker
+                  args:
+                    name: commentservice
+                    statusCodes: "500,502,503,504"
+                    resumeWithoutError: false
+
+            - id: feedservice
+              uri: ${FEED_SERVICE_URL:http://feedservice:8086}
+              predicates:
+                - Path=/services/feedservice/**
+              filters:
+                - StripPrefix=2
+                - name: CircuitBreaker
+                  args:
+                    name: feedservice
+                    statusCodes: "500,502,503,504"
+                    resumeWithoutError: false
+
+resilience4j:
+  timelimiter:
+    configs:
+      default:
+        timeout-duration: 12s
+    instances:
+      mediaservice:
+        timeout-duration: 65s
+
+jhipster:
+  cors:
+    allowed-origins: ${FRONTEND_ORIGIN}
+    allowed-methods: '*'
+    allowed-headers: '*'
+    allow-credentials: true
+    max-age: 1800
+
+  gateway:
+    rate-limiting:
+      enabled: true
+      limit: 5000
+      duration-in-seconds: 3600

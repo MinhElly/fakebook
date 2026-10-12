@@ -1,0 +1,31 @@
+server:
+  port: 8083
+
+spring:
+  config:
+    import: "classpath:config/application-k8s-common.yml"
+
+  cloud:
+    openfeign:
+      client:
+        config:
+          default:
+            readTimeout: 8000
+          userservice:
+            url: ${USER_SERVICE_URL:http://userservice:8082}
+          mediaservice:
+            url: ${MEDIA_SERVICE_URL:http://mediaservice:8084}
+
+  datasource:
+    url: ${SPRING_DATASOURCE_URL}
+    username: ${FAKEBOOK_DB_USERNAME}
+    password: ${FAKEBOOK_DB_PASSWORD}
+
+  liquibase:
+    contexts: prod
+
+resilience4j:
+  timelimiter:
+    configs:
+      default:
+        timeout-duration: 10s

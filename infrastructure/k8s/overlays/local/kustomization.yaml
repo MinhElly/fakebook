@@ -1,0 +1,45 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: fakebook-local
+
+resources:
+  - ../../base
+  - namespace.yaml
+  - configmap.yaml
+
+patches:
+  - target:
+      kind: Deployment
+    patch: |-
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: unused
+      spec:
+        template:
+          spec:
+            hostAliases:
+              - ip: "192.168.65.254"
+                hostnames:
+                  - auth.fakebook.test
+
+images:
+  - name: fakebook-gateway
+    newName: ghcr.io/minhelly/fakebook-gateway
+    newTag: local-v2
+  - name: fakebook-userservice
+    newName: ghcr.io/minhelly/fakebook-userservice
+    newTag: local-20261012-111649
+  - name: fakebook-postservice
+    newName: ghcr.io/minhelly/fakebook-postservice
+    newTag: local-v2
+  - name: fakebook-mediaservice
+    newName: ghcr.io/minhelly/fakebook-mediaservice
+    newTag: local-20261012-111649
+  - name: fakebook-commentservice
+    newName: ghcr.io/minhelly/fakebook-commentservice
+    newTag: local-20261012-111649
+  - name: fakebook-feedservice
+    newName: ghcr.io/minhelly/fakebook-feedservice
+    newTag: local-20261012-111649

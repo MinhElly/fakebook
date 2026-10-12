@@ -1,0 +1,19 @@
+server:
+  port: 8084
+
+spring:
+  config:
+    import: "classpath:config/application-k8s-common.yml"
+
+  datasource:
+    url: ${SPRING_DATASOURCE_URL}
+    username: ${FAKEBOOK_DB_USERNAME}
+    password: ${FAKEBOOK_DB_PASSWORD}
+
+  liquibase:
+    contexts: prod
+
+cloudinary:
+  cloud-name: ${CLOUDINARY_CLOUD_NAME}
+  api-key: ${CLOUDINARY_API_KEY}
+  api-secret: ${CLOUDINARY_API_SECRET}

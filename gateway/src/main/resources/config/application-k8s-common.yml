@@ -1,0 +1,55 @@
+spring:
+  docker:
+    compose:
+      enabled: false
+
+  cloud:
+    consul:
+      enabled: false
+      config:
+        enabled: false
+      discovery:
+        enabled: false
+    stream:
+      kafka:
+        binder:
+          brokers: ${KAFKA_BOOTSTRAP_SERVERS}
+          configuration:
+            acks: all
+            enable.idempotence: true
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS}
+    producer:
+      acks: all
+      retries: 2147483647
+      properties:
+        enable.idempotence: true
+        max.in.flight.requests.per.connection: 5
+
+  data:
+    redis:
+      host: ${REDIS_HOST}
+      port: ${REDIS_PORT:6379}
+
+  security:
+    oauth2:
+      client:
+        provider:
+          oidc:
+            issuer-uri: ${FAKEBOOK_OIDC_ISSUER_URI}
+        registration:
+          oidc:
+            client-id: ${FAKEBOOK_OIDC_GATEWAY_CLIENT_ID}
+            client-secret: ${FAKEBOOK_OIDC_GATEWAY_CLIENT_SECRET}
+management:
+  tracing:
+    sampling:
+      probability: 0.1
+    export:
+      zipkin:
+        endpoint: ${ZIPKIN_ENDPOINT}
+jhipster:
+  cache:
+    redis:
+      server: ${REDIS_URL}
+      cluster: false

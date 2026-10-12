@@ -4,6 +4,8 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.stereotype.Component;
+import org.springframework.web.context.request.RequestContextHolder;
+import org.springframework.web.context.request.ServletRequestAttributes;
 import feign.RequestInterceptor;
 import feign.RequestTemplate;
 
@@ -18,6 +20,15 @@ public class FeignUserRelayRequestInterceptor implements RequestInterceptor {
         if (authentication instanceof JwtAuthenticationToken jwtAuthenticationToken) {
             String tokenValue = jwtAuthenticationToken.getToken().getTokenValue();
             template.header(AUTHORIZATION_HEADER, "%s %s".formatted(BEARER_TOKEN_TYPE, tokenValue));
+            return;
+        }
+        // OpenFeign preserves servlet request attributes on its Circuit Breaker worker,
+        // while SecurityContextHolder is thread-local and may be empty there.
+        if (RequestContextHolder.getRequestAttributes() instanceof ServletRequestAttributes attributes) {
+            String authorization = attributes.getRequest().getHeader(AUTHORIZATION_HEADER);
+            if (authorization != null && authorization.regionMatches(true, 0, "Bearer ", 0, 7)) {
+                template.header(AUTHORIZATION_HEADER, authorization);
+            }
         }
     }
 }

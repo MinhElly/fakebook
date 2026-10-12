@@ -1,0 +1,89 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postservice
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postservice
+  template:
+    metadata:
+      labels:
+        app: postservice
+    spec:
+      automountServiceAccountToken: false
+      containers:
+        - name: postservice
+          image: fakebook-postservice
+          imagePullPolicy: IfNotPresent
+
+          ports:
+            - name: http
+              containerPort: 8083
+
+          envFrom:
+            - configMapRef:
+                name: fakebook-config
+            - secretRef:
+                name: postservice-secrets
+
+          env:
+            - name: SPRING_DATASOURCE_URL
+              value: "jdbc:mariadb://host.docker.internal:3307/post_service?sslMode=disable"
+            - name: JAVA_TOOL_OPTIONS
+              value: "-XX:MaxRAMPercentage=60"
+
+          resources:
+            requests:
+              cpu: "250m"
+              memory: "512Mi"
+            limits:
+              cpu: "2"
+              memory: "1Gi"
+
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+
+          startupProbe:
+            httpGet:
+              path: /management/health/liveness
+              port: http
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 60
+
+          readinessProbe:
+            httpGet:
+              path: /management/health/readiness
+              port: http
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
+
+          livenessProbe:
+            httpGet:
+              path: /management/health/liveness
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postservice
+spec:
+  selector:
+    app: postservice
+  ports:
+    - name: http
+      port: 8083
+      targetPort: http
+  type: ClusterIP

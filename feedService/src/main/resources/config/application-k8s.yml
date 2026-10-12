@@ -1,0 +1,34 @@
+server:
+  port: 8086
+
+spring:
+  config:
+    import: "classpath:config/application-k8s-common.yml"
+
+  cloud:
+    openfeign:
+      client:
+        config:
+          userservice:
+            url: ${USER_SERVICE_URL:http://userservice:8082}
+          postservice:
+            url: ${POST_SERVICE_URL:http://postservice:8083}
+
+  security:
+    oauth2:
+      client:
+        registration:
+          internal:
+            provider: oidc
+            client-id: ${FAKEBOOK_OIDC_CLIENT_ID}
+            client-secret: ${FAKEBOOK_OIDC_CLIENT_SECRET}
+            authorization-grant-type: client_credentials
+            scope: openid
+
+  datasource:
+    url: ${SPRING_DATASOURCE_URL}
+    username: ${FAKEBOOK_DB_USERNAME}
+    password: ${FAKEBOOK_DB_PASSWORD}
+
+  liquibase:
+    contexts: prod

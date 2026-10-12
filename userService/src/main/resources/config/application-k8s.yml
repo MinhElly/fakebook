@@ -1,0 +1,21 @@
+server:
+  port: 8082
+
+spring:
+  config:
+    import: "classpath:config/application-k8s-common.yml"
+
+  cloud:
+    openfeign:
+      client:
+        config:
+          mediaservice:
+            url: ${MEDIA_SERVICE_URL:http://mediaservice:8084}
+
+  datasource:
+    url: ${SPRING_DATASOURCE_URL}
+    username: ${FAKEBOOK_DB_USERNAME}
+    password: ${FAKEBOOK_DB_PASSWORD}
+
+  liquibase:
+    contexts: prod
