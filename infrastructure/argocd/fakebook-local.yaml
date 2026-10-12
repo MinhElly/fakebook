@@ -1,0 +1,23 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: fakebook-local
+  namespace: argocd
+
+spec:
+  project: default
+
+  source:
+    repoURL: https://github.com/MinhElly/fakebook.git
+    targetRevision: develop
+    path: infrastructure/k8s/overlays/local
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: fakebook-local
+
+  syncPolicy:
+    automated:
+      enabled: true
+      selfHeal: true
+      prune: false
