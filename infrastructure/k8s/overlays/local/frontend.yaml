@@ -27,7 +27,7 @@ spec:
       automountServiceAccountToken: false
       containers:
         - name: frontend
-          image: ghcr.io/minhelly/fakebook-frontend:local-v1
+          image: fakebook-frontend
           imagePullPolicy: Always
           ports:
             - name: http
