@@ -2,19 +2,13 @@ name: Fakebook CI/CD Pipeline
 
 on:
   push:
-    branches:
-      - develop
-      - staging
-      - main
-      - master
+    branches: [develop, staging, main, master]
   pull_request:
-    branches:
-      - develop
-      - staging
-      - main
-      - master
-
+    branches: [develop, staging, main, master]
   workflow_dispatch:
+
+permissions:
+  contents: read
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -24,60 +18,110 @@ env:
   REGISTRY: ghcr.io
 
 jobs:
-  # 0. Validate configuration files and Docker Compose templates
+  changes:
+    name: Classify changes
+    runs-on: ubuntu-latest
+    outputs:
+      build: ${{ steps.classify.outputs.build }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Classify source versus manifest changes
+        id: classify
+        env:
+          EVENT: ${{ github.event_name }}
+          BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          if [ "$EVENT" = workflow_dispatch ] || [ -z "$BASE" ] || [[ "$BASE" =~ ^0+$ ]]; then
+            echo 'build=true' >> "$GITHUB_OUTPUT"
+          else
+            python scripts/gitops/release.py changes --base "$BASE" --head "$GITHUB_SHA" >> "$GITHUB_OUTPUT"
+          fi
+
   validate-config:
     name: Validate Configuration & Compose
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+      - name: Validate Compose templates
+        run: |
+          docker compose -f infrastructure/docker-compose.yml config --quiet
+          docker compose --env-file infrastructure/.env.staging.example -f infrastructure/docker-compose-staging.yml config --quiet
+      - name: Validate Kustomize overlay
+        run: kubectl kustomize infrastructure/k8s/overlays/local > /tmp/fakebook-local.yaml
+      - name: Test release promotion safeguards
+        run: python -m unittest discover -s scripts/gitops -p 'test_*.py' -v
 
-      - name: Validate Local Dev Docker Compose
-        run: docker compose -f infrastructure/docker-compose.yml config --quiet
-
-      - name: Validate Staging Docker Compose Template
-        run: docker compose --env-file infrastructure/.env.staging.example -f infrastructure/docker-compose-staging.yml config --quiet
-
-  # 1. Validate the frontend artifact deployed by Vercel
   build-frontend:
-    name: Build Frontend for Vercel
-    needs: [validate-config]
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-          cache: npm
-          cache-dependency-path: frontend/package-lock.json
-
-      - name: Install frontend dependencies
-        working-directory: frontend
-        run: npm ci
-
-      - name: Build frontend
-        working-directory: frontend
-        env:
-          VITE_API_BASE_URL: https://api-staging.example.com
-          VITE_KEYCLOAK_URL: https://api-staging.example.com
-        run: npm run build
-
-  # 2. Verify every backend; publish only after protected-branch pushes
-  build-backend-services:
-    name: Verify / Publish (${{ matrix.service }})
-    needs: [validate-config]
+    name: Verify / Publish (frontend)
+    needs: [changes, validate-config]
+    if: needs.changes.outputs.build == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+      - name: Typecheck and build frontend
+        working-directory: frontend
+        run: |
+          npx tsc --noEmit
+          npm run build
+      - name: Prepare image name
+        if: github.event_name == 'push'
+        run: echo "IMAGE_PREFIX=${REGISTRY}/${GITHUB_REPOSITORY_OWNER,,}" >> "$GITHUB_ENV"
+      - uses: docker/setup-buildx-action@v3
+        if: github.event_name == 'push'
+      - uses: docker/login-action@v3
+        if: github.event_name == 'push'
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Publish the verified frontend bundle
+        id: publish
+        if: github.event_name == 'push'
+        uses: docker/build-push-action@v6
+        with:
+          context: frontend
+          file: frontend/Dockerfile.ci
+          platforms: linux/amd64
+          push: true
+          tags: ${{ env.IMAGE_PREFIX }}/fakebook-frontend:sha-${{ github.sha }}
+          labels: |
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+      - name: Record frontend digest
+        if: github.event_name == 'push'
+        env:
+          DIGEST: ${{ steps.publish.outputs.digest }}
+        run: |
+          python scripts/gitops/release.py record --name fakebook-frontend --sha "$GITHUB_SHA" \
+            --owner "${GITHUB_REPOSITORY_OWNER,,}" --digest "$DIGEST" --output release/fakebook-frontend.json
+      - uses: actions/upload-artifact@v4
+        if: github.event_name == 'push'
+        with:
+          name: release-fakebook-frontend
+          path: release/fakebook-frontend.json
+          if-no-files-found: error
 
+  build-backend-services:
+    name: Verify / Publish (${{ matrix.service }})
+    needs: [changes, validate-config]
+    if: needs.changes.outputs.build == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
     strategy:
       fail-fast: false
       matrix:
@@ -100,95 +144,146 @@ jobs:
           - service: feedService
             path: feedService
             image_name: fakebook-feedservice
-
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Set up JDK 21
-        uses: actions/setup-java@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
         with:
           java-version: '21'
-          distribution: 'temurin'
-          cache: 'maven'
-
+          distribution: temurin
+          cache: maven
       - name: Verify backend service
         working-directory: ${{ matrix.path }}
         run: |
           chmod +x mvnw
           ./mvnw -ntp clean verify
-
-      - name: Log in to GitHub Container Registry (GHCR)
-        if: >-
-          github.event_name == 'push' &&
-          (github.ref == 'refs/heads/develop' ||
-          github.ref == 'refs/heads/staging' ||
-          github.ref == 'refs/heads/main' ||
-          github.ref == 'refs/heads/master')
-        uses: docker/login-action@v3
+      - uses: docker/login-action@v3
+        if: github.event_name == 'push'
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Lowercase repository owner name
-        if: >-
-          github.event_name == 'push' &&
-          (github.ref == 'refs/heads/develop' ||
-          github.ref == 'refs/heads/staging' ||
-          github.ref == 'refs/heads/main' ||
-          github.ref == 'refs/heads/master')
-        run: |
-          echo "IMAGE_PREFIX=${REGISTRY}/${GITHUB_REPOSITORY_OWNER,,}" >> "$GITHUB_ENV"
-
-      - name: Build and push immutable OCI image
-        if: >-
-          github.event_name == 'push' &&
-          (github.ref == 'refs/heads/develop' ||
-          github.ref == 'refs/heads/staging' ||
-          github.ref == 'refs/heads/main' ||
-          github.ref == 'refs/heads/master')
+      - name: Publish verified backend classes
+        if: github.event_name == 'push'
         working-directory: ${{ matrix.path }}
+        env:
+          IMAGE_NAME: ${{ matrix.image_name }}
+          REGISTRY_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          IMAGE_NAME="${IMAGE_PREFIX}/${{ matrix.image_name }}"
-          FULL_SHA="${GITHUB_SHA}"
+          # jib:build uses the classes produced by clean verify; do not repackage.
+          ./mvnw -ntp jib:build \
+            -Djib.to.image="${REGISTRY}/${GITHUB_REPOSITORY_OWNER,,}/${IMAGE_NAME}:sha-${GITHUB_SHA}" \
+            -Djib.to.auth.username="$GITHUB_ACTOR" \
+            -Djib.to.auth.password="$REGISTRY_TOKEN"
+      - name: Record backend digest
+        if: github.event_name == 'push'
+        env:
+          IMAGE_NAME: ${{ matrix.image_name }}
+          MODULE_PATH: ${{ matrix.path }}
+        run: |
+          python scripts/gitops/release.py record --name "$IMAGE_NAME" --sha "$GITHUB_SHA" \
+            --owner "${GITHUB_REPOSITORY_OWNER,,}" --digest "$(cat "$MODULE_PATH/target/jib-image.digest")" \
+            --output "release/$IMAGE_NAME.json"
+      - uses: actions/upload-artifact@v4
+        if: github.event_name == 'push'
+        with:
+          name: release-${{ matrix.image_name }}
+          path: release/${{ matrix.image_name }}.json
+          if-no-files-found: error
 
-          if [[ ! "${FULL_SHA}" =~ ^[0-9a-f]{40}$ ]]; then
-            echo "Invalid Git commit SHA: ${FULL_SHA}"
+  promote-local:
+    name: Open local GitOps release PR
+    needs: [changes, validate-config, build-frontend, build-backend-services]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/develop' && needs.changes.outputs.build == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - name: Check GitHub App configuration
+        env:
+          APP_ID: ${{ vars.GITOPS_APP_ID }}
+          APP_KEY: ${{ secrets.GITOPS_APP_PRIVATE_KEY }}
+        run: |
+          if [ -z "$APP_ID" ] || [ -z "$APP_KEY" ]; then
+            echo '::error::Configure GITOPS_APP_ID and GITOPS_APP_PRIVATE_KEY for a repository-installed App with Contents and Pull requests write permissions.'
             exit 1
           fi
-
-          IMMUTABLE_TAG="sha-${FULL_SHA}"
-          BRANCH_REF="${GITHUB_REF_NAME}"
-          EXTRA_TAGS="${BRANCH_REF}"
-
-          if [ "${BRANCH_REF}" = "main" ] || [ "${BRANCH_REF}" = "master" ]; then
-            EXTRA_TAGS="latest,main"
+      - uses: actions/create-github-app-token@v2
+        id: app
+        with:
+          app-id: ${{ vars.GITOPS_APP_ID }}
+          private-key: ${{ secrets.GITOPS_APP_PRIVATE_KEY }}
+      - uses: actions/checkout@v4
+        with:
+          ref: develop
+          token: ${{ steps.app.outputs.token }}
+          fetch-depth: 0
+      - name: Reject superseded source releases
+        env:
+          SOURCE_SHA: ${{ github.sha }}
+        run: |
+          # Only manifest/doc commits may have landed since this source build.
+          CHANGES=$(python scripts/gitops/release.py changes --base "$SOURCE_SHA" --head HEAD)
+          if [ "$CHANGES" != 'build=false' ]; then
+            echo '::error::New source changes landed during this build. Wait for the newer CI release.'
+            exit 1
           fi
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: release-*
+          merge-multiple: true
+          path: release
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Pin the seven verified publication digests
+        env:
+          SOURCE_SHA: ${{ github.sha }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          python scripts/gitops/release.py promote --sha "$SOURCE_SHA" --owner "${GITHUB_REPOSITORY_OWNER,,}" \
+            --artifacts release --overlay infrastructure/k8s/overlays/local/kustomization.yaml \
+            --verify-registry --body /tmp/release-body.md --run-url "$RUN_URL"
+          kubectl kustomize infrastructure/k8s/overlays/local > /tmp/fakebook-release.yaml
+      - name: Create or update release PR
+        id: pr
+        uses: peter-evans/create-pull-request@v7
+        with:
+          token: ${{ steps.app.outputs.token }}
+          branch: codex/gitops-local-release
+          base: develop
+          add-paths: infrastructure/k8s/overlays/local/kustomization.yaml
+          commit-message: 'chore(gitops): promote local images from ${{ github.sha }}'
+          title: 'chore(gitops): release local from ${{ github.sha }}'
+          body-path: /tmp/release-body.md
+      - name: Record release PR
+        env:
+          PR_URL: ${{ steps.pr.outputs.pull-request-url }}
+        run: echo "GitOps release PR - $PR_URL" >> "$GITHUB_STEP_SUMMARY"
 
-          echo "Publishing immutable image: ${IMAGE_NAME}:${IMMUTABLE_TAG}"
-          echo "Publishing moving aliases: ${EXTRA_TAGS}"
-
-          ./mvnw -ntp package jib:build -DskipTests \
-            -Djib.to.image="${IMAGE_NAME}:${IMMUTABLE_TAG}" \
-            -Djib.to.tags="${EXTRA_TAGS}" \
-            -Djib.to.auth.username="${{ github.actor }}" \
-            -Djib.to.auth.password="${{ secrets.GITHUB_TOKEN }}"
-
-  # 3. Pipeline Completion Summary
   pipeline-summary:
     name: CI/CD Pipeline Summary
-    needs: [validate-config, build-frontend, build-backend-services]
+    needs: [changes, validate-config, build-frontend, build-backend-services, promote-local]
     runs-on: ubuntu-latest
     if: always()
     steps:
-      - name: Check Status
+      - name: Check all required stages
+        env:
+          RESULTS: ${{ toJSON(needs) }}
         run: |
-          if [ "${{ needs.validate-config.result }}" = "success" ] && \
-             [ "${{ needs.build-frontend.result }}" = "success" ] && \
-             [ "${{ needs.build-backend-services.result }}" = "success" ]; then
-            echo "🎉 CI/CD Pipeline Completed Successfully!"
-          else
-            echo "❌ CI/CD Pipeline Failed!"
-            exit 1
-          fi
+          python - <<'PY'
+          import json, os
+          jobs = json.loads(os.environ['RESULTS'])
+          required = ['changes', 'validate-config']
+          if jobs['changes']['outputs'].get('build') == 'true':
+              required += ['build-frontend', 'build-backend-services']
+          if os.environ['GITHUB_EVENT_NAME'] == 'push' and os.environ['GITHUB_REF'] == 'refs/heads/develop' and jobs['changes']['outputs'].get('build') == 'true':
+              required.append('promote-local')
+          failed = [name for name in required if jobs[name]['result'] != 'success']
+          if failed:
+              raise SystemExit('Required stages failed: ' + ', '.join(failed))
+          print('All required CI/release stages passed. Runtime acceptance remains separate.')
+          PY

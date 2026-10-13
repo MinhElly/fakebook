@@ -45,3 +45,6 @@ images:
   - name: fakebook-feedservice
     newName: ghcr.io/minhelly/fakebook-feedservice
     newTag: local-20261012-111649
+  - name: fakebook-frontend
+    newName: ghcr.io/minhelly/fakebook-frontend
+    newTag: local-v1
