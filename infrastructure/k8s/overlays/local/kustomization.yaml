@@ -8,6 +8,7 @@ resources:
   - namespace.yaml
   - configmap.yaml
   - ingress.yaml
+  - frontend.yaml
 
 patches:
   - target:
