@@ -1,0 +1,27 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: fakebook-config
+data:
+  SPRING_PROFILES_ACTIVE: "prod,k8s"
+
+  SPRING_CLOUD_CONSUL_ENABLED: "false"
+  SPRING_CLOUD_CONSUL_CONFIG_ENABLED: "false"
+  SPRING_CLOUD_CONSUL_DISCOVERY_ENABLED: "false"
+
+  KAFKA_BOOTSTRAP_SERVERS: "kafka.staging.example.invalid:9093"
+
+  REDIS_HOST: "redis.staging.example.invalid"
+  REDIS_PORT: "6379"
+  REDIS_URL: "rediss://redis.staging.example.invalid:6379"
+
+  FAKEBOOK_OIDC_ISSUER_URI: "https://auth.staging.example.invalid/realms/jhipster"
+
+  ZIPKIN_ENDPOINT: "http://zipkin.observability.svc:9411/api/v2/spans"
+  FRONTEND_ORIGIN: "https://app.staging.example.invalid"
+
+  USER_SERVICE_URL: "http://userservice:8082"
+  POST_SERVICE_URL: "http://postservice:8083"
+  MEDIA_SERVICE_URL: "http://mediaservice:8084"
+  COMMENT_SERVICE_URL: "http://commentservice:8085"
+  FEED_SERVICE_URL: "http://feedservice:8086"

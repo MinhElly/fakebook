@@ -1,0 +1,18 @@
+# Template only: replace destination and domains before applying.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: fakebook-staging
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/MinhElly/fakebook.git
+    targetRevision: staging
+    path: infrastructure/k8s/overlays/staging
+  destination:
+    name: STAGING_CLUSTER_REPLACE_ME
+    namespace: fakebook-staging
+  syncPolicy:
+    syncOptions:
+      - CreateNamespace=true

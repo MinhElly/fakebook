@@ -49,7 +49,9 @@ jobs:
           docker compose -f infrastructure/docker-compose.yml config --quiet
           docker compose --env-file infrastructure/.env.staging.example -f infrastructure/docker-compose-staging.yml config --quiet
       - name: Validate Kustomize overlay
-        run: kubectl kustomize infrastructure/k8s/overlays/local > /tmp/fakebook-local.yaml
+        run: |
+          kubectl kustomize infrastructure/k8s/overlays/local > /tmp/fakebook-local.yaml
+          kubectl kustomize infrastructure/k8s/overlays/staging > /tmp/fakebook-staging.yaml
       - name: Test release promotion safeguards
         run: python -m unittest discover -s scripts/gitops -p 'test_*.py' -v
 
