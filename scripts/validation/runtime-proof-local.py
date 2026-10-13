@@ -5,6 +5,7 @@ from pathlib import Path
 
 OUT = Path('.artifacts/runtime-proof'); OUT.mkdir(parents=True, exist_ok=True)
 SESSION = OUT/'accounts.json'
+REPORT_PATH = OUT/'report.json'
 KC = 'http://127.0.0.1:9080'
 REPORT = {'scope':'normal-user HTTP and SSE via Kubernetes ingress; not browser UI proof','checks':{},'streams':{}}
 LOCK=threading.Lock()
@@ -52,7 +53,7 @@ def prepare():
     return session
 
 def save():
-    with LOCK: (OUT/'report.json').write_text(json.dumps(REPORT,indent=2),encoding='utf-8')
+    with LOCK: REPORT_PATH.write_text(json.dumps(REPORT,indent=2),encoding='utf-8')
 
 def stream(label, session, end):
     account=session['accounts'][0 if label=='a' else 1]
@@ -82,7 +83,12 @@ def stream(label, session, end):
     stats['duration_seconds']=round(time.time()-stats['started_at']); save()
 
 def main():
-    parser=argparse.ArgumentParser(); parser.add_argument('--duration',type=int,default=1800); args=parser.parse_args()
+    global REPORT_PATH
+    parser=argparse.ArgumentParser(); parser.add_argument('--duration',type=int,default=1800)
+    parser.add_argument('--report-name',default='report.json'); args=parser.parse_args()
+    if Path(args.report_name).name != args.report_name or not args.report_name.endswith('.json'):
+        raise ValueError('report-name must be a JSON filename without directories')
+    REPORT_PATH=OUT/args.report_name
     session=prepare(); accounts=session['accounts']
     tokens=[token(session['client'],a['username'],a['password']) for a in accounts]
     profiles=[request('/services/userservice/api/user-profiles/me',t) for t in tokens]
@@ -126,7 +132,7 @@ def main():
     with response:
         assert response.status==200 and len(response.read())>0
     REPORT['checks']['uploaded_file_read']='PASS'
-    post=request('/services/postservice/api/posts/create',tokens[0],dict(content='GitOps recovery proof '+str(time.time()),visibility='PUBLIC',mediaIds=[media['id']],taggedUserIds=[]))
+    post=request('/services/postservice/api/posts/create',tokens[0],dict(content='GitOps recovery proof '+str(time.time()),visibility='FRIENDS',mediaIds=[media['id']],taggedUserIds=[]))
     REPORT['post_id']=post['id']; REPORT['checks']['post_create']='PASS'
     request('/services/commentservice/api/comments/create',tokens[1],dict(postId=post['id'],content='Realtime proof from account B'))
     request('/services/postservice/api/post-reactions/posts/'+post['id'],tokens[1],dict(reactionType='LIKE'),method='PUT')
@@ -148,7 +154,9 @@ def main():
         print('SSE progress: '+json.dumps({k:{'connections':v['connections'],'heartbeats':v['heartbeats'],'events':len(v['events']),'errors':len(v['errors'])} for k,v in REPORT['streams'].items()}),flush=True)
     for thread in threads: thread.join(timeout=25)
     REPORT['checks']['long_connection']='PASS' if all(v['heartbeats']>=args.duration//30 and not v['errors'] for v in REPORT['streams'].values()) else 'PARTIAL'
-    save(); print('Runtime evidence: '+str((OUT/'report.json').resolve()),flush=True)
+    save(); print('Runtime evidence: '+str(REPORT_PATH.resolve()),flush=True)
+    if any(status!='PASS' for status in REPORT['checks'].values()):
+        raise RuntimeError('One or more runtime checks did not pass; inspect evidence')
 
 if __name__=='__main__':
     try: main()
