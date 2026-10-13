@@ -1,0 +1,57 @@
+# Requires Prometheus Operator. Adapt its release label to your installation.
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: fakebook-staging
+  namespace: fakebook-staging
+spec:
+  selector:
+    matchLabels:
+      fakebook-metrics: backend
+  namespaceSelector:
+    matchNames: [fakebook-staging]
+  endpoints:
+    - port: http
+      path: /management/prometheus
+      interval: 30s
+      oauth2:
+        clientId:
+          secret:
+            name: monitoring-oauth
+            key: client-id
+        clientSecret:
+          name: monitoring-oauth
+          key: client-secret
+        tokenUrl: https://auth.staging.example.invalid/realms/jhipster/protocol/openid-connect/token
+        scopes: [openid]
+---
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: fakebook-staging
+  namespace: fakebook-staging
+spec:
+  groups:
+    - name: fakebook.availability
+      rules:
+        - alert: FakebookScrapeUnavailable
+          expr: up{namespace="fakebook-staging"} == 0
+          for: 5m
+          labels:
+            severity: critical
+          annotations:
+            summary: Fakebook metrics endpoint unavailable
+        - alert: FakebookDeploymentUnavailable
+          expr: kube_deployment_status_replicas_available{namespace="fakebook-staging"} < kube_deployment_spec_replicas{namespace="fakebook-staging"}
+          for: 5m
+          labels:
+            severity: critical
+          annotations:
+            summary: Fakebook Deployment has unavailable replicas
+        - alert: FakebookPodCrashLoop
+          expr: increase(kube_pod_container_status_restarts_total{namespace="fakebook-staging"}[15m]) > 3
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: Fakebook container repeatedly restarted
