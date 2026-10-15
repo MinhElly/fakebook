@@ -6,8 +6,8 @@ data:
   app-config.json: |
     {
       "environment": "staging",
-      "apiBaseUrl": "https://api.staging.example.invalid",
-      "keycloakBaseUrl": "https://auth.staging.example.invalid"
+      "apiBaseUrl": "https://api.staging.fakebook.com",
+      "keycloakBaseUrl": "https://auth.staging.fakebook.com"
     }
 ---
 apiVersion: apps/v1

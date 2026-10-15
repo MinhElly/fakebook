@@ -104,13 +104,14 @@ def main():
     else:
         records = [json.loads(p.read_text()) for p in args.artifacts.glob("*.json")]
         images = promote(args.overlay, args.sha, args.owner, records, args.verify_registry)
-        body = [f"Promote source commit `{args.sha}` to local Kubernetes.",
+        target_env = "staging" if "staging" in str(args.overlay).lower() else "local"
+        body = [f"Promote source commit `{args.sha}` to {target_env} Kubernetes.",
                 f"\nCI: {args.run_url}", "\nAll six backends passed Maven verify; frontend build and typecheck passed.",
                 "All seven registry tags were checked against CI publication digests.",
                 "\n| Image | Tag | Digest |", "|---|---|---|"]
         for record in images.values():
             body.append(f'| `{record["image"]}` | `sha-{args.sha}` | `{record["digest"]}` |')
-        body.extend(("\nMerge allows Argo CD to sync. Deployment and authenticated smoke checks remain pending.",
+        body.extend((f"\nMerge allows Argo CD to sync {target_env}. Deployment and authenticated smoke checks remain pending.",
                      "Rollback: revert this image promotion commit through a PR."))
         args.body.write_text("\n".join(body) + "\n", encoding="utf-8")
 

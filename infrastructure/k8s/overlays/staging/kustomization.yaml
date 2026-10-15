@@ -7,6 +7,7 @@ resources:
   - configmap.yaml
   - frontend.yaml
   - ingress.yaml
+  - secret-store.yaml
   - external-secrets.yaml
 patches:
   - target:
@@ -15,45 +16,45 @@ patches:
     patch: |-
       - op: replace
         path: /spec/template/spec/containers/0/env/0/value
-        value: r2dbc:mariadb://db.staging.example.invalid:3306/gateway?sslMode=VERIFY_FULL
+        value: r2dbc:mariadb://db.staging.fakebook.com:3306/gateway?sslMode=VERIFY_FULL
       - op: replace
         path: /spec/template/spec/containers/0/env/1/value
-        value: jdbc:mariadb://db.staging.example.invalid:3306/gateway?sslMode=verify-full
+        value: jdbc:mariadb://db.staging.fakebook.com:3306/gateway?sslMode=verify-full
   - target:
       kind: Deployment
       name: userservice
     patch: |-
       - op: replace
         path: /spec/template/spec/containers/0/env/0/value
-        value: jdbc:mariadb://db.staging.example.invalid:3306/user_service?sslMode=verify-full
+        value: jdbc:mariadb://db.staging.fakebook.com:3306/user_service?sslMode=verify-full
   - target:
       kind: Deployment
       name: postservice
     patch: |-
       - op: replace
         path: /spec/template/spec/containers/0/env/0/value
-        value: jdbc:mariadb://db.staging.example.invalid:3306/post_service?sslMode=verify-full
+        value: jdbc:mariadb://db.staging.fakebook.com:3306/post_service?sslMode=verify-full
   - target:
       kind: Deployment
       name: mediaservice
     patch: |-
       - op: replace
         path: /spec/template/spec/containers/0/env/0/value
-        value: jdbc:mariadb://db.staging.example.invalid:3306/media_service?sslMode=verify-full
+        value: jdbc:mariadb://db.staging.fakebook.com:3306/media_service?sslMode=verify-full
   - target:
       kind: Deployment
       name: commentservice
     patch: |-
       - op: replace
         path: /spec/template/spec/containers/0/env/0/value
-        value: jdbc:mariadb://db.staging.example.invalid:3306/comment_service?sslMode=verify-full
+        value: jdbc:mariadb://db.staging.fakebook.com:3306/comment_service?sslMode=verify-full
   - target:
       kind: Deployment
       name: feedservice
     patch: |-
       - op: replace
         path: /spec/template/spec/containers/0/env/0/value
-        value: jdbc:mariadb://db.staging.example.invalid:3306/feed_service?sslMode=verify-full
+        value: jdbc:mariadb://db.staging.fakebook.com:3306/feed_service?sslMode=verify-full
   - target:
       kind: Service
       name: gateway|userservice|postservice|mediaservice|commentservice|feedservice
