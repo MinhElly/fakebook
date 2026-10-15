@@ -12,6 +12,16 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 public class ApplicationProperties {
 
     private final Liquibase liquibase = new Liquibase();
+    private final Feed feed = new Feed();
+
+    public Feed getFeed() { return feed; }
+
+    public static class Feed {
+        private String cursorSecret = "";
+        public String getCursorSecret() { return cursorSecret; }
+        public void setCursorSecret(String value) { cursorSecret = value; }
+    }
+
 
     // jhipster-needle-application-properties-property
 

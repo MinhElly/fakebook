@@ -114,6 +114,8 @@ management:
       application: ${spring.application.name}
 
 spring:
+  config:
+    import: optional:classpath:config/application-feed.yml
   application:
     name: feedService
   cloud:
@@ -192,6 +194,12 @@ spring:
         registration:
           oidc:
             scope: openid, profile
+          internal:
+            provider: oidc
+            client-id: ${FAKEBOOK_OIDC_INTERNAL_CLIENT_ID:internal}
+            client-secret: ${FAKEBOOK_OIDC_INTERNAL_CLIENT_SECRET:}
+            authorization-grant-type: client_credentials
+            scope: openid
   task:
     execution:
       thread-name-prefix: feed-service-task-
@@ -263,3 +271,7 @@ jhipster:
 # ===================================================================
 
 # application:
+
+application:
+  feed:
+    cursor-secret: ${FEED_CURSOR_SECRET:}

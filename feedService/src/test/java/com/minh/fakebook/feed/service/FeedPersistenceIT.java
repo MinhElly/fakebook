@@ -135,7 +135,7 @@ class FeedPersistenceIT {
         );
 
         feedFanoutService.processPostUpdated(
-            new PostUpdatedEvent(postId, authorId, "content", "PRIVATE", "ACTIVE", CREATED_AT.plusSeconds(60))
+            new PostUpdatedEvent(postId, authorId, "content", "PRIVATE", "ACTIVE", CREATED_AT.plusSeconds(60), CREATED_AT)
         );
 
         assertThat(feedItemRepository.findByPostId(postId))
@@ -145,6 +145,7 @@ class FeedPersistenceIT {
             .allSatisfy(item -> {
                 assertThat(item.getAuthorId()).isEqualTo(authorId);
                 assertThat(item.getVisibility()).isEqualTo("PRIVATE");
+                assertThat(item.getCreatedAt()).isEqualTo(CREATED_AT);
             });
         verify(userServiceClient, never()).getUserFriendsList(authorId);
         verify(userServiceClient, never()).getUserFollowersList(authorId);

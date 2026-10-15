@@ -9,9 +9,9 @@ import org.springframework.web.bind.annotation.PathVariable;
 @FeignClient(name = "userservice", configuration = TokenRelayRequestInterceptor.class, fallbackFactory = UserServiceFallbackFactory.class)
 public interface UserServiceClient {
 
-    @GetMapping("/api/friendships/user/{userId}/friend-ids")
+    @GetMapping("/api/internal/social-context/{userId}/friend-ids")
     List<UUID> getUserFriendsList(@PathVariable("userId") UUID userId);
 
-    @GetMapping("/api/follows/user/{userId}/follower-ids")
+    @GetMapping("/api/internal/social-context/{userId}/follower-ids")
     List<UUID> getUserFollowersList(@PathVariable("userId") UUID userId);
 }
