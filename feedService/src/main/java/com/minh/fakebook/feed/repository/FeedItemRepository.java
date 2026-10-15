@@ -33,6 +33,13 @@ public interface FeedItemRepository extends JpaRepository<FeedItem, UUID>, JpaSp
         @Param("createdAt") java.time.Instant createdAt
     );
 
+    @Modifying
+    @Query(value = "INSERT INTO feed_items (id, user_id, post_id, author_id, visibility, created_at) VALUES (:id, :userId, :postId, :authorId, :visibility, :createdAt) " +
+        "ON DUPLICATE KEY UPDATE author_id = VALUES(author_id), visibility = VALUES(visibility), created_at = VALUES(created_at)", nativeQuery = true)
+    int upsert(@Param("id") String id, @Param("userId") String userId, @Param("postId") String postId,
+        @Param("authorId") String authorId, @Param("visibility") String visibility, @Param("createdAt") java.time.Instant createdAt);
+
+    void deleteByPostIdAndUserIdNotIn(UUID postId, java.util.Collection<UUID> recipients);
     void deleteByPostId(UUID postId);
     List<FeedItem> findByPostId(UUID postId);
 

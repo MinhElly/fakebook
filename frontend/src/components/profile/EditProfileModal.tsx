@@ -1,3 +1,4 @@
+import MediaImage from "@/components/feed/MediaImage";
 import { useState } from "react";
 import { useUserStore, type UserProfile } from "@/stores/userStore";
 import Toast from "@/components/ui/Toast";
@@ -47,6 +48,7 @@ export default function EditProfileModal({ onClose }: Props) {
       if (avatarFile) {
         const formData = new FormData();
         formData.append("file", avatarFile);
+        formData.append("purpose", "AVATAR");
         const res = await api.post("/services/mediaservice/api/media/upload", formData, {
           headers: { "Content-Type": "multipart/form-data" },
         });
@@ -56,6 +58,7 @@ export default function EditProfileModal({ onClose }: Props) {
       if (coverFile) {
         const formData = new FormData();
         formData.append("file", coverFile);
+        formData.append("purpose", "COVER");
         const res = await api.post("/services/mediaservice/api/media/upload", formData, {
           headers: { "Content-Type": "multipart/form-data" },
         });
@@ -197,7 +200,7 @@ export default function EditProfileModal({ onClose }: Props) {
             {tab === "avatar" && (
               <div className="space-y-4">
                 <div className="flex flex-col items-center gap-4">
-                  <img
+                  <MediaImage
                     src={avatarPreview}
                     alt="avatar preview"
                     className="w-32 h-32 rounded-full object-cover border-4 border-[#E4E6EB]"
@@ -228,7 +231,7 @@ export default function EditProfileModal({ onClose }: Props) {
             {tab === "cover" && (
               <div className="space-y-4">
                 <div>
-                  <img
+                  <MediaImage
                     src={coverPreview}
                     alt="cover preview"
                     className="w-full h-32 object-cover rounded-xl border border-[#E4E6EB]"

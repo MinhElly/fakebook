@@ -1,3 +1,4 @@
+import MediaImage from "./MediaImage";
 import { useState, useEffect, useRef } from "react";
 import { usePostStore } from "@/stores/postStore";
 import { useUserStore } from "@/stores/userStore";
@@ -55,6 +56,7 @@ export default function CreatePostModal({ onClose, editPost }: Props) {
   const [content, setContent] = useState(initContent);
   const [imageUrl, setImageUrl] = useState(editPost?.image ?? "");
   const [imageFile, setImageFile] = useState<File | null>(null);
+  const [mediaRemoved, setMediaRemoved] = useState(false);
   const [showImageInput, setShowImageInput] = useState(!!editPost?.image);
   const [bgGradient, setBgGradient] = useState<string | null>(initBg);
 
@@ -114,6 +116,7 @@ export default function CreatePostModal({ onClose, editPost }: Props) {
   const [friendsList, setFriendsList] = useState<FriendshipItem[]>([]);
   const [taggedUserIds, setTaggedUserIds] = useState<string[]>(editPost?.taggedUserIds || []);
   const [isLoading, setIsLoading] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const isSubmittingRef = useRef(false);
 
   useEffect(() => {
@@ -140,6 +143,7 @@ export default function CreatePostModal({ onClose, editPost }: Props) {
     if (!canSubmit || isSubmittingRef.current) return;
     isSubmittingRef.current = true;
     setIsLoading(true);
+    setSubmitError(null);
 
     // Nối lên mã màu nền vào đầu văn bản trước khi gửi xuống Server
     let finalContent = content.trim();
@@ -154,17 +158,25 @@ export default function CreatePostModal({ onClose, editPost }: Props) {
       finalContent = `[LOC:` + location.trim() + `]\n` + finalContent;
     }
 
-    // Tắt cửa sổ đăng bài ngay lập tức
-    onClose();
+    // New posts use the upload placeholder; edits stay open until the server confirms.
+    if (!isEdit) onClose();
 
     try {
       if (isEdit) {
-        await updatePost(editPost!.id, finalContent, imageFile || imageUrl, visibility, taggedUserIds);
+        await updatePost(editPost!.id, finalContent, imageFile || (mediaRemoved ? null : undefined), visibility, taggedUserIds, editPost!.version);
+        onClose();
       } else {
         await addPost(finalContent, imageFile || imageUrl, visibility, taggedUserIds);
       }
     } catch (error) {
+      const status = (error as { response?: { status?: number } }).response?.status;
+      setSubmitError(status === 409
+        ? "Bài viết đã được thay đổi. Hãy tải lại bài viết trước khi sửa tiếp. Nội dung đang nhập vẫn được giữ ở đây."
+        : "Không lưu được bài viết. Nội dung đang nhập vẫn được giữ để bạn thử lại.");
       console.error(error);
+    } finally {
+      isSubmittingRef.current = false;
+      setIsLoading(false);
     }
   }
 
@@ -263,6 +275,7 @@ export default function CreatePostModal({ onClose, editPost }: Props) {
               {isEdit ? "Chỉnh sửa bài viết" : "Tạo bài viết"}
             </h2>
             <button
+              aria-label="Đóng trình soạn bài"
               onClick={onClose}
               className="w-9 h-9 rounded-full bg-[#E4E6EB] hover:bg-[#D8DADF] flex items-center justify-center transition-colors text-[#1C1E21]"
             >
@@ -276,7 +289,7 @@ export default function CreatePostModal({ onClose, editPost }: Props) {
           <div className="flex-1 overflow-y-auto custom-scrollbar">
             {/* Author */}
             <div className="flex items-center gap-3 px-4 pt-3 pb-1">
-            <img src={profile.avatar} alt="me" className="w-10 h-10 rounded-full object-cover" />
+            <MediaImage src={profile.avatar} alt="me" className="w-10 h-10 rounded-full object-cover" />
             <div>
               <p className="font-semibold text-[#1C1E21] text-sm">
                 <span className="font-bold">{profile.name}</span>
@@ -362,7 +375,7 @@ export default function CreatePostModal({ onClose, editPost }: Props) {
             <div className="mx-4 mb-3 border border-[#CED0D4] rounded-lg p-2 relative">
               {/* Nút đóng vùng chọn ảnh */}
               <button
-                onClick={() => { setShowImageInput(false); setImageUrl(""); setImageFile(null); setActiveTab(null); }}
+                onClick={() => { setShowImageInput(false); setImageUrl(""); setImageFile(null); setMediaRemoved(true); setActiveTab(null); }}
                 className={
                   "absolute top-4 right-4 z-10 w-7 h-7 bg-white border " +
                   "border-[#CED0D4] rounded-full flex items-center justify-center " +
@@ -438,7 +451,7 @@ export default function CreatePostModal({ onClose, editPost }: Props) {
                 </label>
               ) : (
                 <div className="relative rounded-lg overflow-hidden bg-[#F0F2F5] flex justify-center">
-                  <img
+                  <MediaImage
                     src={imageUrl}
                     alt="preview"
                     className="w-full max-h-[300px] object-contain"
@@ -470,7 +483,7 @@ export default function CreatePostModal({ onClose, editPost }: Props) {
                         }
                       }}>
                         <div className="flex items-center gap-2">
-                          <img src={friendAvatar || "https://ui-avatars.com/api/?name=" + friendName} className="w-8 h-8 rounded-full" />
+                          <MediaImage alt={friendName || "Bạn bè"} src={friendAvatar || "https://ui-avatars.com/api/?name=" + friendName} className="w-8 h-8 rounded-full" />
                           <span className="text-sm font-medium">{friendName}</span>
                         </div>
                         <input type="checkbox" checked={isTagged} readOnly className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
@@ -767,6 +780,7 @@ export default function CreatePostModal({ onClose, editPost }: Props) {
             </div>
           </div>
 
+          {submitError && <p role="alert" className="mx-4 mb-3 text-sm text-red-600">{submitError}</p>}
           {/* Submit */}
           <div className="px-4 pb-4">
             <button

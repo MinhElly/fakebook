@@ -8,7 +8,13 @@ import FeatureEmptyState from "@/components/ui/FeatureEmptyState";
 import Toast from "@/components/ui/Toast";
 import { useEffect } from "react";
 
+
 export default function HomePage() {
+  const { feedError, feedExpired, retryFeed, changeFeedMode, pauseFeed } = usePostStore();
+  useEffect(() => {
+    changeFeedMode("home");
+    return pauseFeed;
+  }, [changeFeedMode, pauseFeed]);
   const { posts, loadMorePosts, hasMore, loading, isUploading, pendingPost, toastMessage, setToastMessage } = usePostStore();
 
   // Bắt sự kiện cuộn chuột để làm Infinity Scroll
@@ -36,6 +42,7 @@ export default function HomePage() {
           ">
 
         <PostCreator />
+        {feedError && <p role="alert" className="my-3 rounded bg-white p-4">{feedError} <button onClick={retryFeed} className="text-blue-600">{feedExpired ? "Tải bảng tin mới" : "Thử lại"}</button></p>}
 
         {/* Uploading Placeholder */}
         {isUploading && pendingPost && (
@@ -48,7 +55,7 @@ export default function HomePage() {
           </div>
         )}
 
-        {posts.length === 0 && !loading && (
+        {posts.length === 0 && !loading && !feedError && (
           <section className="rounded-xl border border-[#E4E6EB] bg-white">
             <FeatureEmptyState title="Chưa có bài viết" description="Bảng tin sẽ hiển thị bài viết sau khi bạn đăng bài." />
           </section>
@@ -57,6 +64,9 @@ export default function HomePage() {
         {posts.map(post => (
           <Post key={post.id} post={post} />
         ))}
+
+
+        {hasMore && !loading && !feedError && <button onClick={loadMorePosts} className="my-3 w-full rounded-lg bg-white p-3 font-semibold text-blue-600">Xem thêm bài viết</button>}
 
         {/* Hiển thị vòng xoay đang tải hoặc thông báo hết bài */}
         {loading && (

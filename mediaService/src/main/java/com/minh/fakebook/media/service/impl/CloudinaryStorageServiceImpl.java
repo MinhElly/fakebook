@@ -59,7 +59,11 @@ public class CloudinaryStorageServiceImpl implements FileStorageService {
             LOG.warn("Cannot delete file: storageKey is empty");
             return;
         }
-        Map<?, ?> result = cloudinary.uploader().destroy(storageKey, ObjectUtils.emptyMap());
+        Map<?, ?> result = cloudinary.uploader().destroy(storageKey, ObjectUtils.asMap("resource_type", "image"));
+        if ("not found".equals(result.get("result"))) {
+            LOG.debug("Resource not found as image, trying video destroy for key: {}", storageKey);
+            result = cloudinary.uploader().destroy(storageKey, ObjectUtils.asMap("resource_type", "video"));
+        }
         if (!"ok".equals(result.get("result")) && !"not found".equals(result.get("result"))) {
             throw new IOException("Cloudinary did not confirm deletion for " + storageKey);
         }

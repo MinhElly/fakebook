@@ -9,10 +9,10 @@ metadata:
 spec:
   ingressClassName: traefik
   tls:
-    - hosts: [api.staging.example.invalid]
+    - hosts: [api.staging.fakebook.com]
       secretName: fakebook-api-tls
   rules:
-    - host: api.staging.example.invalid
+    - host: api.staging.fakebook.com
       http:
         paths:
           - path: /
@@ -33,10 +33,10 @@ metadata:
 spec:
   ingressClassName: traefik
   tls:
-    - hosts: [app.staging.example.invalid]
+    - hosts: [app.staging.fakebook.com]
       secretName: fakebook-app-tls
   rules:
-    - host: app.staging.example.invalid
+    - host: app.staging.fakebook.com
       http:
         paths:
           - path: /

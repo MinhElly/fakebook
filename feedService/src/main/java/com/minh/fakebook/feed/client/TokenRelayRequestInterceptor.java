@@ -27,7 +27,7 @@ public class TokenRelayRequestInterceptor implements RequestInterceptor {
     @Override
     public void apply(RequestTemplate template) {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication instanceof JwtAuthenticationToken jwtAuth) {
+        if (!template.url().startsWith("/api/internal/") && authentication instanceof JwtAuthenticationToken jwtAuth) {
             String tokenValue = jwtAuth.getToken().getTokenValue();
             template.header("Authorization", "Bearer " + tokenValue);
             return;

@@ -13,10 +13,12 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.minh.fakebook.comment.IntegrationTest;
 import com.minh.fakebook.comment.domain.Comment;
 import com.minh.fakebook.comment.domain.CommentReaction;
+import com.minh.fakebook.comment.domain.PostCache;
 import com.minh.fakebook.comment.domain.enumeration.CommentStatus;
 import com.minh.fakebook.comment.domain.enumeration.ReactionType;
 import com.minh.fakebook.comment.repository.CommentReactionRepository;
 import com.minh.fakebook.comment.repository.CommentRepository;
+import com.minh.fakebook.comment.repository.PostCacheRepository;
 import com.minh.fakebook.comment.security.AuthoritiesConstants;
 import java.time.Instant;
 import java.util.UUID;
@@ -47,12 +49,36 @@ class CommentReactionResourceIT {
     private CommentReactionRepository commentReactionRepository;
 
     @Autowired
+    private PostCacheRepository postCacheRepository;
+
+    @Autowired
+    private org.springframework.jdbc.core.JdbcTemplate fixtureJdbc;
+
+    @org.springframework.test.context.bean.override.mockito.MockitoBean
+    private com.minh.fakebook.comment.client.PostFeignClient authoritativePosts;
+
+    @org.junit.jupiter.api.BeforeEach
+    void configureAuthoritativePostFixture() {
+        org.mockito.Mockito.when(authoritativePosts.getPostById(org.mockito.ArgumentMatchers.any())).thenAnswer(invocation -> {
+            UUID id = invocation.getArgument(0);
+            return postCacheRepository.findById(id)
+                .map(p -> new com.minh.fakebook.comment.client.dto.PostSyncDTO(p.getId(), p.getAuthorId(), p.getStatus(), p.getVisibility()))
+                .orElseThrow(() -> new IllegalArgumentException("Post fixture not found"));
+        });
+    }
+
+
+    @Autowired
     private MockMvc restCommentReactionMockMvc;
 
     private Comment comment;
 
     @BeforeEach
     void initTest() {
+        if (!postCacheRepository.existsById(POST_ID)) {
+            fixtureJdbc.update("INSERT INTO post_cache (id, author_id, visibility, status) VALUES (?, ?, ?, ?)",
+                POST_ID.toString(), AUTHOR_ID.toString(), "PUBLIC", "ACTIVE");
+        }
         comment = new Comment()
             .postId(POST_ID)
             .authorId(AUTHOR_ID)

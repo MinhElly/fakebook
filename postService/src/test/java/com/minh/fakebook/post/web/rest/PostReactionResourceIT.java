@@ -71,66 +71,25 @@ class PostReactionResourceIT {
 
     @Test
     @Transactional
-    void guestCanReadReactionsForPublicPost() throws Exception {
+    void unauthenticatedRequestsCannotReadCountsOrIdentities() throws Exception {
         post = postRepository.saveAndFlush(post);
         PostReaction reaction = saveReaction(USER_ID, ReactionType.LIKE);
-
-        restPostReactionMockMvc
-            .perform(get(ENTITY_API_URL + "?sort=id,desc"))
-            .andExpect(status().isOk())
-            .andExpect(content().contentType(MediaType.APPLICATION_JSON_VALUE))
-            .andExpect(jsonPath("$.[*].id").value(hasItem(reaction.getId().toString())))
-            .andExpect(jsonPath("$.[*].userId").value(hasItem(USER_ID.toString())))
-            .andExpect(jsonPath("$.[*].reactionType").value(hasItem(ReactionType.LIKE.toString())));
+        restPostReactionMockMvc.perform(get(ENTITY_API_URL)).andExpect(status().isUnauthorized());
+        restPostReactionMockMvc.perform(get(ENTITY_API_URL + "/{id}", reaction.getId())).andExpect(status().isUnauthorized());
+        restPostReactionMockMvc.perform(get(ENTITY_API_URL + "/count?userId.equals=" + USER_ID)).andExpect(status().isUnauthorized());
+        restPostReactionMockMvc.perform(get(ENTITY_API_URL + "/summaries").param("postId.in", post.getId().toString()))
+            .andExpect(status().isUnauthorized());
     }
 
     @Test
     @Transactional
-    void guestCannotSeeReactionsForPrivatePost() throws Exception {
-        post.visibility(PostVisibility.PRIVATE);
+    void authenticatedUserCanReadPublicReactionAndMissingIdIsNotFound() throws Exception {
         post = postRepository.saveAndFlush(post);
         PostReaction reaction = saveReaction(USER_ID, ReactionType.LIKE);
-
-        restPostReactionMockMvc
-            .perform(get(ENTITY_API_URL + "?id.equals=" + reaction.getId()))
-            .andExpect(status().isOk())
-            .andExpect(jsonPath("$").isEmpty());
-    }
-
-    @Test
-    @Transactional
-    void guestCanFilterAndCountVisibleReactions() throws Exception {
-        post = postRepository.saveAndFlush(post);
-        PostReaction reaction = saveReaction(USER_ID, ReactionType.LOVE);
-
-        restPostReactionMockMvc
-            .perform(get(ENTITY_API_URL + "?userId.equals=" + USER_ID))
-            .andExpect(status().isOk())
-            .andExpect(jsonPath("$.[*].id").value(hasItem(reaction.getId().toString())));
-
-        restPostReactionMockMvc
-            .perform(get(ENTITY_API_URL + "/count?userId.equals=" + USER_ID))
-            .andExpect(status().isOk())
-            .andExpect(content().string("1"));
-    }
-
-    @Test
-    @Transactional
-    void guestCanGetPublicPostReactionById() throws Exception {
-        post = postRepository.saveAndFlush(post);
-        PostReaction reaction = saveReaction(USER_ID, ReactionType.LIKE);
-
-        restPostReactionMockMvc
-            .perform(get(ENTITY_API_URL + "/{id}", reaction.getId()))
-            .andExpect(status().isOk())
-            .andExpect(jsonPath("$.id").value(reaction.getId().toString()))
-            .andExpect(jsonPath("$.post.id").value(post.getId().toString()));
-    }
-
-    @Test
-    @Transactional
-    void getNonExistingPostReactionReturnsNotFound() throws Exception {
-        restPostReactionMockMvc.perform(get(ENTITY_API_URL + "/{id}", UUID.randomUUID())).andExpect(status().isNotFound());
+        restPostReactionMockMvc.perform(get(ENTITY_API_URL + "/{id}", reaction.getId()).with(jwtAs(USER_ID)))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.userId").value(USER_ID.toString()));
+        restPostReactionMockMvc.perform(get(ENTITY_API_URL + "/{id}", UUID.randomUUID()).with(jwtAs(USER_ID)))
+            .andExpect(status().isNotFound());
     }
 
     @Test

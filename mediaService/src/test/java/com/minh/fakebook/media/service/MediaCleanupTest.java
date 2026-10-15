@@ -18,7 +18,7 @@ class MediaCleanupTest {
         var media = new Media().id(id).storageKey("stable-key").status(MediaStatus.ACTIVE);
         when(repository.findById(id)).thenReturn(Optional.of(media));
         doThrow(new IOException("Storage unavailable")).when(storage).deleteFile("stable-key");
-        var service = new MediaService(repository, mock(MediaMapper.class), storage);
+        var service = new MediaService(repository, mock(MediaMapper.class), storage, mock(PostMediaAccess.class));
         assertThatThrownBy(() -> service.deleteBySystem(id)).isInstanceOf(IllegalStateException.class).hasCauseInstanceOf(IOException.class);
         assertThat(media.getStatus()).isEqualTo(MediaStatus.ACTIVE);
         verify(repository, never()).save(any());
@@ -32,7 +32,7 @@ class MediaCleanupTest {
         var storage = mock(FileStorageService.class);
         UUID id = UUID.randomUUID();
         when(repository.findById(id)).thenReturn(Optional.empty());
-        new MediaService(repository, mock(MediaMapper.class), storage).deleteBySystem(id);
+        new MediaService(repository, mock(MediaMapper.class), storage, mock(PostMediaAccess.class)).deleteBySystem(id);
         verifyNoInteractions(storage);
         verify(repository, never()).save(any());
     }

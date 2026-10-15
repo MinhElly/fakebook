@@ -16,6 +16,7 @@ import org.springframework.transaction.support.*;
 @Component
 @Order(1)
 public class UserCacheInvalidation {
+    private static final org.slf4j.Logger LOG = org.slf4j.LoggerFactory.getLogger(UserCacheInvalidation.class);
     private final FriendRequestRepository requests;
     private final FriendshipRepository friendships;
     private final FollowRepository follows;
@@ -74,13 +75,33 @@ public class UserCacheInvalidation {
         }
         Runnable eviction = () -> {
             for (UUID user : users) {
+                if (user == null) {
+                    continue;
+                }
                 for (String cache : List.of("pendingSentRequests", "pendingReceivedRequests", "userFriends", "userFollowing", "userFollowers")) {
                     try (var keys = redis.scan(ScanOptions.scanOptions().match(cache + "::" + user + "_*").count(100).build())) {
-                        while (keys.hasNext()) redis.delete(keys.next());
+                        while (keys.hasNext()) {
+                            try {
+                                String key = keys.next();
+                                redis.delete(key);
+                            } catch (Exception ex) {
+                                LOG.warn("Failed to delete Redis key for user {} in cache {}: {}", user, cache, ex.getMessage());
+                            }
+                        }
+                    } catch (Exception ex) {
+                        LOG.warn("Failed scanning Redis cache {} for user {}: {}", cache, user, ex.getMessage());
                     }
                 }
-                redis.delete("userProfile::" + user);
-                redis.delete("userProfile::" + user + ":optional");
+                try {
+                    redis.delete("userProfile::" + user);
+                } catch (Exception ex) {
+                    LOG.warn("Failed to evict userProfile cache for user {}: {}", user, ex.getMessage());
+                }
+                try {
+                    redis.delete("userProfile::" + user + ":optional");
+                } catch (Exception ex) {
+                    LOG.warn("Failed to evict userProfile optional cache for user {}: {}", user, ex.getMessage());
+                }
             }
         };
         if (TransactionSynchronizationManager.isSynchronizationActive()) {

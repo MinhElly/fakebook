@@ -1,18 +1,26 @@
-import api from "./apis";
+import api from "./apis"
 
 export interface FeedItemDTO {
-  id: string;
-  userId: string;
-  postId: string;
-  createdAt: string;
+  postId: string
+  source: "FRIENDS" | "FOLLOWING" | "DISCOVERY"
 }
 
-/**
- * Fetch personalized news feed items for current user.
- */
-export async function getPersonalizedFeed(page = 0, size = 10): Promise<FeedItemDTO[]> {
-  const response = await api.get<FeedItemDTO[]>(
-    `/services/feedservice/api/feed/me?page=${page}&size=${size}&sort=createdAt,desc`
-  );
-  return response.data || [];
+export interface FeedPage {
+  items: FeedItemDTO[]
+  nextCursor: string | null
+  hasMore: boolean
+}
+
+export async function getFeed(
+  mode: "home" | "friends",
+  cursor?: string | null,
+): Promise<FeedPage> {
+  const response = await api.get<FeedPage>(
+    `/services/feedservice/api/feed/${mode}`,
+    {
+      params: cursor ? { cursor } : {},
+    },
+  )
+
+  return response.data
 }

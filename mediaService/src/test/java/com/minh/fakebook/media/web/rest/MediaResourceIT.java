@@ -1,4 +1,4 @@
-package com.minh.fakebook.media.web.rest;
+ package com.minh.fakebook.media.web.rest;
 
 import static com.minh.fakebook.media.domain.MediaAsserts.*;
 import static com.minh.fakebook.media.web.rest.TestUtil.createUpdateProxyForBean;
@@ -37,7 +37,7 @@ import tools.jackson.databind.ObjectMapper;
  */
 @IntegrationTest
 @AutoConfigureMockMvc
-@WithMockUser
+@WithMockUser(authorities = AuthoritiesConstants.ADMIN)
 class MediaResourceIT {
 
     private static final UUID DEFAULT_OWNER_ID = UUID.randomUUID();
@@ -966,6 +966,7 @@ class MediaResourceIT {
         restMediaMockMvc
             .perform(
                 put(ENTITY_API_URL_ID, mediaDTO.getId())
+                    .with(jwt().jwt(jwt -> jwt.subject(DEFAULT_OWNER_ID.toString())))
                     .with(csrf())
                     .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
                     .content(om.writeValueAsBytes(mediaDTO))
@@ -974,7 +975,12 @@ class MediaResourceIT {
 
         // Validate the Media in the database
         assertSameRepositoryCount(databaseSizeBeforeUpdate);
-        assertPersistedMediaToMatchAllProperties(updatedMedia);
+        Media persisted = getPersistedMedia(updatedMedia);
+        assertThat(persisted.getStatus()).isEqualTo(UPDATED_STATUS);
+        assertThat(persisted.getOwnerId()).isEqualTo(DEFAULT_OWNER_ID);
+        assertThat(persisted.getStorageKey()).isEqualTo(DEFAULT_STORAGE_KEY);
+        assertThat(persisted.getUrl()).isEqualTo(DEFAULT_URL);
+        assertThat(persisted.getFileName()).isEqualTo(DEFAULT_FILE_NAME);
     }
 
     @Test
@@ -1053,11 +1059,12 @@ class MediaResourceIT {
         Media partialUpdatedMedia = new Media();
         partialUpdatedMedia.setId(media.getId());
 
-        partialUpdatedMedia.fileSize(UPDATED_FILE_SIZE).url(UPDATED_URL).updatedAt(UPDATED_UPDATED_AT);
+        partialUpdatedMedia.status(UPDATED_STATUS).fileSize(UPDATED_FILE_SIZE).url(UPDATED_URL).updatedAt(UPDATED_UPDATED_AT);
 
         restMediaMockMvc
             .perform(
                 patch(ENTITY_API_URL_ID, partialUpdatedMedia.getId())
+                    .with(jwt().jwt(jwt -> jwt.subject(media.getOwnerId().toString())))
                     .with(csrf())
                     .contentType("application/merge-patch+json")
                     .content(om.writeValueAsBytes(partialUpdatedMedia))
@@ -1065,9 +1072,11 @@ class MediaResourceIT {
             .andExpect(status().isOk());
 
         // Validate the Media in the database
-
         assertSameRepositoryCount(databaseSizeBeforeUpdate);
-        assertMediaUpdatableFieldsEquals(createUpdateProxyForBean(partialUpdatedMedia, media), getPersistedMedia(media));
+        Media persisted = getPersistedMedia(media);
+        assertThat(persisted.getStatus()).isEqualTo(UPDATED_STATUS);
+        assertThat(persisted.getOwnerId()).isEqualTo(media.getOwnerId());
+        assertThat(persisted.getStorageKey()).isEqualTo(media.getStorageKey());
     }
 
     @Test
@@ -1098,6 +1107,7 @@ class MediaResourceIT {
         restMediaMockMvc
             .perform(
                 patch(ENTITY_API_URL_ID, partialUpdatedMedia.getId())
+                    .with(jwt().jwt(jwt -> jwt.subject(media.getOwnerId().toString())))
                     .with(csrf())
                     .contentType("application/merge-patch+json")
                     .content(om.writeValueAsBytes(partialUpdatedMedia))
@@ -1105,9 +1115,11 @@ class MediaResourceIT {
             .andExpect(status().isOk());
 
         // Validate the Media in the database
-
         assertSameRepositoryCount(databaseSizeBeforeUpdate);
-        assertMediaUpdatableFieldsEquals(partialUpdatedMedia, getPersistedMedia(partialUpdatedMedia));
+        Media persisted = getPersistedMedia(media);
+        assertThat(persisted.getStatus()).isEqualTo(UPDATED_STATUS);
+        assertThat(persisted.getOwnerId()).isEqualTo(media.getOwnerId());
+        assertThat(persisted.getStorageKey()).isEqualTo(media.getStorageKey());
     }
 
     @Test
@@ -1241,6 +1253,51 @@ class MediaResourceIT {
 
         assertSameRepositoryCount(databaseSizeBeforeDelete);
         assertThat(mediaRepository.findById(insertedMedia.getId()).orElseThrow().getStatus()).isEqualTo(MediaStatus.DELETED);
+    }
+
+    @Test
+    @Transactional
+    void getMediaMetadataRequiresAuthentication() throws Exception {
+        insertedMedia = mediaRepository.saveAndFlush(media);
+
+        // Anonymous request to getMedia by ID should be unauthorized
+        restMediaMockMvc
+            .perform(get(ENTITY_API_URL_ID, media.getId().toString()).with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.anonymous()))
+            .andExpect(status().isUnauthorized());
+
+        // Anonymous request to getAllMedias should be unauthorized
+        restMediaMockMvc
+            .perform(get(ENTITY_API_URL).with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.anonymous()))
+            .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @Transactional
+    void avatarFileRequiresAuthentication() throws Exception {
+        media.setPurpose(com.minh.fakebook.media.domain.enumeration.MediaPurpose.AVATAR);
+        media.setUrl("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAA=");
+        insertedMedia = mediaRepository.saveAndFlush(media);
+
+        restMediaMockMvc
+            .perform(get(ENTITY_API_URL + "/{id}/file", media.getId().toString()).with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.anonymous()))
+            .andExpect(status().isUnauthorized());
+    }
+
+    @org.springframework.test.context.bean.override.mockito.MockitoBean
+    private com.minh.fakebook.media.service.PostMediaAccess parentPostAccess;
+
+    @Test
+    @Transactional
+    void authenticatedAttachmentRequiresCurrentParentGrantAndIsNotCached() throws Exception {
+        media.setPurpose(com.minh.fakebook.media.domain.enumeration.MediaPurpose.POST);
+        media.setUrl("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAA=");
+        insertedMedia = mediaRepository.saveAndFlush(media);
+        org.mockito.Mockito.when(parentPostAccess.canRead(media.getId())).thenReturn(true);
+        restMediaMockMvc.perform(get(ENTITY_API_URL + "/{id}/file",media.getId()).with(jwt().jwt(t -> t.subject("00000000-0000-4000-8000-000000000099"))))
+            .andExpect(status().isOk()).andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.header().string("Cache-Control","no-store"));
+        org.mockito.Mockito.when(parentPostAccess.canRead(media.getId())).thenReturn(false);
+        restMediaMockMvc.perform(get(ENTITY_API_URL + "/{id}/file",media.getId()).with(jwt().jwt(t -> t.subject("00000000-0000-4000-8000-000000000099"))))
+            .andExpect(status().isForbidden());
     }
 
     protected long getRepositoryCount() {

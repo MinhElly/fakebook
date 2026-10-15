@@ -17,6 +17,9 @@ import org.springframework.stereotype.Repository;
 @SuppressWarnings("unused")
 @Repository
 public interface FollowRepository extends JpaRepository<Follow, UUID>, JpaSpecificationExecutor<Follow> {
+    @org.springframework.data.jpa.repository.Query("SELECT f.following.id FROM Follow f WHERE f.follower.id = :userId")
+    java.util.List<java.util.UUID> findFollowingIdsByUserId(@org.springframework.data.repository.query.Param("userId") java.util.UUID userId);
+
     @Query("SELECT CASE WHEN COUNT(f) > 0 THEN true ELSE false END FROM Follow f WHERE f.follower.id = :followerId AND f.following.id = :followingId")
     boolean existsFollowing(@Param("followerId") UUID followerId, @Param("followingId") UUID followingId);
 

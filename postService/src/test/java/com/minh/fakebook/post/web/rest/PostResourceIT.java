@@ -59,10 +59,15 @@ class PostResourceIT {
     @Autowired
     private MockMvc restPostMockMvc;
 
+    @org.springframework.test.context.bean.override.mockito.MockitoBean
+    private com.minh.fakebook.post.client.UserServiceClient relationshipClient;
+
     private Post post;
 
     @BeforeEach
     void initTest() {
+        org.mockito.Mockito.when(relationshipClient.getFriendIdsByUserId(org.mockito.ArgumentMatchers.any())).thenReturn(List.of());
+        org.mockito.Mockito.when(relationshipClient.areFriends(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any())).thenReturn(false);
         post = newPost(AUTHOR_ID, PostVisibility.PUBLIC);
     }
 
@@ -106,13 +111,13 @@ class PostResourceIT {
 
     @Test
     @Transactional
-    void guestFeedReturnsActivePublicPostsOnly() throws Exception {
+    void authenticatedOutsiderFeedReturnsActivePublicPostsOnly() throws Exception {
         Post publicPost = postRepository.saveAndFlush(post);
         Post privatePost = postRepository.saveAndFlush(newPost(OTHER_USER_ID, PostVisibility.PRIVATE));
         Post deletedPost = postRepository.saveAndFlush(newPost(OTHER_USER_ID, PostVisibility.PUBLIC).status(PostStatus.DELETED));
 
         restPostMockMvc
-            .perform(get(ENTITY_API_URL + "?sort=id,desc"))
+            .perform(get(ENTITY_API_URL + "?sort=id,desc").with(jwtAs(UUID.randomUUID())))
             .andExpect(status().isOk())
             .andExpect(content().contentType(MediaType.APPLICATION_JSON_VALUE))
             .andExpect(jsonPath("$.[*].id").value(hasItem(publicPost.getId().toString())))
@@ -126,7 +131,7 @@ class PostResourceIT {
         post = postRepository.saveAndFlush(post);
 
         restPostMockMvc
-            .perform(get(ENTITY_API_URL + "/{id}", post.getId()))
+            .perform(get(ENTITY_API_URL + "/{id}", post.getId()).with(jwtAs(AUTHOR_ID)))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.id").value(post.getId().toString()))
             .andExpect(jsonPath("$.authorId").value(AUTHOR_ID.toString()))
@@ -159,7 +164,7 @@ class PostResourceIT {
     @Test
     @Transactional
     void getNonExistingPostReturnsNotFound() throws Exception {
-        restPostMockMvc.perform(get(ENTITY_API_URL + "/{id}", UUID.randomUUID())).andExpect(status().isNotFound());
+        restPostMockMvc.perform(get(ENTITY_API_URL + "/{id}", UUID.randomUUID()).with(jwtAs(AUTHOR_ID))).andExpect(status().isNotFound());
     }
 
     @Test
@@ -169,7 +174,7 @@ class PostResourceIT {
         postRepository.saveAndFlush(newPost(OTHER_USER_ID, PostVisibility.PRIVATE));
 
         restPostMockMvc
-            .perform(get(ENTITY_API_URL + "/count?authorId.equals=" + AUTHOR_ID))
+            .perform(get(ENTITY_API_URL + "/count?authorId.equals=" + AUTHOR_ID).with(jwtAs(AUTHOR_ID)))
             .andExpect(status().isOk())
             .andExpect(content().string("1"));
     }
@@ -228,6 +233,7 @@ class PostResourceIT {
         post = postRepository.saveAndFlush(post);
         PostDTO request = new PostDTO();
         request.setId(post.getId());
+        request.setVersion(post.getVersion());
         request.setAuthorId(OTHER_USER_ID);
         request.setContent(UPDATED_CONTENT);
         request.setStatus(PostStatus.DELETED);

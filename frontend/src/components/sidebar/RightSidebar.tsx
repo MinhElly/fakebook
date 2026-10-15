@@ -1,3 +1,4 @@
+import MediaImage from "@/components/feed/MediaImage";
 import { useEffect, useState } from "react";
 import { Link } from "react-router";
 import api from "@/services/apis";
@@ -91,7 +92,7 @@ export default function RightSidebar() {
               className="flex items-center gap-3 rounded-lg p-2 hover:bg-gray-100 transition-colors"
             >
               <div className="relative">
-                <img
+                <MediaImage
                   src={contact.avatar}
                   alt={contact.name}
                   className="h-9 w-9 rounded-full object-cover border border-gray-200"

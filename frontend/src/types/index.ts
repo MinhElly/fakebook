@@ -16,6 +16,8 @@ export interface Story {
 }
 
 export interface Post {
+  version?: number;
+  createdAt?: string;
   id: string;
   authorId: string; 
   user: string;

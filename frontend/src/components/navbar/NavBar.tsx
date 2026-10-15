@@ -1,3 +1,4 @@
+import MediaImage from "@/components/feed/MediaImage";
 import { useRef, useState } from "react";
 import { useNavigate, useLocation } from "react-router";
 import { useOutsideClick } from "@/hooks/useOutsideClick";
@@ -146,7 +147,7 @@ export default function NavBar() {
             onClick={() => toggle("profile")}
             className={`rounded-full overflow-hidden border-2 transition-colors ${openDropdown === "profile" ? "border-[#1877F2]" : "border-transparent hover:border-[#E4E6EB]"}`}
           >
-            <img
+            <MediaImage
               src={profile.avatar}
               alt="profile"
               referrerPolicy="no-referrer"

@@ -21,6 +21,12 @@ public class PostCacheWriter {
         this.jdbcTemplate = jdbcTemplate;
     }
 
+    public PostCache fetchForAuthorization(UUID postId) {
+        PostSyncDTO post = postFeignClient.getPostById(postId);
+        if (post == null) throw new IllegalArgumentException("Post not found");
+        return new PostCache().id(post.id()).authorId(post.authorId()).status(post.status()).visibility(post.visibility());
+    }
+
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public PostCache fetchAndCache(UUID postId) {
         PostSyncDTO post = postFeignClient.getPostById(postId);

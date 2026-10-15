@@ -27,7 +27,8 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 /**
- * Service Implementation for managing {@link com.minh.fakebook.media.domain.Media}.
+ * Service Implementation for managing
+ * {@link com.minh.fakebook.media.domain.Media}.
  */
 @Service
 @Transactional
@@ -40,21 +41,31 @@ public class MediaService {
     private final MediaMapper mediaMapper;
 
     private final FileStorageService fileStorageService;
+    private final PostMediaAccess postAccess;
 
-    public MediaService(MediaRepository mediaRepository, MediaMapper mediaMapper, FileStorageService fileStorageService) {
+    public MediaService(MediaRepository mediaRepository, MediaMapper mediaMapper,
+            FileStorageService fileStorageService, PostMediaAccess postAccess) {
         this.mediaRepository = mediaRepository;
         this.mediaMapper = mediaMapper;
         this.fileStorageService = fileStorageService;
+        this.postAccess = postAccess;
     }
 
     /**
-     * Save a media.
+     * Save a media metadata directly.
+     * Restricted to administrators to prevent arbitrary metadata creation.
      *
      * @param mediaDTO the entity to save.
      * @return the persisted entity.
      */
     public MediaDTO save(MediaDTO mediaDTO) {
         LOG.debug("Request to save Media : {}", mediaDTO);
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        boolean isAdmin = auth != null && auth.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals(AuthoritiesConstants.ADMIN));
+        if (!isAdmin) {
+            throw new AccessDeniedException("Only administrators can directly register media metadata.");
+        }
         Media media = mediaMapper.toEntity(mediaDTO);
         media = mediaRepository.save(media);
         return mediaMapper.toDto(media);
@@ -67,10 +78,12 @@ public class MediaService {
      * @return the persisted entity.
      */
     public MediaDTO update(MediaDTO mediaDTO) {
-        LOG.debug("Request to update Media : {}", mediaDTO);
-        Media media = mediaMapper.toEntity(mediaDTO);
-        media = mediaRepository.save(media);
-        return mediaMapper.toDto(media);
+        Media existingMedia = mediaRepository.findById(mediaDTO.getId())
+                .orElseThrow(() -> new IllegalArgumentException("Media not found"));
+        checkOwnershipOrAdmin(existingMedia);
+        existingMedia.setStatus(mediaDTO.getStatus());
+        existingMedia.setPurpose(mediaDTO.getPurpose());
+        return mediaMapper.toDto(mediaRepository.save(existingMedia));
     }
 
     /**
@@ -83,14 +96,19 @@ public class MediaService {
         LOG.debug("Request to partially update Media : {}", mediaDTO);
 
         return mediaRepository
-            .findById(mediaDTO.getId())
-            .map(existingMedia -> {
-                mediaMapper.partialUpdate(existingMedia, mediaDTO);
-
-                return existingMedia;
-            })
-            .map(mediaRepository::save)
-            .map(mediaMapper::toDto);
+                .findById(mediaDTO.getId())
+                .map(existingMedia -> {
+                    checkOwnershipOrAdmin(existingMedia);
+                    if (mediaDTO.getStatus() != null) {
+                        existingMedia.setStatus(mediaDTO.getStatus());
+                    }
+                    if (mediaDTO.getPurpose() != null) {
+                        existingMedia.setPurpose(mediaDTO.getPurpose());
+                    }
+                    return existingMedia;
+                })
+                .map(mediaRepository::save)
+                .map(mediaMapper::toDto);
     }
 
     /**
@@ -113,18 +131,26 @@ public class MediaService {
 
         // 1. Identify if the current request is from a Guest or an Authenticated User
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        boolean isGuest = auth == null || auth instanceof AnonymousAuthenticationToken;
+        boolean isGuest = auth == null || !auth.isAuthenticated() || auth instanceof AnonymousAuthenticationToken
+                || "anonymousUser".equals(auth.getPrincipal());
         String currentUserId = null;
-        if (!isGuest && auth instanceof JwtAuthenticationToken jwtToken) {
-            currentUserId = jwtToken.getToken().getSubject();
+        boolean isAdmin = false;
+        if (!isGuest) {
+            isAdmin = auth.getAuthorities().stream()
+                    .anyMatch(a -> a.getAuthority().equals(AuthoritiesConstants.ADMIN));
+            if (auth instanceof JwtAuthenticationToken jwtToken) {
+                currentUserId = jwtToken.getToken().getSubject();
+            } else if (auth.getPrincipal() instanceof String s) {
+                currentUserId = s;
+            }
         }
-        boolean isOwner = !isGuest && media.getOwnerId().toString().equals(currentUserId);
+        boolean isOwner = !isGuest && currentUserId != null && media.getOwnerId().toString().equals(currentUserId);
 
-        if (media.getStatus() != MediaStatus.ACTIVE) {
-            // If media is not ACTIVE (e.g., DELETED), ONLY the owner can view it.
-            if (!isOwner) {
-                LOG.debug("Access Denied: User/Guest is not the owner of this media.");
-                throw new AccessDeniedException("Error: You do not have permission to view this media.");
+        if (!isAdmin && !isOwner) {
+            boolean profileAsset = media.getPurpose() == MediaPurpose.AVATAR || media.getPurpose() == MediaPurpose.COVER;
+            boolean parentGrant = media.getPurpose() == MediaPurpose.POST && media.getStatus() == MediaStatus.ACTIVE && postAccess.canRead(id);
+            if (media.getStatus() != MediaStatus.ACTIVE || (!profileAsset && !parentGrant)) {
+                throw new AccessDeniedException("Media is not readable by this viewer");
             }
         }
         return Optional.of(mediaMapper.toDto(media));
@@ -140,11 +166,9 @@ public class MediaService {
         LOG.debug("Request to delete Media : {}", id);
 
         // 1. Retrieve the Media
-        Optional<Media> mediaOpt = mediaRepository.findById(id);
-        if (mediaOpt.isEmpty()) {
-            return; // Media not found, safely return
-        }
-        Media media = mediaOpt.orElseThrow();
+        Media media = mediaRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Media not found"));
+        checkOwnershipOrAdmin(media);
 
         // 2. Authentication check
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
@@ -162,7 +186,7 @@ public class MediaService {
         boolean isOwner = media.getOwnerId().toString().equals(currentUserId);
 
         boolean isAdmin = auth.getAuthorities().stream()
-            .anyMatch(grantedAuthority -> grantedAuthority.getAuthority().equals(AuthoritiesConstants.ADMIN));
+                .anyMatch(grantedAuthority -> grantedAuthority.getAuthority().equals(AuthoritiesConstants.ADMIN));
 
         // 4. Permission: Must be Owner or Admin
         if (!isOwner && !isAdmin) {
@@ -180,7 +204,8 @@ public class MediaService {
 
     /**
      * Delete media by system process (e.g. Kafka event cleanup).
-     * Bypasses HTTP SecurityContext check and deletes physical file from storage provider.
+     * Bypasses HTTP SecurityContext check and deletes physical file from storage
+     * provider.
      *
      * @param id the id of the media entity.
      */
@@ -283,4 +308,25 @@ public class MediaService {
             throw new RuntimeException("Error: Could not upload file.", e);
         }
     }
+
+    private void checkOwnershipOrAdmin(Media media) {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || !auth.isAuthenticated()) {
+            throw new AccessDeniedException("User is not authenticated");
+        }
+        boolean isAdmin = auth.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals(AuthoritiesConstants.ADMIN));
+        if (isAdmin)
+            return;
+
+        if (auth instanceof JwtAuthenticationToken jwt) {
+            String currentUserId = jwt.getToken().getSubject();
+            if (!media.getOwnerId().toString().equals(currentUserId)) {
+                throw new AccessDeniedException("You do not own this media resource");
+            }
+        } else {
+            throw new AccessDeniedException("Invalid authentication token");
+        }
+    }
+
 }

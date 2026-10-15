@@ -1,3 +1,4 @@
+import useRequireLogin from "@/hooks/useRequireLogin";
 import { useState, useEffect, useCallback } from "react";
 import { FriendContext } from "@/stores/friendStore";
 import type { FriendUser, FriendStatus } from "@/types";
@@ -23,6 +24,7 @@ import { resolveApiUrl } from "@/config/runtime-config";
 
 export default function FriendProvider({ children }: { children: React.ReactNode }) {
   const { status } = useAuth();
+  const requireLogin = useRequireLogin();
   const [friends, setFriends] = useState<FriendUser[]>([]);
   const [following, setFollowing] = useState<FriendUser[]>([]);
   const [pendingReceived, setPendingReceived] = useState<FriendUser[]>([]);
@@ -116,6 +118,7 @@ export default function FriendProvider({ children }: { children: React.ReactNode
   }
 
   async function sendRequest(user: FriendUser) {
+    if (!requireLogin()) return;
     try {
       const idStr = String(user.id);
       setPendingSent((prev) => [...prev, user.id]);
@@ -127,6 +130,7 @@ export default function FriendProvider({ children }: { children: React.ReactNode
   }
 
   async function cancelRequest(userId: string | number) {
+    if (!requireLogin()) return;
     try {
       const idStr = String(userId);
       setPendingSent((prev) => prev.filter((id) => String(id) !== idStr));
@@ -138,6 +142,7 @@ export default function FriendProvider({ children }: { children: React.ReactNode
   }
 
   async function acceptRequest(userId: string | number) {
+    if (!requireLogin()) return;
     try {
       const idStr = String(userId);
       const targetUser = pendingReceived.find((u) => String(u.id) === idStr);
@@ -158,6 +163,7 @@ export default function FriendProvider({ children }: { children: React.ReactNode
   }
 
   async function rejectRequest(userId: string | number) {
+    if (!requireLogin()) return;
     try {
       const idStr = String(userId);
       setPendingReceived((prev) => prev.filter((u) => String(u.id) !== idStr));
@@ -173,6 +179,7 @@ export default function FriendProvider({ children }: { children: React.ReactNode
   }
 
   async function removeFriend(userId: string | number) {
+    if (!requireLogin()) return;
     try {
       const idStr = String(userId);
       setFriends((prev) => prev.filter((f) => String(f.id) !== idStr));
@@ -184,6 +191,7 @@ export default function FriendProvider({ children }: { children: React.ReactNode
   }
 
   async function follow(user: FriendUser) {
+    if (!requireLogin()) return;
     try {
       const idStr = String(user.id);
       setFollowing((prev) => [...prev, user]);
@@ -195,6 +203,7 @@ export default function FriendProvider({ children }: { children: React.ReactNode
   }
 
   async function unfollow(userId: string | number) {
+    if (!requireLogin()) return;
     try {
       const idStr = String(userId);
       setFollowing((prev) => prev.filter((f) => String(f.id) !== idStr));

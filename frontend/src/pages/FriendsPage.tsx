@@ -1,3 +1,4 @@
+import MediaImage from "@/components/feed/MediaImage";
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { useSearchParams, useNavigate } from "react-router";
 import FriendsSidebar from "@/components/friends/FriendsSidebar";
@@ -457,7 +458,7 @@ export default function FriendsPage() {
                       className="bg-white border border-[#E4E6EB] rounded-xl p-4 shadow-sm flex items-center justify-between gap-4 hover:border-[#1877F2]/40 transition-all"
                     >
                       <div className="flex items-center gap-3.5 min-w-0 flex-1">
-                        <img
+                        <MediaImage
                           src={u.avatar}
                           alt={u.name}
                           onClick={() => navigate(`/profile/${u.id}`)}
@@ -523,7 +524,7 @@ export default function FriendsPage() {
                       className="bg-white border border-[#E4E6EB] rounded-xl p-4 shadow-sm flex items-center justify-between gap-4 hover:border-[#1877F2]/40 transition-all"
                     >
                       <div className="flex items-center gap-3.5 min-w-0 flex-1">
-                        <img
+                        <MediaImage
                           src={u.avatar}
                           alt={u.name}
                           onClick={() => navigate(`/profile/${u.id}`)}

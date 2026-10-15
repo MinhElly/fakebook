@@ -1,3 +1,5 @@
+import MediaImage from "./MediaImage";
+import PostStats from "./PostStats";
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import { usePostStore } from "@/stores/postStore";
@@ -37,8 +39,13 @@ const REACTIONS = [
   { key: "angry", unified: "1f621", label: "Phẫn nộ", color: "text-orange-500" },
 ];
 
+import PostHistory from "./PostHistory";
+import useRequireLogin from "@/hooks/useRequireLogin";
+
 export default function Post({ post, isModal = false }: Props) {
   const navigate = useNavigate();
+  const requireLogin = useRequireLogin();
+  const [showHistory, setShowHistory] = useState(false);
   const { user } = useAuth();
   const { deletePost, setToastMessage } = usePostStore();
   const { comments: commentStoreComments, fetchedPosts: commentStoreFetchedPosts } = useCommentStore();
@@ -119,6 +126,7 @@ export default function Post({ post, isModal = false }: Props) {
   }
 
   async function handleSavePost() {
+    if (!requireLogin()) return;
     setShowMenu(false);
     try {
       const res = await api.post(`/services/postservice/api/posts/${post.id}/save`);
@@ -211,7 +219,7 @@ export default function Post({ post, isModal = false }: Props) {
   };
 
   async function pickReaction(key: string) {
-    if (!user?.id || reactionMutationPending.current) return;
+    if (!requireLogin() || reactionMutationPending.current) return;
     reactionMutationPending.current = true;
 
     const requestedType = key.toUpperCase() as ReactionType;
@@ -318,10 +326,10 @@ export default function Post({ post, isModal = false }: Props) {
 
   return (
     <>
-      <div className={`bg-white rounded-xl shadow-sm border border-[#E4E6EB] ${isModal ? "" : "mb-4"}`}>
+      <div data-post-id={post.id} className={`bg-white rounded-xl shadow-sm border border-[#E4E6EB] ${isModal ? "" : "mb-4"}`}>
         <div className="flex flex-col">
           <div className="flex items-center gap-2 px-4 pt-3">
-            <img
+            <MediaImage
               src={post.avatar}
               alt={post.user}
               onClick={handleAuthorClick}
@@ -381,6 +389,7 @@ export default function Post({ post, isModal = false }: Props) {
 
             <div ref={menuRef} className="relative ml-auto">
               <button
+                aria-label="Tùy chọn bài viết"
                 onClick={() => setShowMenu(p => !p)}
                 className="w-8 h-8 rounded-full hover:bg-[#F0F2F5] flex items-center justify-center transition-colors text-[#65676B]"
               >
@@ -392,6 +401,12 @@ export default function Post({ post, isModal = false }: Props) {
               {showMenu && (
                 <div className="absolute right-0 top-full mt-1 w-64 bg-white rounded-lg shadow-xl border border-[#E4E6EB] py-2 z-10">
                   <button
+                    className="block w-full rounded-lg px-3 py-2 text-left hover:bg-gray-100"
+                    onClick={() => { setShowHistory(true); setShowMenu(false); }}
+                  >
+                    Lịch sử chỉnh sửa
+                  </button>
+                  <button
                     onClick={handleSavePost}
                     className="w-full flex items-center gap-3 px-4 py-2 hover:bg-[#F0F2F5] transition-colors text-sm text-[#1C1E21] font-medium"
                   >
@@ -401,7 +416,7 @@ export default function Post({ post, isModal = false }: Props) {
                     Lưu bài viết
                   </button>
 
-                  {isOwn && (
+                  {(isOwn || isAdmin) && (
                     <>
                       <hr className="my-1 border-[#E4E6EB]" />
                       <button
@@ -449,51 +464,14 @@ export default function Post({ post, isModal = false }: Props) {
 
         <MediaGrid mediaIds={post.mediaIds} images={post.image ? [post.image] : []} />
 
-        <div className="px-4 pt-1">
-          <div className="flex items-center justify-between text-[#65676B] text-sm pb-2 border-b border-[#E4E6EB]">
-            <div
-              className="flex items-center gap-1 relative group/reactors cursor-pointer"
-              onClick={() => totalLikes > 0 && setShowReactors(true)}
-            >
-              {totalLikes > 0 && (
-                <>
-                    <span className="flex items-center -ml-0.5">
-                      {topReactions.length > 0 ? (
-                        topReactions.map((type, idx) => {
-                          const rObj = REACTIONS.find(r => r.key === type);
-                          return rObj ? (
-                            <span 
-                              key={type} 
-                              style={{ zIndex: 3 - idx }} 
-                              className={`flex items-center justify-center rounded-full border-[2px] border-white bg-white ${idx > 0 ? '-ml-1.5' : ''}`}
-                            >
-                              <Emoji unified={rObj.unified} emojiStyle={EmojiStyle.FACEBOOK} size={16} />
-                            </span>
-                          ) : null;
-                        })
-                      ) : (
-                        <Emoji unified="1f44d" emojiStyle={EmojiStyle.FACEBOOK} size={18} />
-                      )}
-                    </span>
-                    <span className="hover:underline ml-1.5">{totalLikes}</span>
-                </>
-              )}
-            </div>
-            <div className="flex gap-3">
-              {(!isModal && (post.comments > 0 || commentCount > 0)) && (
-                <button 
-                  onClick={() => setShowDetailModal(true)} 
-                  className="hover:underline"
-                >
-                  {commentCount > 0 ? commentCount : post.comments} bình luận
-                </button>
-              )}
-              {post.shares > 0 && (
-                <span className="hover:underline cursor-pointer">{post.shares} lượt chia sẻ</span>
-              )}
-            </div>
-          </div>
-        </div>
+        <PostStats
+          reactions={totalLikes}
+          comments={commentCount}
+          shares={post.shares}
+          topReactions={topReactions}
+          onShowReactors={() => { if (requireLogin()) setShowReactors(true); }}
+          onShowComments={() => { if (isModal) setShowComments(true); else setShowDetailModal(true); }}
+        />
 
         {/* Action buttons */}
         <div className="px-4">
@@ -562,6 +540,7 @@ export default function Post({ post, isModal = false }: Props) {
         <CommentSection postId={post.id} initialVisible={showComments} isModal={isModal} />
       </div>
 
+      {showHistory && <PostHistory id={post.id} onClose={() => setShowHistory(false)} />}
       {!isModal && showDetailModal && (
         <PostDetailModal post={post} onClose={() => setShowDetailModal(false)} />
       )}

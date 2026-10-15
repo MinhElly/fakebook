@@ -47,6 +47,20 @@ class CommentSummaryResourceIT {
     @Autowired
     private PostCacheRepository postCacheRepository;
 
+    @org.springframework.test.context.bean.override.mockito.MockitoBean
+    private com.minh.fakebook.comment.client.PostFeignClient authoritativePosts;
+
+    @org.junit.jupiter.api.BeforeEach
+    void configureAuthoritativePostFixture() {
+        org.mockito.Mockito.when(authoritativePosts.getPostById(org.mockito.ArgumentMatchers.any())).thenAnswer(invocation -> {
+            UUID id = invocation.getArgument(0);
+            return postCacheRepository.findById(id)
+                .map(p -> new com.minh.fakebook.comment.client.dto.PostSyncDTO(p.getId(), p.getAuthorId(), p.getStatus(), p.getVisibility()))
+                .orElseThrow(() -> new IllegalArgumentException("Post fixture not found"));
+        });
+    }
+
+
     @Autowired
     private MockMvc restCommentMockMvc;
 
@@ -131,6 +145,19 @@ class CommentSummaryResourceIT {
                     .content(objectMapper.writeValueAsBytes(new CommentSummaryRequest(tooManyPostIds)))
             )
             .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @Transactional
+    void authenticatedOutsiderUsesCurrentPrivacyRatherThanPublicProjection() throws Exception {
+        PostCache stale = savePost(OTHER_USER_ID, "PUBLIC");
+        byte[] body = objectMapper.writeValueAsBytes(new CommentSummaryRequest(List.of(stale.getId())));
+        restCommentMockMvc.perform(post(ENTITY_API_URL).with(jwt().jwt(t -> t.subject(CURRENT_USER_ID.toString()))).contentType(MediaType.APPLICATION_JSON).content(body))
+            .andExpect(status().isOk());
+        org.mockito.Mockito.when(authoritativePosts.getPostById(stale.getId())).thenReturn(
+            new com.minh.fakebook.comment.client.dto.PostSyncDTO(stale.getId(), OTHER_USER_ID, "ACTIVE", "PRIVATE"));
+        restCommentMockMvc.perform(post(ENTITY_API_URL).with(jwt().jwt(t -> t.subject(CURRENT_USER_ID.toString()))).contentType(MediaType.APPLICATION_JSON).content(body))
+            .andExpect(status().isForbidden());
     }
 
     private PostCache savePost(UUID authorId, String visibility) {

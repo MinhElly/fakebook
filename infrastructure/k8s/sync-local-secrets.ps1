@@ -54,6 +54,9 @@ $mediaCredentials = [ordered]@{
     CLOUDINARY_API_SECRET = Get-RequiredValue 'CLOUDINARY_API_SECRET'
 }
 
+$feedCursorSecret = Get-RequiredValue 'FEED_CURSOR_SECRET'
+if ($feedCursorSecret.Length -lt 32 -or $feedCursorSecret.StartsWith('REPLACE_ME')) { throw 'FEED_CURSOR_SECRET must contain at least 32 characters.' }
+
 # Validate every required input before writing files or changing the cluster.
 $payloads = [ordered]@{}
 foreach ($service in @('gateway', 'userservice', 'postservice', 'mediaservice', 'commentservice', 'feedservice')) {
@@ -64,6 +67,7 @@ foreach ($service in @('gateway', 'userservice', 'postservice', 'mediaservice', 
     if ($service -eq 'mediaservice') {
         foreach ($key in $mediaCredentials.Keys) { $payload[$key] = $mediaCredentials[$key] }
     }
+    if ($service -eq 'feedservice') { $payload['FEED_CURSOR_SECRET'] = $feedCursorSecret }
     $payloads[$service] = $payload
 }
 

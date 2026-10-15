@@ -1,3 +1,4 @@
+import MediaImage from "@/components/feed/MediaImage";
 import { useEffect, useState } from "react"
 import api from "@/services/apis"
 import { fetchPostReactors, type PostReactor } from "@/services/reactionService"
@@ -132,7 +133,7 @@ export default function ReactorsModal({ postId, onClose }: Props) {
               key={reactor.userId}
               className="flex items-center gap-3 rounded-lg px-3 py-2 hover:bg-[#F0F2F5]"
             >
-              <img
+              <MediaImage
                 src={reactor.avatar}
                 alt={reactor.name}
                 className="h-10 w-10 rounded-full object-cover"

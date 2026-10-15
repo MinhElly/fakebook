@@ -27,7 +27,7 @@ public class CommentViewAuthorizationService {
 
     public void verifyCanView(Collection<UUID> postIds) {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        boolean isAdmin = authentication
+        boolean isAdmin = authentication != null && authentication
             .getAuthorities()
             .stream()
             .anyMatch(authority -> authority.getAuthority().equals(AuthoritiesConstants.ADMIN));
@@ -36,11 +36,14 @@ public class CommentViewAuthorizationService {
             return;
         }
 
-        UUID currentUserId = getCurrentUserId(authentication);
+        UUID currentUserId = authentication instanceof JwtAuthenticationToken ? getCurrentUserId(authentication) : null;
         Set<UUID> checkedFriendAuthors = new HashSet<>();
 
         for (UUID postId : postIds) {
-            PostCache post = postCacheResolver.resolve(postId);
+            PostCache post = postCacheResolver.resolveForAuthorization(postId);
+            if (!"ACTIVE".equals(post.getStatus())) throw new AccessDeniedException("Post is not active");
+            if ("PUBLIC".equals(post.getVisibility())) continue;
+            if (currentUserId == null) throw new AccessDeniedException("Only public comments are available to guests");
             if (currentUserId.equals(post.getAuthorId())) {
                 continue;
             }

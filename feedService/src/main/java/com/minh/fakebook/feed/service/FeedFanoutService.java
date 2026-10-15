@@ -26,13 +26,15 @@ public class FeedFanoutService {
 
     private final UserServiceClient userServiceClient;
     private final FeedItemRepository feedItemRepository;
+    private final com.minh.fakebook.feed.client.FeedReadClient postClient;
 
     public FeedFanoutService(
         UserServiceClient userServiceClient,
-        FeedItemRepository feedItemRepository
+        FeedItemRepository feedItemRepository, com.minh.fakebook.feed.client.FeedReadClient postClient
     ) {
         this.userServiceClient = userServiceClient;
         this.feedItemRepository = feedItemRepository;
+        this.postClient = postClient;
     }
 
     @Transactional
@@ -77,23 +79,28 @@ public class FeedFanoutService {
     public void processPostUpdated(PostUpdatedEvent event) {
         LOG.debug("Processing post update for postId: {}, visibility: {}", event.id(), event.visibility());
 
-        if ("INACTIVE".equalsIgnoreCase(event.status())) {
+        if (!"ACTIVE".equalsIgnoreCase(event.status())) {
             processPostDeleted(event.id());
             return;
         }
 
         Set<UUID> targetUserIds = resolveTargetUserIds(event.authorId(), event.visibility());
 
-        feedItemRepository.deleteByPostId(event.id());
-        Instant updatedAt = event.updatedAt() != null ? event.updatedAt() : Instant.now();
+        Instant originalTime = event.createdAt();
+        if (originalTime == null) {
+            var current = postClient.readable(new com.minh.fakebook.feed.client.FeedReadClient.ReadRequest(List.of(event.id()), event.authorId(), Set.of()));
+            if (current == null || current.isEmpty()) throw new IllegalStateException("Cannot recover original Post timestamp");
+            originalTime = current.getFirst().createdAt();
+        }
+        feedItemRepository.deleteByPostIdAndUserIdNotIn(event.id(), targetUserIds);
         for (UUID recipientId : targetUserIds) {
-            feedItemRepository.insertIgnore(
+            feedItemRepository.upsert(
                 UUID.randomUUID().toString(),
                 recipientId.toString(),
                 event.id().toString(),
                 event.authorId().toString(),
                 event.visibility(),
-                updatedAt
+                originalTime
             );
         }
 

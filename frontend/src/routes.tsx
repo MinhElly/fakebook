@@ -1,4 +1,5 @@
-import { createBrowserRouter } from "react-router";
+import RequireAuth from "@/components/RequireAuth";
+import { createBrowserRouter, Navigate } from "react-router";
 import MainLayout from "@/layouts/MainLayout";
 import HomePage from "@/pages/HomePage";
 import ProfilePage from "@/pages/ProfilePage";
@@ -12,17 +13,17 @@ import SavedPage from "@/pages/SavedPage";
 export const router = createBrowserRouter([
   {
     path: "/",
-    Component: MainLayout,
+    element: <RequireAuth><MainLayout /></RequireAuth>,
     children: [
       { index: true, Component: HomePage },
-      { path: "profile", Component: ProfilePage },
-      { path: "friends", Component: FriendsPage },
-      { path: "search", Component: SearchPage },
+      { path: "feed/friends", element: <Navigate to="/" replace /> },
+      { path: "profile", element: <RequireAuth><ProfilePage /></RequireAuth> },
+      { path: "friends", element: <RequireAuth><FriendsPage /></RequireAuth> },
+      { path: "search", element: <RequireAuth><SearchPage /></RequireAuth> },
       { path: "profile/:userId", Component: UserProfilePage },
-      { path: "saved", Component: SavedPage },
+      { path: "saved", element: <RequireAuth><SavedPage /></RequireAuth> },
     ],
   },
   { path: "/login", Component: LoginPage },
   { path: "/register", Component: RegisterPage },
 ]);
-

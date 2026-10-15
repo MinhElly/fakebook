@@ -37,7 +37,6 @@ import com.minh.fakebook.post.client.MediaServiceClient;
 import com.minh.fakebook.post.client.dto.MediaValidationDTO;
 import com.minh.fakebook.post.service.event.EventEnvelope;
 
-
 /**
  * Service Implementation for managing {@link Post}.
  */
@@ -62,6 +61,7 @@ public class PostService {
     private final UserServiceClient userClient;
 
     private final MediaServiceClient mediaServiceClient;
+    private final PostHistoryService history;
 
     public PostService(
             PostRepository postRepository,
@@ -71,7 +71,7 @@ public class PostService {
             SavedPostRepository savedPostRepository,
             Outbox outbox,
             UserServiceClient userClient,
-            MediaServiceClient mediaServiceClient) {
+            MediaServiceClient mediaServiceClient, PostHistoryService history) {
         this.postRepository = postRepository;
         this.postMapper = postMapper;
         this.postMediaRepository = postMediaRepository;
@@ -80,6 +80,7 @@ public class PostService {
         this.outbox = outbox;
         this.userClient = userClient;
         this.mediaServiceClient = mediaServiceClient;
+        this.history = history;
     }
 
     /**
@@ -150,125 +151,100 @@ public class PostService {
      * @throws AccessDeniedException if not the author.
      */
     public PostDTO update(PostDTO postDTO) {
-        LOG.debug("Request to update Post : {}", postDTO);
-
-        //1. Fetch existing post from DB
-        Post existingPost = postRepository.findById(postDTO.getId())
-                .orElseThrow(() -> new IllegalArgumentException("Error: Post not found " + postDTO.getId()));
-
-        //2. Verify authorship
-        Authentication auth = SecurityContextHolder
-                .getContext().getAuthentication();
-        if (auth == null || !auth.isAuthenticated() || "anonymousUser".equals(auth.getPrincipal())) {
-            throw new AccessDeniedException(
-                    "Error: You must be logged in to update a post.");
-        }
-        String sub = ((JwtAuthenticationToken) auth)
-                .getToken().getSubject();
-
-        if (!existingPost.getAuthorId().toString().equals(sub)) {
-            throw new AccessDeniedException(
-                    "Error: Only the author can update this post.");
-        }
-
-        //3. Update ONLY allowed fields
-        existingPost.setContent(postDTO.getContent());
-        existingPost.setVisibility(postDTO.getVisibility());
-        existingPost.setUpdatedAt(java.time.Instant.now());
-
-        postRepository.save(existingPost);
-
-        // 4. Replace media links
-            java.util.List<UUID> oldMediaIds = postMediaRepository.
-  findByPostIdOrderByDisplayOrderAsc(existingPost.getId())
-                .stream()
-                .map(com.minh.fakebook.post.domain.PostMedia::getMediaId)
-                .toList();
-
-            postMediaRepository.deleteByPostId(existingPost.getId());
-        List<UUID> newMediaIds = postDTO.getMediaIds();
-        if (oldMediaIds != null) {
-                for (UUID oldMediaId : oldMediaIds) {
-                    if (newMediaIds == null || !newMediaIds.contains(oldMediaId)) {
-                        MediaCleanupEvent event = new MediaCleanupEvent(oldMediaId, "POST UPDATED");
-                        scheduleMediaCleanup(event);
-                        LOG.info("Scheduled MediaCleanupEvent for removed post mediaId: {}", oldMediaId);
-                    }
-                }
-            }
-
-        //5. Convert and return DTO
-        PostDTO resultDTO = postMapper.toDto(existingPost);
-        resultDTO.setMediaIds(newMediaIds);
-
-        // Emit "POST_UPDATED" event to Kafka via Outbox pattern.
-        publishEvent("POST_UPDATED", new PostUpdatedEvent(existingPost.getId(),
-                existingPost.getAuthorId(), existingPost.getContent(), existingPost.getVisibility(),
-                existingPost.getStatus(), java.time.Instant.now()), existingPost.getId());
-        return resultDTO;
+        return edit(postDTO, false);
     }
 
-    /**
-     * Partially update a post. Enforces authorship and prevents Mass Assignment.
-     *
-     * @param postDTO the entity to update partially.
-     * @return the persisted entity.
-     */
     public Optional<PostDTO> partialUpdate(PostDTO postDTO) {
-        LOG.debug("Request to partially update Post : {}", postDTO);
+        if (!postRepository.existsById(postDTO.getId())) return Optional.empty();
+        return Optional.of(edit(postDTO, true));
+    }
 
-        return postRepository
-                .findById(postDTO.getId())
-                .map(existingPost -> {
-                    Authentication auth = SecurityContextHolder
-                            .getContext().getAuthentication();
-                    if (auth == null || !auth.isAuthenticated() || "anonymousUser".equals(auth.getPrincipal())) {
-                        throw new AccessDeniedException(
-                                "Error: You must be logged in to update a post.");
-                    }
-                    String sub = ((JwtAuthenticationToken) auth)
-                            .getToken().getSubject();
+    private PostDTO edit(PostDTO request, boolean partial) {
+        Post post = postRepository.findById(request.getId()).orElseThrow(() ->
+            new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.NOT_FOUND, "Post not found"));
+        UUID editor = requireEditor(post);
+        if (request.getVersion() == null) throw new IllegalArgumentException("Post version is required");
+        if (!request.getVersion().equals(post.getVersion())) {
+            throw new org.springframework.dao.OptimisticLockingFailureException("Post changed; reload before editing");
+        }
+        PostDTO before = snapshot(post);
+        List<UUID> media = request.getMediaIds() == null ? before.getMediaIds()
+            : validateMediaAttachments(post.getAuthorId(), request.getMediaIds(), editor, before.getMediaIds());
+        java.util.Set<UUID> tags = request.getTaggedUserIds() == null ? new HashSet<>(post.getTaggedUserIds())
+            : new HashSet<>(request.getTaggedUserIds());
+        validateTags(post.getAuthorId(), tags, post.getTaggedUserIds());
+        String content = partial && request.getContent() == null ? post.getContent() : request.getContent();
+        PostVisibility visibility = request.getVisibility() == null ? post.getVisibility() : request.getVisibility();
+        List<String> changed = new ArrayList<>();
+        if (!java.util.Objects.equals(content, post.getContent())) changed.add("content");
+        if (visibility != post.getVisibility()) changed.add("visibility");
+        if (!media.equals(before.getMediaIds())) changed.add("media");
+        if (!tags.equals(post.getTaggedUserIds())) changed.add("tags");
+        if (changed.isEmpty()) return before;
 
-                    if (!existingPost.getAuthorId().toString().equals(sub)) {
-                        throw new AccessDeniedException(
-                                "Error: Only the author can update this post.");
-                    }
+        history.baseline(before);
+        post.setContent(content);
+        post.setVisibility(visibility);
+        post.setTaggedUserIds(tags);
+        post.setUpdatedAt(Instant.now());
+        // Flush detects concurrent edits before either history or cleanup is committed.
+        postRepository.saveAndFlush(post);
+        if (changed.contains("media")) {
+            postMediaRepository.deleteByPostId(post.getId());
+            postMediaRepository.flush();
+            List<PostMedia> links = new ArrayList<>();
+            for (int i = 0; i < media.size(); i++) {
+                links.add(new PostMedia().post(post).mediaId(media.get(i)).displayOrder(i).createdAt(Instant.now()));
+            }
+            postMediaRepository.saveAll(links);
+            for (UUID old : before.getMediaIds()) if (!media.contains(old)) scheduleMediaCleanup(new MediaCleanupEvent(old, "POST UPDATED"));
+        }
+        PostDTO result = snapshot(post);
+        history.record(result, editor, changed, post.getUpdatedAt());
+        publishEvent("POST_UPDATED", new PostUpdatedEvent(post.getId(), post.getAuthorId(), post.getContent(),
+            post.getVisibility(), post.getStatus(), post.getUpdatedAt(), post.getCreatedAt()), post.getId());
+        return result;
+    }
 
-                    // update only allowed fields (content, visibility). Do NOT update sensitive fields like status, authorId, or id.
-                    if (postDTO.getContent() != null) {
-                        existingPost.setContent(postDTO.getContent());
-                    }
-                    if (postDTO.getVisibility() != null) {
-                        existingPost.setVisibility(postDTO.getVisibility());
-                    }
+    private UUID requireEditor(Post post) {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (!(auth instanceof JwtAuthenticationToken jwt)) throw new AccessDeniedException("JWT required");
+        boolean admin = auth.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals(AuthoritiesConstants.ADMIN));
+        UUID user = UUID.fromString(jwt.getToken().getSubject());
+        if (!admin && post.getStatus() != PostStatus.ACTIVE) throw new AccessDeniedException("Post is not active");
+        if (!admin && !user.equals(post.getAuthorId())) throw new AccessDeniedException("Only the author or admin can edit this post");
+        return user;
+    }
 
-                    existingPost.setUpdatedAt(java.time.Instant.now());
-                    // Emit "POST_UPDATED" event to Kafka via Outbox pattern.
-                    publishEvent("POST_UPDATED", new PostUpdatedEvent(existingPost.getId(),
-                            existingPost.getAuthorId(), existingPost.getContent(), existingPost.getVisibility(),
-                            existingPost.getStatus(), java.time.Instant.now()), existingPost.getId());
+    private void validateTags(UUID author, java.util.Set<UUID> tags, java.util.Set<UUID> previous) {
+        if (tags.contains(null) || tags.contains(author)) throw new IllegalArgumentException("Invalid tagged user");
+        var added = new HashSet<>(tags);
+        added.removeAll(previous);
+        if (!added.isEmpty() && !new HashSet<>(userClient.getFriendIdsByUserId(author)).containsAll(added)) {
+            throw new AccessDeniedException("New tags must be friends of the author");
+        }
+    }
 
-                    return existingPost;
-                })
-                .map(postRepository::save)
-                .map(postMapper::toDto);
-
-
+    private PostDTO snapshot(Post post) {
+        PostDTO dto = postMapper.toDto(post);
+        dto.setMediaIds(postMediaRepository.findByPostIdOrderByDisplayOrderAsc(post.getId()).stream().map(PostMedia::getMediaId).toList());
+        return dto;
     }
 
     /**
-     * Delete the post by id. Enforces authorship or ADMIN role, and cleans up local links.
+     * Delete the post by id. Enforces authorship or ADMIN role, and cleans up local
+     * links.
      *
      * @param id the id of the entity.
      * @throws AccessDeniedException if not the author or admin.
      */
     public void delete(UUID id) {
         LOG.debug("Request to delete Post : {}", id);
-        //1. Fetch existing post form DB
-        Post existingPost = postRepository.findById(id).
-                orElseThrow(() -> new IllegalArgumentException("Error: Post not found " + id));
+        // 1. Fetch existing post form DB
+        Post existingPost = postRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Error: Post not found " + id));
 
-        //2. Verify authorship or ADMIN role
+        // 2. Verify authorship or ADMIN role
         Authentication auth = SecurityContextHolder
                 .getContext().getAuthentication();
         if (auth == null || !auth.isAuthenticated() || "anonymousUser".equals(auth.getPrincipal())) {
@@ -279,10 +255,10 @@ public class PostService {
         String sub = ((JwtAuthenticationToken) auth)
                 .getToken().getSubject();
 
-        //check if user has ADMIN role
+        // check if user has ADMIN role
         boolean isAdmin = auth.getAuthorities().stream()
                 .anyMatch(a -> a.getAuthority().equals(AuthoritiesConstants.ADMIN));
-        //block if the user is not the author or admin
+        // block if the user is not the author or admin
         if (!existingPost.getAuthorId().toString().equals(sub) && !isAdmin) {
             throw new AccessDeniedException(
                     "Errorr: Only the author or an Admin can delete this post.");
@@ -290,21 +266,22 @@ public class PostService {
 
         // 3. Delete associated media and reactions
         java.util.List<UUID> mediaIds = postMediaRepository.findByPostIdOrderByDisplayOrderAsc(id)
-            .stream()
-            .map(com.minh.fakebook.post.domain.PostMedia::getMediaId)
-            .toList();
+                .stream()
+                .map(com.minh.fakebook.post.domain.PostMedia::getMediaId)
+                .toList();
 
         postMediaRepository.deleteByPostId(id);
         postReactionRepository.deleteByPostId(id);
         if (mediaIds != null) {
-                for (UUID mediaId : mediaIds) {
-                    MediaCleanupEvent event = new MediaCleanupEvent(mediaId, "POST DELETED");
-                    scheduleMediaCleanup(event);
-                    LOG.info("Scheduled MediaCleanupEvent for deleted post mediaId: {}",mediaId);
-                }
+            for (UUID mediaId : mediaIds) {
+                MediaCleanupEvent event = new MediaCleanupEvent(mediaId, "POST DELETED");
+                scheduleMediaCleanup(event);
+                LOG.info("Scheduled MediaCleanupEvent for deleted post mediaId: {}", mediaId);
             }
-            publishEvent("POST_DELETED", new PostDeletedEvent(id), id);
+        }
+        publishEvent("POST_DELETED", new PostDeletedEvent(id), id);
         // 5. Delete the actual post
+        history.delete(id);
         postRepository.deleteById(id);
     }
 
@@ -336,6 +313,9 @@ public class PostService {
             throw new RuntimeException("Error: Cannot extract JWT token to get User ID.");
         }
 
+        validateTags(authorId, taggedUserIds == null ? java.util.Set.of() : new HashSet<>(taggedUserIds), java.util.Set.of());
+        List<UUID> validatedMediaIds = validateMediaAttachments(authorId, mediaIds);
+
         // 2. Initialize new Post entity
         Post newPost = new Post();
         newPost.setAuthorId(authorId);
@@ -348,39 +328,31 @@ public class PostService {
         }
 
         // 3. Save to Database
-        newPost = postRepository.save(newPost);
+        newPost = postRepository.saveAndFlush(newPost);
 
         // 4. Validate and Save attached media files (if any)
-            if (mediaIds != null && !mediaIds.isEmpty()) {
-                int order = 0;
-                for (UUID mediaId : mediaIds) {
-                    try {
-                        MediaValidationDTO mediaInfo = mediaServiceClient.getMedia(mediaId);
-                        if (!authorId.equals(mediaInfo.ownerId()) || !"ACTIVE".equals(mediaInfo.status()) || !"POST".equals(mediaInfo.purpose())) {
-                            throw new RuntimeException("Error: Invalid media permissions or status.");
-                        }
-                    } catch (DownstreamServiceUnavailableException exception) {
-                        throw exception;
-                    } catch (Exception exception) {
-                        throw new IllegalArgumentException("Error: Media validation failed for ID " + mediaId, exception);
-                    }
-
-                    PostMedia postMedia = new PostMedia();
-                    postMedia.setPost(newPost);
-                    postMedia.setMediaId(mediaId);
-                    postMedia.setDisplayOrder(order++);
-                    postMedia.setCreatedAt(java.time.Instant.now());
-                    postMediaRepository.save(postMedia);
-                }
+        if (!validatedMediaIds.isEmpty()) {
+            List<PostMedia> postMediaList = new ArrayList<>();
+            for (int i = 0; i < validatedMediaIds.size(); i++) {
+                PostMedia postMedia = new PostMedia();
+                postMedia.setPost(newPost);
+                postMedia.setMediaId(validatedMediaIds.get(i));
+                postMedia.setDisplayOrder(i);
+                postMedia.setCreatedAt(java.time.Instant.now());
+                postMediaList.add(postMedia);
             }
-            PostDTO result = postMapper.toDto(newPost);
-            publishEvent("POST_CREATED", new PostCreatedEvent(result.getId(), result.getAuthorId(), result.getContent(),
-            result.getVisibility(), result.getStatus(), java.time.Instant.now()), result.getId());
-            return findOne(newPost.getId()).orElseThrow();
+            postMediaRepository.saveAll(postMediaList);
+        }
+        PostDTO result = snapshot(newPost);
+        history.baseline(result);
+        publishEvent("POST_CREATED", new PostCreatedEvent(result.getId(), result.getAuthorId(), result.getContent(),
+                result.getVisibility(), result.getStatus(), result.getCreatedAt()), result.getId());
+        return findOne(newPost.getId()).orElseThrow();
     }
 
     /**
-     * Get one post by id, including its media attachments. Enforces privacy visibility rules.
+     * Get one post by id, including its media attachments. Enforces privacy
+     * visibility rules.
      *
      * @param id the id of the entity.
      * @return the entity wrapped in Optional.
@@ -446,6 +418,7 @@ public class PostService {
 
     /**
      * Toggles the saved status of a post for the current user.
+     *
      * @param postId the post ID to save/unsave.
      * @return true if the post is now saved, false if it is unsaved.
      */
@@ -476,6 +449,7 @@ public class PostService {
 
     /**
      * Gets all saved posts for the current user.
+     *
      * @return list of saved posts.
      */
     @Transactional(readOnly = true)
@@ -489,7 +463,7 @@ public class PostService {
 
         List<SavedPost> savedPosts = savedPostRepository.findByUserIdOrderByCreatedAtDesc(userId);
         List<PostDTO> results = new ArrayList<>();
-        
+
         for (SavedPost sp : savedPosts) {
             try {
                 findOne(sp.getPostId()).ifPresent(results::add);
@@ -501,7 +475,6 @@ public class PostService {
         return results;
     }
 
-    
     private void publishEvent(String eventType, Object payload, UUID aggregateId) {
         EventEnvelope<Object> envelope = new EventEnvelope<>(
                 UUID.randomUUID(), eventType, 1, java.time.Instant.now(), payload);
@@ -509,7 +482,43 @@ public class PostService {
     }
 
     private void scheduleMediaCleanup(MediaCleanupEvent event) {
-        outbox.schedule(event, "media-cleanup-" + event.mediaId(), java.util.Map.of("destination", "media-cleanup-topic"));
+        outbox.schedule(event, "media-cleanup-" + event.mediaId(),
+                java.util.Map.of("destination", "media-cleanup-topic"));
+    }
+
+    private List<UUID> validateMediaAttachments(UUID authorId, List<UUID> mediaIds) {
+        return validateMediaAttachments(authorId, mediaIds, authorId, List.of());
+    }
+
+    private List<UUID> validateMediaAttachments(UUID authorId, List<UUID> mediaIds, UUID editor, List<UUID> attached) {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        boolean admin = auth != null && auth.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals(AuthoritiesConstants.ADMIN));
+        if (mediaIds == null || mediaIds.isEmpty()) {
+            return List.of();
+        }
+        List<UUID> deduplicated = mediaIds.stream().distinct().toList();
+        for (UUID mediaId : deduplicated) {
+            if (mediaId == null) {
+                throw new IllegalArgumentException("Error: mediaId cannot be null.");
+            }
+            try {
+                MediaValidationDTO mediaInfo = mediaServiceClient.getMedia(mediaId);
+                if (mediaInfo == null || !(authorId.equals(mediaInfo.ownerId())
+                        || attached.contains(mediaId) || admin && editor.equals(mediaInfo.ownerId()))
+                        || !"ACTIVE".equals(mediaInfo.status())
+                        || !"POST".equals(mediaInfo.purpose())) {
+                    throw new AccessDeniedException("Invalid media ownership, status or purpose: " + mediaId);
+                }
+            } catch (DownstreamServiceUnavailableException exception) {
+                throw exception;
+            } catch (AccessDeniedException | org.springframework.web.server.ResponseStatusException exception) {
+                throw exception;
+            } catch (IllegalArgumentException exception) {
+                throw exception;
+            } catch (Exception exception) {
+                throw new IllegalArgumentException("Error: Media validation failed for ID " + mediaId, exception);
+            }
+        }
+        return deduplicated;
     }
 }
-

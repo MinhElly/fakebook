@@ -1,3 +1,5 @@
+import useRequireLogin from "@/hooks/useRequireLogin";
+import { useAuth } from "@/providers/AuthProvider";
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router";
 import ProfileLayout, { type ProfileUser } from "@/components/profile/ProfileLayout";
@@ -14,13 +16,15 @@ import {
   unfriend,
   getUserAvatarUrl,
 } from "@/services/friendsService";
-import { usePostStore } from "@/stores/postStore";
+import useProfilePosts from "@/hooks/useProfilePosts";
 import type { FriendUser } from "@/types";
 
 export default function UserProfilePage() {
   const { userId } = useParams<{ userId: string }>();
   const navigate = useNavigate();
-  const { posts, loadMorePosts, hasMore, loading: loadingPosts } = usePostStore();
+  const requireLogin = useRequireLogin();
+  const { status } = useAuth();
+  const { posts, loadMorePosts, hasMore, error: feedError, loading: loadingPosts } = useProfilePosts(userId);
 
   const [profileDetail, setProfileDetail] = useState<UserProfileDetail | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
@@ -45,10 +49,11 @@ export default function UserProfilePage() {
 
   // 1. Fetch current logged-in user profile
   useEffect(() => {
+    if (status !== "authenticated") return;
     getCurrentUserProfile()
       .then((me) => setCurrentUserId(me.id))
       .catch((err) => console.error("Không thể lấy thông tin tài khoản hiện tại:", err));
-  }, []);
+  }, [status]);
 
   // 2. Fetch target user profile details and target user's friends list
   useEffect(() => {
@@ -63,7 +68,7 @@ export default function UserProfilePage() {
 
     Promise.all([
       getUserProfileDetails(userId),
-      getAllFriends(userId).catch(() => []),
+      status === "authenticated" ? getAllFriends(userId).catch(() => []) : Promise.resolve([]),
     ])
       .then(([detail, targetFriendships]) => {
         setProfileDetail(detail);
@@ -93,7 +98,7 @@ export default function UserProfilePage() {
       .finally(() => {
         setLoading(false);
       });
-  }, [userId]);
+  }, [userId, status]);
 
   // 3. Compute real mutual friends if currentUserId & targetUserId exist
   useEffect(() => {
@@ -115,6 +120,7 @@ export default function UserProfilePage() {
 
   // Handle action buttons (Thêm bạn bè / Hủy lời mời / Chấp nhận / Bạn bè)
   const handleToggleFriend = async () => {
+    if (!requireLogin()) return;
     if (!profileDetail || !currentUserId) return;
     const currentStatus = profileDetail.friendshipStatus;
 
@@ -168,6 +174,7 @@ export default function UserProfilePage() {
 
   // Handle Decline / Reject Friend Request
   const handleRejectRequest = async () => {
+    if (!requireLogin()) return;
     if (!profileDetail || !profileDetail.friendRequestId) return;
     setProfileDetail({ ...profileDetail, friendshipStatus: "NONE" });
     try {
@@ -179,6 +186,7 @@ export default function UserProfilePage() {
 
   // Handle Unfriend action
   const handleUnfriend = async () => {
+    if (!requireLogin()) return;
     if (!profileDetail || !currentUserId) return;
     if (!window.confirm(`Bạn có chắc chắn muốn hủy kết bạn với ${profileDetail.displayName}?`)) return;
 
@@ -258,12 +266,7 @@ export default function UserProfilePage() {
   };
 
   // Target user's posts filter
-  const targetUserPosts = posts.filter(
-    (p) =>
-      p.user === profileDetail.displayName ||
-      p.user === profileDetail.username ||
-      p.user === user.name
-  );
+  const targetUserPosts = posts;
 
   const actionButtons = isOwn ? (
     <button
@@ -374,6 +377,7 @@ export default function UserProfilePage() {
       user={user}
       isOwn={isOwn}
       posts={targetUserPosts}
+      feedError={feedError} retryFeed={loadMorePosts}
       friends={friends}
       mutualCount={mutualFriends.length || profileDetail.mutualFriendsCount}
       mutualFriends={mutualFriends}

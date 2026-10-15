@@ -1,3 +1,4 @@
+import MediaImage from "@/components/feed/MediaImage";
 import { useState } from "react";
 import { useNavigate } from "react-router";
 import { getUserAvatarUrl, type UserSummary } from "@/services/friendsService";
@@ -115,7 +116,7 @@ export default function FriendCard({
         onClick={handleProfileClick}
         className="relative aspect-square w-full bg-[#F0F2F5] cursor-pointer overflow-hidden group"
       >
-        <img
+        <MediaImage
           src={avatarUrl}
           alt={user.displayName || "Avatar"}
           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
