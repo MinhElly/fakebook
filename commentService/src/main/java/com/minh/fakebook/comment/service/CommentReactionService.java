@@ -19,7 +19,8 @@ import java.time.Instant;
 import java.util.Optional;
 
 /**
- * Service Implementation for managing {@link com.minh.fakebook.comment.domain.CommentReaction}.
+ * Service Implementation for managing
+ * {@link com.minh.fakebook.comment.domain.CommentReaction}.
  */
 @Service
 @Transactional
@@ -31,9 +32,13 @@ public class CommentReactionService {
 
     private final CommentReactionMapper commentReactionMapper;
 
-    public CommentReactionService(CommentReactionRepository commentReactionRepository, CommentReactionMapper commentReactionMapper) {
+    private final CommentService commentService;
+
+    public CommentReactionService(CommentReactionRepository commentReactionRepository,
+            CommentReactionMapper commentReactionMapper, CommentService commentService) {
         this.commentReactionRepository = commentReactionRepository;
         this.commentReactionMapper = commentReactionMapper;
+        this.commentService = commentService;
     }
 
     /**
@@ -44,6 +49,9 @@ public class CommentReactionService {
      */
     public CommentReactionDTO save(CommentReactionDTO commentReactionDTO) {
         LOG.debug("Request to save CommentReaction : {}", commentReactionDTO);
+        if (commentReactionDTO.getComment() != null && commentReactionDTO.getComment().getId() != null) {
+            commentService.validateCommentAccess(commentReactionDTO.getComment().getId(), commentReactionDTO.getUserId());
+        }
         CommentReaction commentReaction = commentReactionMapper.toEntity(commentReactionDTO);
         commentReaction = commentReactionRepository.save(commentReaction);
         return commentReactionMapper.toDto(commentReaction);
@@ -72,14 +80,14 @@ public class CommentReactionService {
         LOG.debug("Request to partially update CommentReaction : {}", commentReactionDTO);
 
         return commentReactionRepository
-            .findById(commentReactionDTO.getId())
-            .map(existingCommentReaction -> {
-                commentReactionMapper.partialUpdate(existingCommentReaction, commentReactionDTO);
+                .findById(commentReactionDTO.getId())
+                .map(existingCommentReaction -> {
+                    commentReactionMapper.partialUpdate(existingCommentReaction, commentReactionDTO);
 
-                return existingCommentReaction;
-            })
-            .map(commentReactionRepository::save)
-            .map(commentReactionMapper::toDto);
+                    return existingCommentReaction;
+                })
+                .map(commentReactionRepository::save)
+                .map(commentReactionMapper::toDto);
     }
 
     /**
@@ -105,13 +113,14 @@ public class CommentReactionService {
     }
 
     /**
-    * Toggles a reaction on a comment.
-    *
-    * @param commentId the ID of the target comment.
-    * @param userId the ID of the user performing the reaction.
-    * @param reactionType the selected type of reaction.
-    * @return the updated or created CommentReactionDTO, or empty if the reaction was removed.
-    */
+     * Toggles a reaction on a comment.
+     *
+     * @param commentId    the ID of the target comment.
+     * @param userId       the ID of the user performing the reaction.
+     * @param reactionType the selected type of reaction.
+     * @return the updated or created CommentReactionDTO, or empty if the reaction
+     *         was removed.
+     */
 
     public Optional<CommentReactionDTO> toggleReaction(UUID commentId, UUID userId, ReactionType reactionType) {
         LOG.debug("Request to toggle Reaction : {} on Comment : {} by user {}", reactionType, commentId,
@@ -119,6 +128,8 @@ public class CommentReactionService {
 
         Optional<CommentReaction> existingReaction = commentReactionRepository.findByCommentIdAndUserId(commentId,
                 userId);
+
+        commentService.validateCommentAccess(commentId, userId);
 
         if (existingReaction.isPresent()) {
             CommentReaction reaction = existingReaction.orElseThrow();

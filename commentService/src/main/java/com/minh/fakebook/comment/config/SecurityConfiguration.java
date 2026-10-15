@@ -36,6 +36,15 @@ public class SecurityConfiguration {
         this.jHipsterProperties = jHipsterProperties;
     }
 
+    private static org.springframework.security.authorization.AuthorizationDecision businessAccess(
+            java.util.function.Supplier<? extends org.springframework.security.core.Authentication> authentication,
+            org.springframework.security.web.access.intercept.RequestAuthorizationContext context) {
+        var auth = authentication.get();
+        boolean service = auth.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("ROLE_INTERNAL"));
+        boolean anonymous = auth instanceof org.springframework.security.authentication.AnonymousAuthenticationToken;
+        return new org.springframework.security.authorization.AuthorizationDecision(auth.isAuthenticated() && !anonymous && !service);
+    }
+
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) {
         http.csrf(csrf -> csrf.disable())
@@ -46,7 +55,9 @@ public class SecurityConfiguration {
                     .requestMatchers("/api/auth-info").permitAll()
                     .requestMatchers("/api/admin/**").hasAuthority(AuthoritiesConstants.ADMIN)
                     .requestMatchers(HttpMethod.GET, "/api/comments").permitAll()
-                    .requestMatchers("/api/**").authenticated()
+                    .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/comments", "/api/comments/count", "/api/comments/*").permitAll()
+                    .requestMatchers(org.springframework.http.HttpMethod.POST, "/api/comments/summaries").permitAll()
+                    .requestMatchers("/api/**").access(SecurityConfiguration::businessAccess)
                     .requestMatchers("/v3/api-docs/**").hasAuthority(AuthoritiesConstants.ADMIN)
                     .requestMatchers("/management/health").permitAll()
                     .requestMatchers("/management/health/**").permitAll()

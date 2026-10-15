@@ -17,6 +17,8 @@ public class PostCacheResolver {
         this.postCacheWriter = postCacheWriter;
     }
 
+    public PostCache resolveForAuthorization(UUID postId) { return postCacheWriter.fetchForAuthorization(postId); }
+
     public PostCache resolve(UUID postId) {
         return postCacheRepository.findById(postId).orElseGet(() -> postCacheWriter.fetchAndCache(postId));
     }

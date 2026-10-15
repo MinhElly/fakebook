@@ -188,7 +188,8 @@ public class PostReactionService {
 
     @Transactional(readOnly = true)
     public List<PostReactionSummaryDTO> getSummaries(Collection<UUID> requestedPostIds) {
-        UUID currentUserId = requireCurrentUserId();
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        UUID currentUserId = auth instanceof JwtAuthenticationToken jwt ? UUID.fromString(jwt.getToken().getSubject()) : null;
         Set<UUID> distinctPostIds = new LinkedHashSet<>(requestedPostIds);
 
         if (distinctPostIds.isEmpty()) {
@@ -199,7 +200,8 @@ public class PostReactionService {
         }
 
         List<Post> posts = postRepository.findAllById(distinctPostIds);
-        boolean needsFriendIds = posts
+        boolean admin = auth != null && auth.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals(AuthoritiesConstants.ADMIN));
+        boolean needsFriendIds = currentUserId != null && !admin && posts
             .stream()
             .anyMatch(post -> post.getVisibility() == PostVisibility.FRIENDS && !post.getAuthorId().equals(currentUserId));
         Set<UUID> friendIds = needsFriendIds
@@ -241,7 +243,7 @@ public class PostReactionService {
         }
 
         Map<UUID, ReactionType> myReactionByPost = new HashMap<>();
-        for (PostReaction reaction : postReactionRepository.findAllByPostIdInAndUserId(postIds, currentUserId)) {
+        for (PostReaction reaction : currentUserId == null ? java.util.List.<PostReaction>of() : postReactionRepository.findAllByPostIdInAndUserId(postIds, currentUserId)) {
             myReactionByPost.put(reaction.getPost().getId(), reaction.getReactionType());
         }
 
@@ -289,6 +291,8 @@ public class PostReactionService {
         if (post.getStatus() == PostStatus.DELETED) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Post not found");
         }
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication != null && authentication.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals(AuthoritiesConstants.ADMIN))) return;
         if (post.getAuthorId().equals(currentUserId) || post.getVisibility() == PostVisibility.PUBLIC) {
             return;
         }
@@ -305,6 +309,8 @@ public class PostReactionService {
         if (post.getStatus() == PostStatus.DELETED) {
             return false;
         }
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication != null && authentication.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals(AuthoritiesConstants.ADMIN))) return true;
         if (post.getAuthorId().equals(currentUserId) || post.getVisibility() == PostVisibility.PUBLIC) {
             return true;
         }

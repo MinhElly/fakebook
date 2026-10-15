@@ -158,6 +158,10 @@ public class CommentResource {
     @GetMapping("/count")
     public ResponseEntity<Long> countComments(CommentCriteria criteria) {
         LOG.debug("REST request to count Comments by criteria: {}", criteria);
+        if (!SecurityUtils.hasCurrentUserThisAuthority(AuthoritiesConstants.ADMIN)) {
+            var active = new CommentCriteria.CommentStatusFilter();
+            active.setEquals(CommentStatus.ACTIVE); criteria.setStatus(active);
+        }
         return ResponseEntity.ok().body(commentQueryService.countByCriteria(criteria));
     }
 

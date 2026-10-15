@@ -1,4 +1,5 @@
 package com.minh.fakebook.comment.service;
+import com.minh.fakebook.comment.security.AuthoritiesConstants;
 import com.minh.fakebook.comment.web.rest.errors.BadRequestAlertException;
 import java.util.Optional;
 import java.util.UUID;
@@ -6,6 +7,9 @@ import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -40,6 +44,7 @@ public class CommentService {
     private final UserServiceClient userFeignClient;
 
     private final PostCacheResolver postCacheResolver;
+    private final CommentViewAuthorizationService authorization;
 
         private final Outbox outbox;
 
@@ -48,13 +53,14 @@ public class CommentService {
             CommentMapper commentMapper,
             UserServiceClient userFeignClient,
             PostCacheResolver postCacheResolver,
-            Outbox outbox
+            Outbox outbox, CommentViewAuthorizationService authorization
     ) {
         this.commentRepository = commentRepository;
         this.commentMapper = commentMapper;
         this.userFeignClient = userFeignClient;
         this.postCacheResolver = postCacheResolver;
         this.outbox = outbox;
+        this.authorization = authorization;
     }
 
 
@@ -70,22 +76,7 @@ public class CommentService {
     public CommentDTO createComment(CreateCommentRequestDTO request, UUID authorId) {
         LOG.debug("Request to create Comment for Post {} by Author {}", request.postId(), authorId);
 
-        // 1. Check if post exist
-        PostCache postCache = postCacheResolver.resolve(request.postId());
-
-        // 2. Row-Level Security
-        boolean isOwner = authorId.equals(postCache.getAuthorId());
-        if (!isOwner) {
-            if ("PRIVATE".equalsIgnoreCase(postCache.getVisibility())) {
-                throw new AccessDeniedException("You do not have permission to comment on this private post.");
-            } else if ("FRIENDS".equalsIgnoreCase(postCache.getVisibility())) {
-                //check friend status via userService
-                boolean areFriends = userFeignClient.checkFriendship(authorId, postCache.getAuthorId());
-                if (!areFriends) {
-                    throw new AccessDeniedException("You must be friends with the author to comment on this post.");
-                }
-            }
-        }
+        validatePostAccess(request.postId(), authorId);
 
         Comment comment = new Comment();
         comment.setPostId(request.postId());
@@ -113,7 +104,7 @@ public class CommentService {
 
             return commentRepository.findById(commentId).map(comment -> {
                 // Check ownership to prevent unauthorized updates
-                if (!comment.getAuthorId().equals(authorId)) {
+                if (!comment.getAuthorId().equals(authorId) && !isAdmin()) {
                     throw new AccessDeniedException("You can only edit your own comments.");
                 }
                 comment.setContent(content);
@@ -179,7 +170,23 @@ public class CommentService {
     @Transactional(readOnly = true)
     public Optional<CommentDTO> findOne(UUID id) {
         LOG.debug("Request to get Comment : {}", id);
-        return commentRepository.findById(id).map(commentMapper::toDto);
+        return commentRepository.findById(id).map(comment -> {
+            Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+            UUID currentUserId = null;
+            boolean isAdmin = false;
+            if (auth != null) {
+                isAdmin = auth.getAuthorities().stream()
+                    .anyMatch(a -> a.getAuthority().equals(AuthoritiesConstants.ADMIN));
+                if (auth instanceof JwtAuthenticationToken jwt) {
+                    currentUserId = UUID.fromString(jwt.getToken().getSubject());
+                }
+            }
+            if (CommentStatus.DELETED.equals(comment.getStatus()) && !isAdmin && (currentUserId == null || !currentUserId.equals(comment.getAuthorId()))) {
+                throw new AccessDeniedException("You do not have permission to view this deleted comment.");
+            }
+            validatePostAccess(comment.getPostId(), currentUserId);
+            return commentMapper.toDto(comment);
+        });
     }
 
     /**
@@ -222,9 +229,8 @@ public class CommentService {
 
             Comment parent = commentRepository.findById(request.parentCommentId())
                 .orElseThrow(() -> new BadRequestAlertException("Parent comment not found", "comment", "idnotfound"));
-
-            if (CommentStatus.DELETED.equals(parent.
-  getStatus())) {
+            validatePostAccess(parent.getPostId(), authorId);
+            if (CommentStatus.DELETED.equals(parent.getStatus())) {
                 throw new BadRequestAlertException("Cannot reply to a deleted comment", "comment", "parentdeleted");
             }
 
@@ -252,4 +258,21 @@ public class CommentService {
         outbox.schedule(envelope, "comment-changed-" + postId, Map.of("destination", "comment-events"));
     }
 
+    private boolean isAdmin() {
+        var auth = SecurityContextHolder.getContext().getAuthentication();
+        return auth != null && auth.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals(AuthoritiesConstants.ADMIN));
+    }
+
+    public void validateCommentAccess(UUID commentId, UUID userId) {
+        Comment comment = commentRepository.findById(commentId)
+            .orElseThrow(() -> new BadRequestAlertException("Comment not found", "comment", "idnotfound"));
+        if (CommentStatus.DELETED.equals(comment.getStatus())) {
+            throw new BadRequestAlertException("Cannot interact with a deleted comment", "comment", "commentdeleted");
+        }
+        validatePostAccess(comment.getPostId(), userId);
+    }
+
+    public void validatePostAccess(UUID postId, UUID userId) {
+        authorization.verifyCanView(java.util.List.of(postId));
+    }
 }

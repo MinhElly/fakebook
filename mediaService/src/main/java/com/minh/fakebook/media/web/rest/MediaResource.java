@@ -32,6 +32,11 @@ import tech.jhipster.web.util.ResponseUtil;
 import com.minh.fakebook.media.domain.enumeration.MediaPurpose;
 import org.springframework.http.MediaType;
 import com.minh.fakebook.media.domain.Media;
+import com.minh.fakebook.media.security.AuthoritiesConstants;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 
 /**
  * REST controller for managing {@link Media}.
@@ -61,12 +66,14 @@ public class MediaResource {
 
     /**
      * {@code POST  /media} : Create a new media.
+     * Restricted to ADMIN role to prevent client metadata spoofing.
      *
      * @param mediaDTO the mediaDTO to create.
      * @return the {@link ResponseEntity} with status {@code 201 (Created)} and with body the new mediaDTO, or with status {@code 400 (Bad Request)} if the media has already an ID.
      * @throws URISyntaxException if the Location URI syntax is incorrect.
      */
     @PostMapping("")
+    @PreAuthorize("hasAuthority('" + AuthoritiesConstants.ADMIN + "')")
     public ResponseEntity<MediaDTO> createMedia(@Valid @RequestBody MediaDTO mediaDTO) throws URISyntaxException {
         LOG.debug("REST request to save Media : {}", mediaDTO);
         if (mediaDTO.getId() != null) {
@@ -149,6 +156,7 @@ public class MediaResource {
 
     /**
      * {@code GET  /media} : get all the Media.
+     * Scoped to current user for non-admin callers if unscoped.
      *
      * @param pageable the pagination information.
      * @param criteria the criteria which the requested entities should match.
@@ -160,7 +168,16 @@ public class MediaResource {
         @ParameterObject Pageable pageable
     ) {
         LOG.debug("REST request to get Medias by criteria: {}", criteria);
-
+        if (criteria.getId() != null && criteria.getId().getIn() != null) {
+            if (criteria.getId().getIn().size() > 50) throw new BadRequestAlertException("At most 50 IDs", ENTITY_NAME, "toomanyids");
+            var readable = new java.util.ArrayList<MediaDTO>();
+            for (UUID id : criteria.getId().getIn()) {
+                try { mediaService.findOne(id).ifPresent(readable::add); }
+                catch (org.springframework.security.access.AccessDeniedException denied) { /* Do not enumerate denied records. */ }
+            }
+            return ResponseEntity.ok(readable);
+        }
+        scopeCriteriaForCurrentUser(criteria);
         Page<MediaDTO> page = mediaQueryService.findByCriteria(criteria, pageable);
         HttpHeaders headers = PaginationUtil.generatePaginationHttpHeaders(ServletUriComponentsBuilder.fromCurrentRequest(), page);
         return ResponseEntity.ok().headers(headers).body(page.getContent());
@@ -168,6 +185,7 @@ public class MediaResource {
 
     /**
      * {@code GET  /media/count} : count all the medias.
+     * Scoped to current user for non-admin callers if unscoped.
      *
      * @param criteria the criteria which the requested entities should match.
      * @return the {@link ResponseEntity} with status {@code 200 (OK)} and the count in body.
@@ -175,6 +193,7 @@ public class MediaResource {
     @GetMapping("/count")
     public ResponseEntity<Long> countMedias(MediaCriteria criteria) {
         LOG.debug("REST request to count Medias by criteria: {}", criteria);
+        scopeCriteriaForCurrentUser(criteria);
         return ResponseEntity.ok().body(mediaQueryService.countByCriteria(criteria));
     }
 
@@ -226,6 +245,7 @@ public class MediaResource {
     public ResponseEntity<?> getMediaFile(@PathVariable("id") UUID id) {
         LOG.debug("REST request to get Media file : {}", id);
         Optional<MediaDTO> mediaDTO = mediaService.findOne(id);
+        if (mediaDTO.isPresent() && mediaDTO.orElseThrow().getStatus() != com.minh.fakebook.media.domain.enumeration.MediaStatus.ACTIVE) return ResponseEntity.notFound().build();
         if (mediaDTO.isPresent() && mediaDTO.orElseThrow().getUrl() != null) {
             String url = mediaDTO.orElseThrow().getUrl();
             if (url.startsWith("data:")) {
@@ -236,6 +256,7 @@ public class MediaResource {
                     String mimeType = header.substring(header.indexOf(":") + 1, header.indexOf(";"));
                     byte[] imageBytes = java.util.Base64.getDecoder().decode(base64Data);
                     return ResponseEntity.ok()
+                            .cacheControl(org.springframework.http.CacheControl.noStore())
                             .contentType(org.springframework.http.MediaType.parseMediaType(mimeType))
                             .body(imageBytes);
                 } catch (Exception e) {
@@ -243,9 +264,45 @@ public class MediaResource {
                     return ResponseEntity.internalServerError().build();
                 }
             } else {
-                return ResponseEntity.status(HttpStatus.FOUND).location(URI.create(url)).build();
+                URI storage = URI.create(url);
+                if (!"https".equals(storage.getScheme()) || !"res.cloudinary.com".equals(storage.getHost())) {
+                    return ResponseEntity.status(HttpStatus.BAD_GATEWAY).build();
+                }
+                var factory = new org.springframework.http.client.SimpleClientHttpRequestFactory();
+                factory.setConnectTimeout(3000); factory.setReadTimeout(30000);
+                var result = org.springframework.web.client.RestClient.builder().requestFactory(factory).build()
+                    .get().uri(storage).retrieve().toEntity(byte[].class);
+                return ResponseEntity.ok().header("Cache-Control", "private, no-store")
+                    .contentType(result.getHeaders().getContentType() == null ? MediaType.APPLICATION_OCTET_STREAM : result.getHeaders().getContentType())
+                    .body(result.getBody());
             }
         }
         return ResponseEntity.notFound().build();
+    }
+
+    private void scopeCriteriaForCurrentUser(MediaCriteria criteria) {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || !auth.isAuthenticated()) {
+            return;
+        }
+        boolean isAdmin = auth.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals(AuthoritiesConstants.ADMIN));
+        if (isAdmin) {
+            return;
+        }
+        // Non-admin users cannot do unscoped enumeration of all media
+        // If criteria does not filter by ID (e.g. id.in used for feed hydration) and does not filter by ownerId,
+        // scope it to the current user's ownerId
+        if (auth instanceof JwtAuthenticationToken) {
+            String currentUserId = null;
+            if (auth instanceof JwtAuthenticationToken jwt) {
+                currentUserId = jwt.getToken().getSubject();
+            }
+            if (currentUserId != null) {
+                tech.jhipster.service.filter.UUIDFilter ownerFilter = new tech.jhipster.service.filter.UUIDFilter();
+                ownerFilter.setEquals(UUID.fromString(currentUserId));
+                criteria.setOwnerId(ownerFilter);
+            }
+        }
     }
 }
