@@ -9,6 +9,7 @@ IMAGES = tuple("fakebook-" + name for name in (
     "gateway", "userservice", "postservice", "mediaservice",
     "commentservice", "feedservice", "frontend",
 ))
+LOCAL_OVERLAY = "infrastructure/k8s/overlays/local/kustomization.yaml"
 
 
 def validate(sha, owner, records):
@@ -36,6 +37,38 @@ def requires_build(paths):
     return any(not (path.startswith("infrastructure/k8s/") or
                     path.startswith("docs/") or path.endswith(".md"))
                for path in paths)
+
+
+def verify_local_release(base, head, owner):
+    """Reject stale releases and changes outside the seven pinned images."""
+    def git(*args):
+        return subprocess.check_output(["git", *args]).decode("utf-8")
+
+    paths = git("diff", "--name-only", "-z", base, head).split("\0")
+    if [p for p in paths if p] != [LOCAL_OVERLAY]:
+        raise ValueError("Local release PR must change only the local overlay")
+    before = git("show", f"{base}:{LOCAL_OVERLAY}")
+    after = git("show", f"{head}:{LOCAL_OVERLAY}")
+    before_prefix, _ = before.split("\nimages:\n", 1)
+    after_prefix, section = after.split("\nimages:\n", 1)
+    if before_prefix != after_prefix:
+        raise ValueError("Local release PR must preserve all non-image configuration")
+    pattern = (r"  - name: (fakebook-[a-z]+)\n"
+               r"    newName: (ghcr\.io/[a-z0-9-]+/fakebook-[a-z]+)\n"
+               r"    newTag: sha-([0-9a-f]{40})\n"
+               r"    digest: (sha256:[0-9a-f]{64})\n")
+    matches = list(re.finditer(pattern, section))
+    if not matches or "".join(m.group() for m in matches) != section:
+        raise ValueError("Local release images must contain only SHA tags and digests")
+    records = [dict(zip(("name", "image", "sha", "digest"), m.groups()))
+               for m in matches]
+    sha = records[0]["sha"]
+    validate(sha, owner, records)
+    subprocess.run(["git", "merge-base", "--is-ancestor", sha, base], check=True)
+    paths = git("diff", "--name-only", "-z", sha, base).split("\0")
+    if requires_build([p for p in paths if p]):
+        raise ValueError("Newer source exists on develop; wait for its CI release")
+    return sha
 
 
 def promote(overlay, sha, owner, records, verify_registry=False):
@@ -78,6 +111,10 @@ def main():
     change = commands.add_parser("changes")
     change.add_argument("--base", required=True)
     change.add_argument("--head", required=True)
+    verify = commands.add_parser("verify-local")
+    verify.add_argument("--base", required=True)
+    verify.add_argument("--head", required=True)
+    verify.add_argument("--owner", required=True)
     update = commands.add_parser("promote")
     update.add_argument("--sha", required=True)
     update.add_argument("--owner", required=True)
@@ -92,6 +129,9 @@ def main():
             "git", "diff", "--name-only", "-z", args.base, args.head,
         ]).decode().split("\0")
         print("build=" + str(requires_build([p for p in paths if p])).lower())
+    elif args.command == "verify-local":
+        sha = verify_local_release(args.base, args.head, args.owner)
+        print(f"Local release source is current: {sha}")
     elif args.command == "record":
         digest = args.digest.strip()
         if not re.fullmatch(r"sha256:[0-9a-f]{64}", digest):

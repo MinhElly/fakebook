@@ -59,6 +59,13 @@ class K8sConfigurationTest {
         assertThat(environment.getProperty("jhipster.cache.redis.server")).isEqualTo("redis://redis.example:6379");
         assertThat(environment.getProperty("spring.cloud.openfeign.client.config.userservice.url")).isEqualTo("http://userservice:8082");
         assertThat(environment.getProperty("spring.cloud.openfeign.client.config.postservice.url")).isEqualTo("http://postservice:8083");
+        assertThat(environment.getProperty("spring.cloud.openfeign.client.config.socialContextClient.url")).isEqualTo("http://userservice:8082");
+        assertThat(environment.getProperty("spring.cloud.openfeign.client.config.feedReadClient.url")).isEqualTo("http://postservice:8083");
+        environment.getPropertySources().addFirst(new MapPropertySource("custom-service-urls", Map.of(
+            "USER_SERVICE_URL", "http://custom-user:8082", "POST_SERVICE_URL", "http://custom-post:8083"
+        )));
+        assertThat(environment.getProperty("spring.cloud.openfeign.client.config.socialContextClient.url")).isEqualTo("http://custom-user:8082");
+        assertThat(environment.getProperty("spring.cloud.openfeign.client.config.feedReadClient.url")).isEqualTo("http://custom-post:8083");
         assertThat(environment.getProperty("spring.security.oauth2.client.registration.internal.authorization-grant-type")).isEqualTo("client_credentials");
         assertThat(environment.getProperty("spring.security.oauth2.client.registration.internal.client-secret")).isEqualTo("backend-secret");
     }

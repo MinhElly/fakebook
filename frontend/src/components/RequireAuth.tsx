@@ -23,11 +23,5 @@ export default function RequireAuth({ children }: { children: ReactNode }) {
     </div>
   )
 
-  return status === "authenticated" ? (
-    children
-  ) : (
-    <p className="p-6" role="status">
-      Đang mở trang đăng nhập…
-    </p>
-  )
+  return status === "authenticated" ? children : null
 }

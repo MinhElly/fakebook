@@ -1,5 +1,6 @@
 import MediaImage from "./MediaImage";
 import PostStats from "./PostStats";
+import PostMediaViewer from "./PostMediaViewer";
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import { usePostStore } from "@/stores/postStore";
@@ -28,6 +29,9 @@ import api from "@/services/apis";
 interface Props {
   post: PostType;
   isModal?: boolean;
+  context?: "feed" | "profile";
+  presentation?: "card" | "media";
+  onReactionChange?: (summary: ReactionSummary) => void;
 }
 
 const REACTIONS = [
@@ -42,10 +46,11 @@ const REACTIONS = [
 import PostHistory from "./PostHistory";
 import useRequireLogin from "@/hooks/useRequireLogin";
 
-export default function Post({ post, isModal = false }: Props) {
+export default function Post({ post, isModal = false, context = "feed", presentation = "card", onReactionChange }: Props) {
   const navigate = useNavigate();
   const requireLogin = useRequireLogin();
   const [showHistory, setShowHistory] = useState(false);
+  const [selectedMediaIndex, setSelectedMediaIndex] = useState<number | null>(null);
   const { user } = useAuth();
   const { deletePost, setToastMessage } = usePostStore();
   const { comments: commentStoreComments, fetchedPosts: commentStoreFetchedPosts } = useCommentStore();
@@ -74,6 +79,9 @@ export default function Post({ post, isModal = false }: Props) {
   const menuRef = useRef<HTMLDivElement>(null);
   const reactionTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useOutsideClick(menuRef, () => setShowMenu(false));
+  useEffect(() => () => {
+    if (reactionTimer.current) clearTimeout(reactionTimer.current);
+  }, []);
 
   const isOwn = post.authorId === user?.id;
   const isAdmin = keycloak.hasRealmRole("ROLE_ADMIN");
@@ -122,6 +130,21 @@ export default function Post({ post, isModal = false }: Props) {
       navigate("/profile");
     } else if (post.authorId) {
       navigate(`/profile/${post.authorId}`);
+    }
+  }
+
+  async function handleShare() {
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: `Bài viết của ${post.user}`, text: post.content });
+      } else {
+        await navigator.clipboard.writeText(post.content);
+        setToastMessage("Đã sao chép nội dung bài viết.");
+      }
+    } catch (error) {
+      if (!(error instanceof DOMException && error.name === "AbortError")) {
+        setToastMessage("Không thể chia sẻ. Vui lòng thử lại.");
+      }
     }
   }
 
@@ -218,6 +241,11 @@ export default function Post({ post, isModal = false }: Props) {
     );
   };
 
+  function updateReactionSummary(summary: ReactionSummary) {
+    setReactionSummary(summary);
+    onReactionChange?.(summary);
+  }
+
   async function pickReaction(key: string) {
     if (!requireLogin() || reactionMutationPending.current) return;
     reactionMutationPending.current = true;
@@ -229,7 +257,7 @@ export default function Post({ post, isModal = false }: Props) {
 
     if (isRemoving) {
       counts[requestedType] = Math.max(0, counts[requestedType] - 1);
-      setReactionSummary({
+      updateReactionSummary({
         ...reactionSummary,
         totalCount: Math.max(0, reactionSummary.totalCount - 1),
         counts,
@@ -240,7 +268,7 @@ export default function Post({ post, isModal = false }: Props) {
         counts[reactionSummary.myReaction] = Math.max(0, counts[reactionSummary.myReaction] - 1);
       }
       counts[requestedType] += 1;
-      setReactionSummary({
+      updateReactionSummary({
         ...reactionSummary,
         totalCount: reactionSummary.myReaction ? reactionSummary.totalCount : reactionSummary.totalCount + 1,
         counts,
@@ -254,9 +282,9 @@ export default function Post({ post, isModal = false }: Props) {
       const authoritative = isRemoving
         ? await removePostReaction(post.id)
         : await setPostReaction(post.id, requestedType);
-      setReactionSummary(authoritative);
+      updateReactionSummary(authoritative);
     } catch (error) {
-      setReactionSummary(previous);
+      updateReactionSummary(previous);
       setToastMessage("Không thể cập nhật cảm xúc. Vui lòng thử lại.");
       console.error("Không cập nhật được reaction", error);
     } finally {
@@ -326,7 +354,7 @@ export default function Post({ post, isModal = false }: Props) {
 
   return (
     <>
-      <div data-post-id={post.id} className={`bg-white rounded-xl shadow-sm border border-[#E4E6EB] ${isModal ? "" : "mb-4"}`}>
+      <div data-post-id={post.id} className={presentation === "media" ? "bg-white" : `bg-white rounded-xl shadow-sm border border-[#E4E6EB] ${isModal ? "" : "mb-4"}`}>
         <div className="flex flex-col">
           <div className="flex items-center gap-2 px-4 pt-3">
             <MediaImage
@@ -462,7 +490,7 @@ export default function Post({ post, isModal = false }: Props) {
           </div>
         </div>
 
-        <MediaGrid mediaIds={post.mediaIds} images={post.image ? [post.image] : []} />
+        {presentation !== "media" && <MediaGrid mediaIds={post.mediaIds} images={post.image ? [post.image] : []} onOpen={setSelectedMediaIndex} />}
 
         <PostStats
           reactions={totalLikes}
@@ -471,17 +499,15 @@ export default function Post({ post, isModal = false }: Props) {
           topReactions={topReactions}
           onShowReactors={() => { if (requireLogin()) setShowReactors(true); }}
           onShowComments={() => { if (isModal) setShowComments(true); else setShowDetailModal(true); }}
-        />
-
-        {/* Action buttons */}
-        <div className="px-4">
-          <div className="flex items-center py-1 border-b border-[#E4E6EB]">
-
-            {/* Like button with reaction picker */}
+          onShare={handleShare}
+          reactionAction={
             <div
-              className="flex-1 relative"
+              className="relative"
               onMouseEnter={onReactionMouseEnter}
               onMouseLeave={onReactionMouseLeave}
+              onFocus={onReactionMouseEnter}
+              onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) setShowReactionPicker(false); }}
+              onKeyDown={(event) => { if (event.key === "Escape") setShowReactionPicker(false); }}
             >
               {/* Reaction floating picker */}
               {showReactionPicker && (
@@ -507,10 +533,14 @@ export default function Post({ post, isModal = false }: Props) {
               )}
               {/* Nút Like */}
               <button
+                type="button"
+                aria-label={`${currentReaction?.label ?? "Thích"}${totalLikes > 0 ? ` · ${totalLikes} lượt cảm xúc` : ""}`}
+                aria-pressed={!!myReaction}
+                title={currentReaction?.label ?? "Thích · Di chuột để chọn cảm xúc"}
                 onClick={handleLikeClick}
-                className={`w-full flex items-center justify-center gap-2 py-1.5 hover:bg-[#F0F2F5] rounded-md transition-colors ${
+                className={`flex min-h-9 items-center gap-1.5 px-2 py-1.5 hover:bg-[#F0F2F5] rounded-md transition-colors ${
                   currentReaction ? currentReaction.color : "text-[#65676B]"
-                } font-semibold text-sm`}
+                } text-xs focus-visible:outline-2 focus-visible:outline-[#1877F2]`}
               >
                 {currentReaction ? (
                   <Emoji unified={currentReaction.unified} emojiStyle={EmojiStyle.FACEBOOK} size={20} />
@@ -519,28 +549,21 @@ export default function Post({ post, isModal = false }: Props) {
                     <path strokeLinecap="round" strokeLinejoin="round" d="M14 10h4.764a2 2 0 011.789 2.894l-3.5 7A2 2 0 0115.263 21h-4.017c-.163 0-.326-.02-.485-.06L7 20m7-10V5a2 2 0 00-2-2h-.095c-.5 0-.905.405-.905.905 0 .714-.211 1.412-.608 2.006L7 11v9m7-10h-2M7 20H5a2 2 0 01-2-2v-6a2 2 0 012-2h2.5" />
                   </svg>
                 )}
-                {currentReaction ? currentReaction.label : "Thích"}
+                {totalLikes > 0 && <span className="text-[#65676B]">{new Intl.NumberFormat("en", { notation: "compact", maximumFractionDigits: 1 }).format(totalLikes)}</span>}
               </button>
             </div>
+          }
+        />
 
-            <button
-              onClick={() => isModal ? setShowComments(p => !p) : setShowDetailModal(true)}
-              className="flex-1 flex items-center justify-center gap-2 py-1.5 hover:bg-[#F0F2F5] rounded-md transition-colors text-sm font-semibold text-[#65676B]"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" strokeLinejoin="round" strokeLinecap="round"/></svg>
-              Bình luận
-            </button>
-            <button className="flex-1 flex items-center justify-center gap-2 py-1.5 hover:bg-[#F0F2F5] rounded-md transition-colors text-sm font-semibold text-[#65676B]">
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" strokeLinejoin="round" strokeLinecap="round"/></svg>
-              Chia sẻ
-            </button>
-          </div>
-        </div>
-
-        <CommentSection postId={post.id} initialVisible={showComments} isModal={isModal} />
+        {(isModal || context === "profile") && (
+          <CommentSection postId={post.id} initialVisible={showComments || context === "profile"} isModal={isModal}
+            autoFocusInput={presentation !== "media"}
+            previewAuthorId={!isModal ? post.authorId : undefined} />
+        )}
       </div>
 
       {showHistory && <PostHistory id={post.id} onClose={() => setShowHistory(false)} />}
+      {selectedMediaIndex !== null && <PostMediaViewer post={{ ...post, reactionSummary }} initialIndex={selectedMediaIndex} onClose={() => setSelectedMediaIndex(null)} onReactionChange={setReactionSummary} />}
       {!isModal && showDetailModal && (
         <PostDetailModal post={post} onClose={() => setShowDetailModal(false)} />
       )}

@@ -1,4 +1,5 @@
 import { Emoji, EmojiStyle } from "emoji-picker-react";
+import type { ReactNode } from "react";
 
 interface Props {
   reactions: number;
@@ -7,6 +8,8 @@ interface Props {
   topReactions: string[];
   onShowReactors: () => void;
   onShowComments: () => void;
+  reactionAction: ReactNode;
+  onShare: () => void;
 }
 
 const compactCount = new Intl.NumberFormat("en", {
@@ -29,27 +32,17 @@ function StatIcon({ kind }: { kind: "like" | "comment" | "share" }) {
   );
 }
 
-export default function PostStats({ reactions, comments, shares, topReactions, onShowReactors, onShowComments }: Props) {
-  if (reactions === 0 && comments === 0 && shares === 0) return null;
-
+export default function PostStats({ reactions, comments, shares, topReactions, onShowReactors, onShowComments, reactionAction, onShare }: Props) {
   return (
-    <div className="mx-4 flex min-h-10 items-center justify-between gap-3 border-b border-[#E4E6EB] py-2 text-xs text-[#65676B]" data-post-stats>
-      <div className="flex items-center gap-4 sm:gap-5">
-        {reactions > 0 && (
-          <button type="button" aria-label={`${reactions} lượt cảm xúc`} onClick={onShowReactors} className="flex items-center gap-1.5 hover:underline">
-            <StatIcon kind="like" /><span>{compactCount.format(reactions)}</span>
-          </button>
-        )}
-        {comments > 0 && (
-          <button type="button" aria-label={`${comments} bình luận`} onClick={onShowComments} className="flex items-center gap-1.5 hover:underline">
-            <StatIcon kind="comment" /><span>{compactCount.format(comments)}</span>
-          </button>
-        )}
-        {shares > 0 && (
-          <span aria-label={`${shares} lượt chia sẻ`} className="flex items-center gap-1.5">
-            <StatIcon kind="share" /><span>{compactCount.format(shares)}</span>
-          </span>
-        )}
+    <div className="mx-3 flex min-h-11 items-center justify-between gap-2 py-1 text-xs text-[#65676B]" data-post-stats>
+      <div className="flex min-w-0 items-center gap-1 sm:gap-2">
+        {reactionAction}
+        <button type="button" aria-label={`Bình luận${comments > 0 ? ` · ${comments} bình luận` : ""}`} onClick={onShowComments} className="flex min-h-9 items-center gap-1.5 rounded-md px-2 hover:bg-[#F0F2F5] focus-visible:outline-2 focus-visible:outline-[#1877F2]">
+          <StatIcon kind="comment" />{comments > 0 && <span>{compactCount.format(comments)}</span>}
+        </button>
+        <button type="button" aria-label={`Chia sẻ${shares > 0 ? ` · ${shares} lượt chia sẻ` : ""}`} onClick={onShare} className="flex min-h-9 items-center gap-1.5 rounded-md px-2 hover:bg-[#F0F2F5] focus-visible:outline-2 focus-visible:outline-[#1877F2]">
+          <StatIcon kind="share" />{shares > 0 && <span>{compactCount.format(shares)}</span>}
+        </button>
       </div>
       {reactions > 0 && (
         <button type="button" aria-label="Xem người đã bày tỏ cảm xúc" onClick={onShowReactors} className="flex shrink-0 items-center pl-1">

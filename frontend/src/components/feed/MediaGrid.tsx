@@ -1,152 +1,28 @@
 import MediaImage from "./MediaImage";
-import { useState } from "react";
 import { getMediaUrl } from "@/services/mediaService";
 
 interface MediaGridProps {
   mediaIds?: string[];
   images?: (string | null)[];
+  onOpen: (index: number) => void;
 }
 
-export default function MediaGrid({ mediaIds = [], images = [] }: MediaGridProps) {
-  const [selectedMedia, setSelectedMedia] = useState<string | null>(null);
-
-  // Combine mediaIds and image URLs
-  const mediaList: string[] = [];
-
-  if (mediaIds && mediaIds.length > 0) {
-    mediaIds.forEach(id => {
-      if (id) mediaList.push(getMediaUrl(id));
-    });
-  } else if (images && images.length > 0) {
-    images.forEach(img => {
-      if (img) mediaList.push(getMediaUrl(img));
-    });
-  }
-
-  if (mediaList.length === 0) return null;
-
+export default function MediaGrid({ mediaIds = [], images = [], onOpen }: MediaGridProps) {
+  const mediaList = (mediaIds.length ? mediaIds : images.filter((image): image is string => !!image)).map(getMediaUrl);
+  if (!mediaList.length) return null;
   const count = mediaList.length;
-
   return (
-    <>
-      <div className="mt-3 rounded-xl overflow-hidden border border-[#E4E6EB] bg-black/5">
-        {count === 1 && (
-          <div
-            className="w-full max-h-[500px] overflow-hidden cursor-pointer flex items-center justify-center bg-black/10"
-            onClick={() => setSelectedMedia(mediaList[0])}
-          >
-            <MediaImage
-              src={mediaList[0]}
-              alt="Post attachment"
-              className="w-full h-auto object-cover hover:scale-[1.01] transition-transform duration-200"
-            />
-          </div>
-        )}
-
-        {count === 2 && (
-          <div className="grid grid-cols-2 gap-1 max-h-[400px]">
-            {mediaList.slice(0, 2).map((url, index) => (
-              <div
-                key={index}
-                className="h-[300px] overflow-hidden cursor-pointer relative bg-black/10"
-                onClick={() => setSelectedMedia(url)}
-              >
-                <MediaImage
-                  src={url}
-                  alt={`Attachment ${index + 1}`}
-                  className="w-full h-full object-cover hover:scale-105 transition-transform duration-200"
-                />
-              </div>
-            ))}
-          </div>
-        )}
-
-        {count === 3 && (
-          <div className="grid grid-cols-3 gap-1 max-h-[400px]">
-            <div
-              className="col-span-2 h-[320px] overflow-hidden cursor-pointer relative bg-black/10"
-              onClick={() => setSelectedMedia(mediaList[0])}
-            >
-              <MediaImage
-                src={mediaList[0]}
-                alt="Attachment 1"
-                className="w-full h-full object-cover hover:scale-105 transition-transform duration-200"
-              />
-            </div>
-            <div className="col-span-1 flex flex-col gap-1 h-[320px]">
-              {mediaList.slice(1, 3).map((url, index) => (
-                <div
-                  key={index}
-                  className="h-1/2 overflow-hidden cursor-pointer relative bg-black/10"
-                  onClick={() => setSelectedMedia(url)}
-                >
-                  <MediaImage
-                    src={url}
-                    alt={`Attachment ${index + 2}`}
-                    className="w-full h-full object-cover hover:scale-105 transition-transform duration-200"
-                  />
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {count >= 4 && (
-          <div className="grid grid-cols-2 gap-1 max-h-[420px]">
-            {mediaList.slice(0, 3).map((url, index) => (
-              <div
-                key={index}
-                className="h-[180px] overflow-hidden cursor-pointer relative bg-black/10"
-                onClick={() => setSelectedMedia(url)}
-              >
-                <MediaImage
-                  src={url}
-                  alt={`Attachment ${index + 1}`}
-                  className="w-full h-full object-cover hover:scale-105 transition-transform duration-200"
-                />
-              </div>
-            ))}
-            <div
-              className="h-[180px] overflow-hidden cursor-pointer relative bg-black/10"
-              onClick={() => setSelectedMedia(mediaList[3])}
-            >
-              <MediaImage
-                src={mediaList[3]}
-                alt="Attachment 4"
-                className="w-full h-full object-cover"
-              />
-              {count > 4 && (
-                <div className="absolute inset-0 bg-black/60 flex items-center justify-center text-white font-bold text-2xl hover:bg-black/70 transition-colors">
-                  +{count - 4}
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Lightbox Modal */}
-      {selectedMedia && (
-        <div
-          className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4 backdrop-blur-sm"
-          onClick={() => setSelectedMedia(null)}
-        >
-          <div className="relative max-w-5xl max-h-[90vh] flex items-center justify-center">
-            <button
-              className="absolute -top-10 right-0 text-white text-3xl font-bold hover:text-gray-300"
-              onClick={() => setSelectedMedia(null)}
-            >
-              ✕
-            </button>
-            <MediaImage
-              src={selectedMedia}
-              alt="Enlarged preview"
-              className="max-w-full max-h-[85vh] object-contain rounded-lg shadow-2xl"
-              onClick={e => e.stopPropagation()}
-            />
-          </div>
-        </div>
-      )}
-    </>
+    <div className={`mt-3 grid overflow-hidden bg-black/5 ${count === 1 ? "grid-cols-1" : count === 3 ? "grid-cols-2 grid-rows-2 gap-1" : "grid-cols-2 gap-1"}`}>
+      {mediaList.slice(0, 4).map((url, index) => (
+        <button key={`${url}-${index}`} type="button" aria-label={`Mở ảnh ${index + 1}`}
+          onClick={() => onOpen(index)}
+          className={`relative block min-w-0 cursor-pointer overflow-hidden rounded-none bg-black/10 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-[#1877F2] ${
+            count === 1 ? "max-h-[500px]" : count === 2 ? "h-[300px]" : count === 3 ? (index === 0 ? "row-span-2 h-[320px]" : "h-[158px]") : "h-[180px]"
+          }`}>
+          <MediaImage src={url} alt={`Ảnh bài viết ${index + 1}`} draggable={false} className={`w-full rounded-none object-cover ${count === 1 ? "h-auto" : "h-full"}`} />
+          {index === 3 && count > 4 && <span className="absolute inset-0 flex items-center justify-center bg-black/60 text-2xl font-bold text-white">+{count - 4}</span>}
+        </button>
+      ))}
+    </div>
   );
 }

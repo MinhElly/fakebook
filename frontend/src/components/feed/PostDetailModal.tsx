@@ -17,10 +17,11 @@ export default function PostDetailModal({ post, onClose }: PostDetailModalProps)
 
   return (
     <div 
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 sm:p-6"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/10 backdrop-blur-sm p-4 sm:p-6"
       onClick={onClose}
     >
       <button
+        aria-label="Đóng bài viết"
         onClick={onClose}
         className="fixed top-4 left-4 w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white z-[60] transition-colors"
       >
