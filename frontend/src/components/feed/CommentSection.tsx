@@ -1,3 +1,4 @@
+import MediaImage from "@/components/feed/MediaImage";
 import { useState, useRef, useEffect } from "react";
 import { Link } from "react-router";
 import { useCommentStore } from "@/stores/commentStore";
@@ -114,7 +115,7 @@ function CommentItem({ comment, postId, depth = 0 }: CommentItemProps) {
       )}
 
       <div className="relative z-10 flex-shrink-0">
-        <img src={comment.avatar} alt={comment.user} className={`rounded-full object-cover bg-white ${depth > 0 ? "w-6 h-6" : "w-8 h-8"}`} />
+        <MediaImage src={comment.avatar} alt={comment.user} className={`rounded-full object-cover bg-white ${depth > 0 ? "w-6 h-6" : "w-8 h-8"}`} />
       </div>
 
       <div className="flex-1 min-w-0">
@@ -260,7 +261,7 @@ function CommentItem({ comment, postId, depth = 0 }: CommentItemProps) {
         {/* Reply input */}
         {showReplyBox && (
           <div className="flex items-center gap-2 mt-2 ml-10">
-            <img src={profile.avatar} alt="me" className="w-7 h-7 rounded-full object-cover flex-shrink-0" />
+            <MediaImage src={profile.avatar} alt="me" className="w-7 h-7 rounded-full object-cover flex-shrink-0" />
             <div className="flex-1 flex items-center bg-[#F0F2F5] rounded-full px-3 h-8 gap-2">
               <input
                 ref={replyRef}
@@ -500,7 +501,7 @@ export default function CommentSection({ postId, initialVisible = false, isModal
 
       {/* New comment input */}
       <div className="px-4 pb-3 flex items-center gap-2">
-        <img src={profile.avatar} alt="me" className="w-8 h-8 rounded-full object-cover flex-shrink-0" />
+        <MediaImage src={profile.avatar} alt="me" className="w-8 h-8 rounded-full object-cover flex-shrink-0" />
         <div className="flex-1 flex items-center bg-[#F0F2F5] hover:bg-[#E4E6EB] rounded-full px-4 h-9 gap-2 transition-colors">
           <input
             ref={inputRef}

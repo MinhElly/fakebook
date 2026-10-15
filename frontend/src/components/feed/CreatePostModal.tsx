@@ -289,7 +289,7 @@ export default function CreatePostModal({ onClose, editPost }: Props) {
           <div className="flex-1 overflow-y-auto custom-scrollbar">
             {/* Author */}
             <div className="flex items-center gap-3 px-4 pt-3 pb-1">
-            <img src={profile.avatar} alt="me" className="w-10 h-10 rounded-full object-cover" />
+            <MediaImage src={profile.avatar} alt="me" className="w-10 h-10 rounded-full object-cover" />
             <div>
               <p className="font-semibold text-[#1C1E21] text-sm">
                 <span className="font-bold">{profile.name}</span>
@@ -483,7 +483,7 @@ export default function CreatePostModal({ onClose, editPost }: Props) {
                         }
                       }}>
                         <div className="flex items-center gap-2">
-                          <img src={friendAvatar || "https://ui-avatars.com/api/?name=" + friendName} className="w-8 h-8 rounded-full" />
+                          <MediaImage alt={friendName || "Bạn bè"} src={friendAvatar || "https://ui-avatars.com/api/?name=" + friendName} className="w-8 h-8 rounded-full" />
                           <span className="text-sm font-medium">{friendName}</span>
                         </div>
                         <input type="checkbox" checked={isTagged} readOnly className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" />

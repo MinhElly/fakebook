@@ -1,3 +1,4 @@
+import MediaImage from "@/components/feed/MediaImage";
 import { useEffect } from "react";
 import { useNavigate } from "react-router";
 import { getUserAvatarUrl, type FriendRequestItem } from "@/services/friendsService";
@@ -61,7 +62,7 @@ export default function FriendRequestToast({
       {/* Body Info */}
       <div className="flex items-start gap-3">
         {/* Clickable Avatar */}
-        <img
+        <MediaImage
           src={avatarUrl}
           alt={sender?.displayName || "User"}
           onClick={handleProfileClick}

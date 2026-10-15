@@ -1,3 +1,4 @@
+import MediaImage from "@/components/feed/MediaImage";
 import { useState, useEffect } from "react";
 import { useSearchParams, useNavigate } from "react-router";
 import {
@@ -179,7 +180,7 @@ export default function SearchPage() {
               <div className="bg-white rounded-xl shadow-sm overflow-hidden border border-[#E4E6EB]">
                 <div className="p-4 md:p-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
                   <div className="flex items-start gap-4">
-                    <img
+                    <MediaImage
                       src={featuredFriend.avatarUrl || "/default-avatar.svg"}
                       alt={featuredFriend.displayName}
                       className="w-20 h-20 rounded-full object-cover border border-[#E4E6EB]"
@@ -243,7 +244,7 @@ export default function SearchPage() {
                   {otherPeople.map((user) => (
                     <div key={user.id} className="py-4 first:pt-0 last:pb-0 flex items-center justify-between gap-4">
                       <div className="flex items-center gap-3 min-w-0">
-                        <img
+                        <MediaImage
                           src={user.avatarUrl || "/default-avatar.svg"}
                           alt={user.displayName}
                           className="w-14 h-14 rounded-full object-cover flex-shrink-0 border border-[#E4E6EB]"

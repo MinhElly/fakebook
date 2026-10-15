@@ -24,8 +24,8 @@ export default function PostProvider({ children }: { children: React.ReactNode }
   const generationRef = useRef(0);
   const [feedMode, setFeedMode] = useState<"home" | "friends">("home");
   const [feedActive, setFeedActive] = useState(false);
-  const [loginRequired, setLoginRequired] = useState(false);
   const [feedError, setFeedError] = useState<string | null>(null);
+  const [feedExpired, setFeedExpired] = useState(false);
   const requireLogin = useRequireLogin();
 
   const postIdsKey = useMemo(() => posts.map(post => post.id).slice(0, 50).join(","), [posts]);
@@ -49,7 +49,16 @@ export default function PostProvider({ children }: { children: React.ReactNode }
   }, []);
 
   useEffect(() => {
-    if (!feedActive || status === "initializing") return;
+    if (status !== "authenticated") {
+      generationRef.current++;
+      cursorRef.current = null;
+      pendingRef.current = false;
+      setPosts([]);
+      setLoading(false);
+      setFeedError(null);
+      return;
+    }
+    if (!feedActive) return;
     if (feedMode === "friends" && status !== "authenticated") return;
     generationRef.current++;
     cursorRef.current = null;
@@ -137,6 +146,7 @@ export default function PostProvider({ children }: { children: React.ReactNode }
     pendingRef.current = true;
     setLoading(true);
     setFeedError(null);
+    setFeedExpired(false);
     try {
       const result = await getFeed(feedMode, reset ? null : cursorRef.current);
       const ids = result.items.map(item => item.postId);
@@ -147,16 +157,28 @@ export default function PostProvider({ children }: { children: React.ReactNode }
       setPosts(previous => reset ? hydrated : [...previous, ...hydrated.filter(p => !previous.some(old => old.id === p.id))]);
       cursorRef.current = result.nextCursor;
       setHasMore(result.hasMore);
-      setLoginRequired(result.loginRequired);
     } catch (error) {
-      if (generation === generationRef.current) setFeedError("Không tải được bảng tin. Bạn có thể thử lại.");
+      if (generation === generationRef.current) {
+        const expired = (error as { response?: { status?: number } }).response?.status === 410;
+        setFeedExpired(expired);
+        setFeedError(expired ? "Bảng tin đã hết phiên. Hãy tải bảng tin mới." : "Không tải được bảng tin. Bạn có thể thử lại.");
+      }
       console.error("Feed request failed", error);
     } finally {
       if (generation === generationRef.current) { pendingRef.current = false; setLoading(false); }
     }
   }
 
-  function loadMorePosts() { if (hasMore && !loading) void fetchPosts(0); }
+  function retryFeed() {
+    if (pendingRef.current) return;
+    if (feedExpired) {
+      generationRef.current++;
+      cursorRef.current = null;
+      void fetchPosts(0, true);
+    } else void fetchPosts(0);
+  }
+
+  function loadMorePosts() { if (hasMore && !loading && !feedError) void fetchPosts(0); }
   const changeFeedMode = useCallback((mode: "home" | "friends") => {
     setFeedMode(mode);
     setFeedActive(true);
@@ -280,7 +302,7 @@ export default function PostProvider({ children }: { children: React.ReactNode }
 
   return (
     <PostContext.Provider value={{
-      posts, loading, hasMore, isUploading, pendingPost, toastMessage, setToastMessage, loadMorePosts, addPost, updatePost, deletePost, feedMode, changeFeedMode, pauseFeed, loginRequired, feedError, retryFeed: () => fetchPosts(0)
+      posts, loading, hasMore, isUploading, pendingPost, toastMessage, setToastMessage, loadMorePosts, addPost, updatePost, deletePost, feedMode, changeFeedMode, pauseFeed, feedError, feedExpired, retryFeed
     }}>
       {children}
     </PostContext.Provider>

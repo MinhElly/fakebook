@@ -15,7 +15,10 @@ class BusinessBoundaryIT {
     @Autowired WebTestClient client;
 
     @Test void guestsCannotReachSavedFriendsMetadataOrReactorIdentities() {
-        for (String path : List.of("/services/postservice/api/posts/saved", "/services/feedservice/api/feed/friends",
+        for (String path : List.of("/services/postservice/api/posts", "/services/feedservice/api/feed/home",
+                "/services/commentservice/api/comments", "/services/userservice/api/user-profiles/public",
+                "/services/mediaservice/api/media/" + UUID.randomUUID() + "/file",
+                "/services/postservice/api/posts/saved", "/services/feedservice/api/feed/friends",
                 "/services/mediaservice/api/media/" + UUID.randomUUID(),
                 "/services/postservice/api/post-reactions/posts/" + UUID.randomUUID())) {
             client.get().uri(path).exchange().expectStatus().isUnauthorized();

@@ -1,3 +1,4 @@
+import MediaImage from "@/components/feed/MediaImage";
 import { useState } from "react";
 import { getUserAvatarUrl, type FriendRequestItem } from "@/services/friendsService";
 
@@ -71,7 +72,7 @@ export default function SentRequestsModal({
               return (
                 <div key={req.id} className="py-3 flex items-center justify-between gap-3">
                   <div className="flex items-center gap-3 min-w-0">
-                    <img
+                    <MediaImage
                       src={avatarUrl}
                       alt={receiver?.displayName || "User"}
                       className="w-12 h-12 rounded-full object-cover bg-[#F0F2F5] flex-shrink-0"

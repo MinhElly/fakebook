@@ -57,8 +57,6 @@ public class SecurityConfiguration {
                     .requestMatchers("/api/auth-info").permitAll()
                     .requestMatchers("/api/internal/**").hasAuthority(AuthoritiesConstants.INTERNAL)
                     .requestMatchers("/api/admin/**").hasAuthority(AuthoritiesConstants.ADMIN)
-                    .requestMatchers("/api/*/public/**").permitAll()
-                    .requestMatchers(HttpMethod.GET, "/api/user-profiles/*/details").permitAll()
                     .requestMatchers("/api/**").access(SecurityConfiguration::businessAccess)
                     .requestMatchers("/v3/api-docs/**").hasAuthority(AuthoritiesConstants.ADMIN)
                     .requestMatchers("/management/health").permitAll()

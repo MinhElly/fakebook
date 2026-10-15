@@ -43,6 +43,7 @@ class PostTimelineIT {
     }
     String body(Map<String,Object> changes) throws Exception {
         var body = new HashMap<String,Object>(changes); body.put("id", post.getId());
+        body.putIfAbsent("version", posts.findById(post.getId()).orElseThrow().getVersion());
         return json.writeValueAsString(body);
     }
     long revisions() { return jdbc.queryForObject("SELECT COUNT(*) FROM post_revision WHERE post_id = ?", Long.class, post.getId().toString()); }
@@ -59,8 +60,32 @@ class PostTimelineIT {
         mvc.perform(patch("/api/posts/{id}",post.getId()).with(jwt().jwt(t -> t.subject(author.toString()))).with(csrf())
             .contentType(MediaType.APPLICATION_JSON).content(body(Map.of("mediaIds",List.of()))))
             .andExpect(status().isOk()).andExpect(jsonPath("$.mediaIds").isEmpty());
-        mvc.perform(get("/api/posts/{id}/history",post.getId())).andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(4));
+        mvc.perform(get("/api/posts/{id}/history",post.getId()).with(jwt().jwt(t -> t.subject(outsider.toString())))).andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(4));
     }
+    @Test void missingVersionCannotOverwritePost() throws Exception {
+        mvc.perform(patch("/api/posts/{id}", post.getId()).with(jwt().jwt(t -> t.subject(author.toString())))
+            .contentType(MediaType.APPLICATION_JSON).content(json.writeValueAsString(Map.of("id", post.getId(), "content", "stale editor"))))
+            .andExpect(status().isBadRequest());
+        assertThat(posts.findById(post.getId()).orElseThrow().getContent()).isEqualTo("original");
+        assertThat(revisions()).isZero();
+    }
+
+    @Test void adminCanAttachOwnUploadAndAuthorCanRetainIt() throws Exception {
+        UUID image = UUID.randomUUID();
+        when(media.getMedia(image)).thenReturn(new MediaValidationDTO(image, outsider, "ACTIVE", "POST"));
+        mvc.perform(patch("/api/posts/{id}", post.getId()).with(jwt().jwt(t -> t.subject(outsider.toString())).authorities(new SimpleGrantedAuthority("ROLE_ADMIN")))
+            .contentType(MediaType.APPLICATION_JSON).content(body(Map.of("mediaIds", List.of(image)))))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.mediaIds[0]").value(image.toString()));
+        mvc.perform(patch("/api/posts/{id}", post.getId()).with(jwt().jwt(t -> t.subject(author.toString())))
+            .contentType(MediaType.APPLICATION_JSON).content(body(Map.of("mediaIds", List.of(image), "content", "author edit"))))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.mediaIds[0]").value(image.toString()));
+        when(media.getMedia(image)).thenReturn(new MediaValidationDTO(image, outsider, "DELETED", "POST"));
+        mvc.perform(patch("/api/posts/{id}", post.getId()).with(jwt().jwt(t -> t.subject(outsider.toString())).authorities(new SimpleGrantedAuthority("ROLE_ADMIN")))
+            .contentType(MediaType.APPLICATION_JSON).content(body(Map.of("mediaIds", List.of(image), "content", "invalid"))))
+            .andExpect(status().isForbidden());
+        assertThat(posts.findById(post.getId()).orElseThrow().getContent()).isEqualTo("author edit");
+    }
+
     @Test void noOpAndStaleVersionDoNotCreateRevision() throws Exception {
         mvc.perform(patch("/api/posts/{id}",post.getId()).with(jwt().jwt(t -> t.subject(author.toString()))).with(csrf())
             .contentType(MediaType.APPLICATION_JSON).content(body(Map.of("content","original"))))
@@ -86,15 +111,15 @@ class PostTimelineIT {
         mvc.perform(patch("/api/posts/{id}",post.getId()).with(jwt().jwt(t -> t.subject(outsider.toString())).authorities(new SimpleGrantedAuthority("ROLE_ADMIN"))).with(csrf())
             .contentType(MediaType.APPLICATION_JSON).content(body(Map.of("taggedUserIds",List.of(friend),"visibility","PRIVATE"))))
             .andExpect(status().isOk());
-        mvc.perform(get("/api/posts/profile/{id}",friend)).andExpect(status().isOk()).andExpect(jsonPath("$.items").isEmpty());
+        mvc.perform(get("/api/posts/profile/{id}",friend).with(jwt().jwt(t -> t.subject(outsider.toString())))).andExpect(status().isOk()).andExpect(jsonPath("$.items").isEmpty());
         mvc.perform(get("/api/posts/profile/{id}",friend).with(jwt().jwt(t -> t.subject(author.toString()))))
             .andExpect(status().isOk()).andExpect(jsonPath("$.items.length()").value(1));
-        mvc.perform(get("/api/posts/{id}/history",post.getId())).andExpect(status().isForbidden());
+        mvc.perform(get("/api/posts/{id}/history",post.getId()).with(jwt().jwt(t -> t.subject(outsider.toString())))).andExpect(status().isForbidden());
         mvc.perform(patch("/api/posts/{id}",post.getId()).with(jwt().jwt(t -> t.subject(author.toString()))).with(csrf())
             .contentType(MediaType.APPLICATION_JSON).content(body(Map.of("visibility","PUBLIC"))))
             .andExpect(status().isOk());
-        mvc.perform(get("/api/posts/{id}/history",post.getId())).andExpect(status().isOk()).andExpect(jsonPath("$[1].snapshot.visibility").value("PRIVATE"));
-        mvc.perform(get("/api/posts/profile/{id}",friend)).andExpect(status().isOk()).andExpect(jsonPath("$.items.length()").value(1));
+        mvc.perform(get("/api/posts/{id}/history",post.getId()).with(jwt().jwt(t -> t.subject(outsider.toString())))).andExpect(status().isOk()).andExpect(jsonPath("$[1].snapshot.visibility").value("PRIVATE"));
+        mvc.perform(get("/api/posts/profile/{id}",friend).with(jwt().jwt(t -> t.subject(outsider.toString())))).andExpect(status().isOk()).andExpect(jsonPath("$.items.length()").value(1));
     }
     @Autowired org.springframework.security.oauth2.jwt.JwtDecoder decoder;
     @Test void invalidJwtDoesNotBecomeGuestAndInternalCannotWriteBusinessPost() throws Exception {
@@ -113,7 +138,7 @@ class PostTimelineIT {
         var tagged = posts.saveAndFlush(taggedEntity);
         Set<UUID> seen = new HashSet<>(); String cursor = null; boolean more;
         do {
-            var request = get("/api/posts/profile/{id}",author).param("size","2");
+            var request = get("/api/posts/profile/{id}",author).with(jwt().jwt(t -> t.subject(author.toString()))).param("size","2");
             if (cursor != null) request.param("cursor",cursor);
             var response = mvc.perform(request).andExpect(status().isOk()).andReturn().getResponse();
             var page = json.readValue(response.getContentAsString(), com.minh.fakebook.post.service.PostBrowseService.ProfilePage.class);
@@ -122,9 +147,9 @@ class PostTimelineIT {
         } while (more);
         assertThat(seen).hasSize(7).contains(tagged.getId());
         mvc.perform(patch("/api/posts/{id}",tagged.getId()).with(jwt().jwt(t -> t.subject(friend.toString()))).with(csrf())
-            .contentType(MediaType.APPLICATION_JSON).content(json.writeValueAsString(Map.of("id",tagged.getId(),"taggedUserIds",List.of()))))
+            .contentType(MediaType.APPLICATION_JSON).content(json.writeValueAsString(Map.of("id",tagged.getId(),"version",tagged.getVersion(),"taggedUserIds",List.of()))))
             .andExpect(status().isOk());
-        mvc.perform(get("/api/posts/profile/{id}",author)).andExpect(status().isOk()).andExpect(jsonPath("$.items.length()").value(6));
+        mvc.perform(get("/api/posts/profile/{id}",author).with(jwt().jwt(t -> t.subject(author.toString())))).andExpect(status().isOk()).andExpect(jsonPath("$.items.length()").value(6));
     }
 
     @Test void deletedPostCannotBeEditedByOrdinaryOwner() throws Exception {
@@ -166,10 +191,10 @@ class PostTimelineIT {
     }
     @org.junit.jupiter.params.ParameterizedTest
     @org.junit.jupiter.params.provider.CsvSource({
-        "PUBLIC,GUEST,200", "PUBLIC,OWNER,200", "PUBLIC,FRIEND,200", "PUBLIC,FOLLOWER,200", "PUBLIC,OUTSIDER,200", "PUBLIC,ADMIN,200",
-        "FRIENDS,GUEST,403", "FRIENDS,OWNER,200", "FRIENDS,FRIEND,200", "FRIENDS,FOLLOWER,403", "FRIENDS,OUTSIDER,403", "FRIENDS,ADMIN,200",
-        "PRIVATE,GUEST,403", "PRIVATE,OWNER,200", "PRIVATE,FRIEND,403", "PRIVATE,FOLLOWER,403", "PRIVATE,OUTSIDER,403", "PRIVATE,ADMIN,200",
-        "DELETED,GUEST,403", "DELETED,OWNER,403", "DELETED,FRIEND,403", "DELETED,FOLLOWER,403", "DELETED,OUTSIDER,403", "DELETED,ADMIN,200"
+        "PUBLIC,GUEST,401", "PUBLIC,OWNER,200", "PUBLIC,FRIEND,200", "PUBLIC,FOLLOWER,200", "PUBLIC,OUTSIDER,200", "PUBLIC,ADMIN,200",
+        "FRIENDS,GUEST,401", "FRIENDS,OWNER,200", "FRIENDS,FRIEND,200", "FRIENDS,FOLLOWER,403", "FRIENDS,OUTSIDER,403", "FRIENDS,ADMIN,200",
+        "PRIVATE,GUEST,401", "PRIVATE,OWNER,200", "PRIVATE,FRIEND,403", "PRIVATE,FOLLOWER,403", "PRIVATE,OUTSIDER,403", "PRIVATE,ADMIN,200",
+        "DELETED,GUEST,401", "DELETED,OWNER,403", "DELETED,FRIEND,403", "DELETED,FOLLOWER,403", "DELETED,OUTSIDER,403", "DELETED,ADMIN,200"
     })
     void currentPostReadPermissionMatrix(String privacy, String viewerRole, int expected) throws Exception {
         UUID follower = UUID.randomUUID();

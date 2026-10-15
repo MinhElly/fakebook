@@ -8,11 +8,9 @@ import FeatureEmptyState from "@/components/ui/FeatureEmptyState";
 import Toast from "@/components/ui/Toast";
 import { useEffect } from "react";
 
-import { useAuth } from "@/providers/AuthProvider";
 
 export default function HomePage() {
-  const { login } = useAuth();
-  const { loginRequired, feedError, retryFeed, changeFeedMode, pauseFeed } = usePostStore();
+  const { feedError, feedExpired, retryFeed, changeFeedMode, pauseFeed } = usePostStore();
   useEffect(() => {
     changeFeedMode("home");
     return pauseFeed;
@@ -44,7 +42,7 @@ export default function HomePage() {
           ">
 
         <PostCreator />
-        {feedError && <p role="alert" className="my-3 rounded bg-white p-4">{feedError} <button onClick={retryFeed} className="text-blue-600">Thử lại</button></p>}
+        {feedError && <p role="alert" className="my-3 rounded bg-white p-4">{feedError} <button onClick={retryFeed} className="text-blue-600">{feedExpired ? "Tải bảng tin mới" : "Thử lại"}</button></p>}
 
         {/* Uploading Placeholder */}
         {isUploading && pendingPost && (
@@ -57,7 +55,7 @@ export default function HomePage() {
           </div>
         )}
 
-        {posts.length === 0 && !loading && !loginRequired && !feedError && (
+        {posts.length === 0 && !loading && !feedError && (
           <section className="rounded-xl border border-[#E4E6EB] bg-white">
             <FeatureEmptyState title="Chưa có bài viết" description="Bảng tin sẽ hiển thị bài viết sau khi bạn đăng bài." />
           </section>
@@ -67,7 +65,6 @@ export default function HomePage() {
           <Post key={post.id} post={post} />
         ))}
 
-        {loginRequired && <section className="my-3 rounded-xl bg-white p-4"><p>Bạn đã xem 20 bài trong phiên này. Đăng nhập để tiếp tục.</p><button onClick={() => void login()} className="mt-2 rounded bg-blue-600 px-4 py-2 text-white">Đăng nhập</button></section>}
 
         {hasMore && !loading && !feedError && <button onClick={loadMorePosts} className="my-3 w-full rounded-lg bg-white p-3 font-semibold text-blue-600">Xem thêm bài viết</button>}
 
@@ -77,7 +74,7 @@ export default function HomePage() {
             Đang tải thêm bài viết...
           </div>
         )}
-        {!hasMore && !loginRequired && posts.length > 0 && (
+        {!hasMore && posts.length > 0 && (
           <div className="text-center py-6 text-[#65676B] text-sm">
             Bạn đã xem hết bài viết!
           </div>

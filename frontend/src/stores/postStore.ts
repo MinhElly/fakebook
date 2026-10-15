@@ -16,8 +16,8 @@ export interface PostState {
   feedMode: "home" | "friends";
   changeFeedMode: (mode: "home" | "friends") => void;
   pauseFeed: () => void;
-  loginRequired: boolean;
   feedError: string | null;
+  feedExpired: boolean;
   retryFeed: () => void;
 }
 
@@ -33,7 +33,7 @@ export const PostContext = createContext<PostState>({
   addPost: async () => { },
   updatePost: async () => { },
   deletePost: async () => { },
-  feedMode: "home", changeFeedMode: () => {}, pauseFeed: () => {}, loginRequired: false, feedError: null, retryFeed: () => {},
+  feedMode: "home", changeFeedMode: () => {}, pauseFeed: () => {}, feedError: null, feedExpired: false, retryFeed: () => {},
 });
 
 export function usePostStore() {

@@ -56,8 +56,6 @@ public class SecurityConfiguration {
                     .requestMatchers("/api/admin/**").hasAuthority(AuthoritiesConstants.ADMIN)
                     .requestMatchers("/api/internal/**").hasAuthority(AuthoritiesConstants.INTERNAL)
                     .requestMatchers("/api/posts/saved").access(SecurityConfiguration::businessAccess)
-                    .requestMatchers(HttpMethod.GET, "/api/posts/**").permitAll() // guest view public posts (GET)
-                    .requestMatchers(HttpMethod.GET, "/api/post-reactions/summaries").permitAll() //guest view public post reactions (GET)
                     .requestMatchers("/api/**").access(SecurityConfiguration::businessAccess)
                     .requestMatchers("/v3/api-docs/**").hasAuthority(AuthoritiesConstants.ADMIN)
                     .requestMatchers("/management/health").permitAll()

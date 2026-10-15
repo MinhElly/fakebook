@@ -13,7 +13,7 @@ import SavedPage from "@/pages/SavedPage";
 export const router = createBrowserRouter([
   {
     path: "/",
-    Component: MainLayout,
+    element: <RequireAuth><MainLayout /></RequireAuth>,
     children: [
       { index: true, Component: HomePage },
       { path: "feed/friends", element: <Navigate to="/" replace /> },

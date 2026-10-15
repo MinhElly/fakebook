@@ -93,7 +93,7 @@ export default function ProfileLayout({
             <div className="flex items-end justify-between -mt-10 sm:-mt-14 md:-mt-16 mb-3">
               {/* Avatar */}
               <div className="relative" onClick={isOwn ? onEditAvatar : undefined} style={{ cursor: isOwn ? "pointer" : "default" }}>
-                <img
+                <MediaImage
                   src={user.avatar}
                   alt={user.name}
                   referrerPolicy="no-referrer"
@@ -205,7 +205,7 @@ export default function ProfileLayout({
                         className="text-center cursor-pointer group"
                         onClick={() => navigate(`/profile/${f.id}`)}
                       >
-                        <img
+                        <MediaImage
                           src={f.avatar || "/default-avatar.svg"}
                           alt={f.name}
                           className="w-full aspect-square rounded-xl object-cover group-hover:opacity-90 transition-opacity bg-[#F0F2F5]"
@@ -499,7 +499,7 @@ export default function ProfileLayout({
                     onClick={() => navigate(`/profile/${f.id}`)}
                   >
                     <div className="aspect-square bg-[#F0F2F5] overflow-hidden">
-                      <img
+                      <MediaImage
                         src={f.avatar || "/default-avatar.svg"}
                         alt={f.name}
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
@@ -542,7 +542,7 @@ export default function ProfileLayout({
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
                 {photos.map((src, index) => (
                   <div key={index} className="aspect-square bg-[#F0F2F5] rounded-xl overflow-hidden group cursor-pointer border border-[#E4E6EB]">
-                    <img
+                    <MediaImage
                       src={src}
                       alt={`Photo ${index + 1}`}
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"

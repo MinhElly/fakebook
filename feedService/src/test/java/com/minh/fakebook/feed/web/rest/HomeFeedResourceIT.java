@@ -21,19 +21,10 @@ class HomeFeedResourceIT {
     @MockitoBean HomeFeedService feeds;
     @Autowired org.springframework.security.oauth2.jwt.JwtDecoder decoder;
 
-    @Test void guestCookieIsHttpOnlyAndRefreshReusesIdentity() throws Exception {
-        UUID guest = UUID.randomUUID();
-        when(feeds.guest(any())).thenReturn(guest);
-        when(feeds.get(isNull(),eq(guest),eq("home"),isNull())).thenReturn(new HomeFeedService.Page(List.of(), null, false, true));
-        mvc.perform(get("/api/feed/home"))
-            .andExpect(status().isOk()).andExpect(header().string("Cache-Control", "no-store"))
-            .andExpect(header().string("Set-Cookie", org.hamcrest.Matchers.allOf(
-                org.hamcrest.Matchers.containsString("HttpOnly"), org.hamcrest.Matchers.containsString("SameSite=Lax"))))
-            .andExpect(jsonPath("$.loginRequired").value(true));
-        mvc.perform(get("/api/feed/home").cookie(new Cookie("fakebook_guest",guest.toString())))
-            .andExpect(status().isOk());
-        verify(feeds).guest(guest);
+    @Test void homeAndFriendsRequireAuthentication() throws Exception {
+        mvc.perform(get("/api/feed/home")).andExpect(status().isUnauthorized());
         mvc.perform(get("/api/feed/friends")).andExpect(status().isUnauthorized());
+        verifyNoInteractions(feeds);
     }
 
     @Test void invalidJwtNeverUsesGuestAndFriendsUsesJwtSubject() throws Exception {
@@ -41,8 +32,8 @@ class HomeFeedResourceIT {
         mvc.perform(get("/api/feed/home").header("Authorization","Bearer bad-jwt")).andExpect(status().isUnauthorized());
         verifyNoInteractions(feeds);
         UUID user = UUID.randomUUID();
-        when(feeds.get(eq(user),isNull(),eq("friends"),isNull())).thenReturn(new HomeFeedService.Page(List.of(),null,false,false));
+        when(feeds.get(eq(user),eq("friends"),isNull())).thenReturn(new HomeFeedService.Page(List.of(),null,false));
         mvc.perform(get("/api/feed/friends").with(jwt().jwt(t -> t.subject(user.toString())))).andExpect(status().isOk());
-        verify(feeds).get(user,null,"friends",null);
+        verify(feeds).get(user,"friends",null);
     }
 }

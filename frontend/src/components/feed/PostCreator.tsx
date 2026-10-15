@@ -1,3 +1,4 @@
+import MediaImage from "@/components/feed/MediaImage";
 import { useState } from "react";
 import { useUserStore } from "@/stores/userStore";
 import CreatePostModal from "./CreatePostModal";
@@ -15,7 +16,7 @@ export default function PostCreator() {
     <>
       <div className="mb-3 flex items-center gap-3 rounded-xl border border-[#E4E6EB] bg-white
   px-4 py-3 shadow-sm">
-        <img src={profile.avatar} alt="Avatar" className="h-10 w-10 flex-shrink-0 rounded-full
+        <MediaImage src={profile.avatar} alt="Avatar" className="h-10 w-10 flex-shrink-0 rounded-full
   object-cover" />
         <button
           onClick={() => { if (requireLogin()) setShowModal(true); }}

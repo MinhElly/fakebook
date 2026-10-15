@@ -71,15 +71,14 @@ class PostReactionResourceIT {
 
     @Test
     @Transactional
-    void guestCanReadCountsButCannotReadIdentities() throws Exception {
+    void unauthenticatedRequestsCannotReadCountsOrIdentities() throws Exception {
         post = postRepository.saveAndFlush(post);
         PostReaction reaction = saveReaction(USER_ID, ReactionType.LIKE);
         restPostReactionMockMvc.perform(get(ENTITY_API_URL)).andExpect(status().isUnauthorized());
         restPostReactionMockMvc.perform(get(ENTITY_API_URL + "/{id}", reaction.getId())).andExpect(status().isUnauthorized());
         restPostReactionMockMvc.perform(get(ENTITY_API_URL + "/count?userId.equals=" + USER_ID)).andExpect(status().isUnauthorized());
         restPostReactionMockMvc.perform(get(ENTITY_API_URL + "/summaries").param("postId.in", post.getId().toString()))
-            .andExpect(status().isOk()).andExpect(jsonPath("$[0].totalCount").value(1))
-            .andExpect(jsonPath("$[0].myReaction").doesNotExist()).andExpect(jsonPath("$[0].userId").doesNotExist());
+            .andExpect(status().isUnauthorized());
     }
 
     @Test

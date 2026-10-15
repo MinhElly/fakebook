@@ -9,7 +9,6 @@ export interface FeedPage {
   items: FeedItemDTO[]
   nextCursor: string | null
   hasMore: boolean
-  loginRequired: boolean
 }
 
 export async function getFeed(
@@ -20,7 +19,6 @@ export async function getFeed(
     `/services/feedservice/api/feed/${mode}`,
     {
       params: cursor ? { cursor } : {},
-      withCredentials: true,
     },
   )
 

@@ -79,7 +79,7 @@ export default function MediaImage({
       alt={alt}
       className={className}
       onClick={onClick}
-      onError={() => setError(true)}
+      onError={(event) => { if (props.onError) props.onError(event); else setError(true); }}
     />
   )
 }

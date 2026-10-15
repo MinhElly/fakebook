@@ -163,12 +163,13 @@ public class PostService {
         Post post = postRepository.findById(request.getId()).orElseThrow(() ->
             new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.NOT_FOUND, "Post not found"));
         UUID editor = requireEditor(post);
-        if (request.getVersion() != null && !request.getVersion().equals(post.getVersion())) {
+        if (request.getVersion() == null) throw new IllegalArgumentException("Post version is required");
+        if (!request.getVersion().equals(post.getVersion())) {
             throw new org.springframework.dao.OptimisticLockingFailureException("Post changed; reload before editing");
         }
         PostDTO before = snapshot(post);
         List<UUID> media = request.getMediaIds() == null ? before.getMediaIds()
-            : validateMediaAttachments(post.getAuthorId(), request.getMediaIds());
+            : validateMediaAttachments(post.getAuthorId(), request.getMediaIds(), editor, before.getMediaIds());
         java.util.Set<UUID> tags = request.getTaggedUserIds() == null ? new HashSet<>(post.getTaggedUserIds())
             : new HashSet<>(request.getTaggedUserIds());
         validateTags(post.getAuthorId(), tags, post.getTaggedUserIds());
@@ -486,6 +487,12 @@ public class PostService {
     }
 
     private List<UUID> validateMediaAttachments(UUID authorId, List<UUID> mediaIds) {
+        return validateMediaAttachments(authorId, mediaIds, authorId, List.of());
+    }
+
+    private List<UUID> validateMediaAttachments(UUID authorId, List<UUID> mediaIds, UUID editor, List<UUID> attached) {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        boolean admin = auth != null && auth.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals(AuthoritiesConstants.ADMIN));
         if (mediaIds == null || mediaIds.isEmpty()) {
             return List.of();
         }
@@ -496,7 +503,8 @@ public class PostService {
             }
             try {
                 MediaValidationDTO mediaInfo = mediaServiceClient.getMedia(mediaId);
-                if (mediaInfo == null || !authorId.equals(mediaInfo.ownerId())
+                if (mediaInfo == null || !(authorId.equals(mediaInfo.ownerId())
+                        || attached.contains(mediaId) || admin && editor.equals(mediaInfo.ownerId()))
                         || !"ACTIVE".equals(mediaInfo.status())
                         || !"POST".equals(mediaInfo.purpose())) {
                     throw new AccessDeniedException("Invalid media ownership, status or purpose: " + mediaId);

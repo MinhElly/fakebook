@@ -1273,14 +1273,14 @@ class MediaResourceIT {
 
     @Test
     @Transactional
-    void getAvatarFileAllowsAnonymous() throws Exception {
+    void avatarFileRequiresAuthentication() throws Exception {
         media.setPurpose(com.minh.fakebook.media.domain.enumeration.MediaPurpose.AVATAR);
         media.setUrl("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAA=");
         insertedMedia = mediaRepository.saveAndFlush(media);
 
         restMediaMockMvc
             .perform(get(ENTITY_API_URL + "/{id}/file", media.getId().toString()).with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.anonymous()))
-            .andExpect(status().isOk());
+            .andExpect(status().isUnauthorized());
     }
 
     @org.springframework.test.context.bean.override.mockito.MockitoBean
@@ -1288,15 +1288,15 @@ class MediaResourceIT {
 
     @Test
     @Transactional
-    void anonymousAttachmentRequiresCurrentParentGrantAndIsNotCached() throws Exception {
+    void authenticatedAttachmentRequiresCurrentParentGrantAndIsNotCached() throws Exception {
         media.setPurpose(com.minh.fakebook.media.domain.enumeration.MediaPurpose.POST);
         media.setUrl("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAA=");
         insertedMedia = mediaRepository.saveAndFlush(media);
         org.mockito.Mockito.when(parentPostAccess.canRead(media.getId())).thenReturn(true);
-        restMediaMockMvc.perform(get(ENTITY_API_URL + "/{id}/file",media.getId()).with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.anonymous()))
+        restMediaMockMvc.perform(get(ENTITY_API_URL + "/{id}/file",media.getId()).with(jwt().jwt(t -> t.subject("00000000-0000-4000-8000-000000000099"))))
             .andExpect(status().isOk()).andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.header().string("Cache-Control","no-store"));
         org.mockito.Mockito.when(parentPostAccess.canRead(media.getId())).thenReturn(false);
-        restMediaMockMvc.perform(get(ENTITY_API_URL + "/{id}/file",media.getId()).with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.anonymous()))
+        restMediaMockMvc.perform(get(ENTITY_API_URL + "/{id}/file",media.getId()).with(jwt().jwt(t -> t.subject("00000000-0000-4000-8000-000000000099"))))
             .andExpect(status().isForbidden());
     }
 

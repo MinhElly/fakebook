@@ -149,14 +149,14 @@ class CommentSummaryResourceIT {
 
     @Test
     @Transactional
-    void guestUsesCurrentPrivacyRatherThanPublicProjection() throws Exception {
+    void authenticatedOutsiderUsesCurrentPrivacyRatherThanPublicProjection() throws Exception {
         PostCache stale = savePost(OTHER_USER_ID, "PUBLIC");
         byte[] body = objectMapper.writeValueAsBytes(new CommentSummaryRequest(List.of(stale.getId())));
-        restCommentMockMvc.perform(post(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(body))
+        restCommentMockMvc.perform(post(ENTITY_API_URL).with(jwt().jwt(t -> t.subject(CURRENT_USER_ID.toString()))).contentType(MediaType.APPLICATION_JSON).content(body))
             .andExpect(status().isOk());
         org.mockito.Mockito.when(authoritativePosts.getPostById(stale.getId())).thenReturn(
             new com.minh.fakebook.comment.client.dto.PostSyncDTO(stale.getId(), OTHER_USER_ID, "ACTIVE", "PRIVATE"));
-        restCommentMockMvc.perform(post(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(body))
+        restCommentMockMvc.perform(post(ENTITY_API_URL).with(jwt().jwt(t -> t.subject(CURRENT_USER_ID.toString()))).contentType(MediaType.APPLICATION_JSON).content(body))
             .andExpect(status().isForbidden());
     }
 

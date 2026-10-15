@@ -33,10 +33,7 @@ class PostEventConsumerTest {
     void shouldProcessPostCreatedEvent() {
         UUID postId = UUID.randomUUID();
         UUID authorId = UUID.randomUUID();
-        String json = String.format(
-            "{\"eventType\":\"POST_CREATED\",\"data\":{\"id\":\"%s\",\"authorId\":\"%s\",\"status\":\"ACTIVE\",\"visibility\":\"PUBLIC\"}}",
-            postId, authorId
-        );
+        String json = "{\"eventType\":\"POST_CREATED\",\"data\":{\"id\":\"%s\",\"authorId\":\"%s\",\"status\":\"ACTIVE\",\"visibility\":\"PUBLIC\"}}".formatted(postId, authorId);
         Acknowledgment ack = mock(Acknowledgment.class);
         Message<String> message = MessageBuilder.withPayload(json)
             .setHeader(KafkaHeaders.ACKNOWLEDGMENT, ack)
@@ -60,10 +57,7 @@ class PostEventConsumerTest {
     @Test
     void shouldProcessPostDeletedEvent() {
         UUID postId = UUID.randomUUID();
-        String json = String.format(
-            "{\"eventType\":\"POST_DELETED\",\"data\":{\"id\":\"%s\"}}",
-            postId
-        );
+        String json = "{\"eventType\":\"POST_DELETED\",\"data\":{\"id\":\"%s\"}}".formatted(postId);
         Acknowledgment ack = mock(Acknowledgment.class);
         Message<String> message = MessageBuilder.withPayload(json)
             .setHeader(KafkaHeaders.ACKNOWLEDGMENT, ack)
@@ -78,7 +72,7 @@ class PostEventConsumerTest {
     @Test
     void shouldRejectWhenEventTypeIsMissing() {
         UUID postId = UUID.randomUUID();
-        String json = String.format("{\"data\":{\"id\":\"%s\"}}", postId);
+        String json = "{\"data\":{\"id\":\"%s\"}}".formatted(postId);
         Message<String> message = MessageBuilder.withPayload(json).build();
 
         assertThatThrownBy(() -> postEventConsumer.accept(message))
@@ -91,10 +85,7 @@ class PostEventConsumerTest {
     @Test
     void shouldRejectWhenAuthorIdIsMissingOnPostCreated() {
         UUID postId = UUID.randomUUID();
-        String json = String.format(
-            "{\"eventType\":\"POST_CREATED\",\"data\":{\"id\":\"%s\",\"visibility\":\"PUBLIC\"}}",
-            postId
-        );
+        String json = "{\"eventType\":\"POST_CREATED\",\"data\":{\"id\":\"%s\",\"visibility\":\"PUBLIC\"}}".formatted(postId);
         Message<String> message = MessageBuilder.withPayload(json).build();
 
         assertThatThrownBy(() -> postEventConsumer.accept(message))
@@ -108,10 +99,7 @@ class PostEventConsumerTest {
     void shouldRejectWhenVisibilityIsMissingOnPostCreated() {
         UUID postId = UUID.randomUUID();
         UUID authorId = UUID.randomUUID();
-        String json = String.format(
-            "{\"eventType\":\"POST_CREATED\",\"data\":{\"id\":\"%s\",\"authorId\":\"%s\"}}",
-            postId, authorId
-        );
+        String json = "{\"eventType\":\"POST_CREATED\",\"data\":{\"id\":\"%s\",\"authorId\":\"%s\"}}".formatted(postId, authorId);
         Message<String> message = MessageBuilder.withPayload(json).build();
 
         assertThatThrownBy(() -> postEventConsumer.accept(message))
@@ -125,10 +113,7 @@ class PostEventConsumerTest {
     void shouldRejectWhenVisibilityIsInvalid() {
         UUID postId = UUID.randomUUID();
         UUID authorId = UUID.randomUUID();
-        String json = String.format(
-            "{\"eventType\":\"POST_CREATED\",\"data\":{\"id\":\"%s\",\"authorId\":\"%s\",\"visibility\":\"INVALID_MODE\"}}",
-            postId, authorId
-        );
+        String json = "{\"eventType\":\"POST_CREATED\",\"data\":{\"id\":\"%s\",\"authorId\":\"%s\",\"visibility\":\"INVALID_MODE\"}}".formatted(postId, authorId);
         Message<String> message = MessageBuilder.withPayload(json).build();
 
         assertThatThrownBy(() -> postEventConsumer.accept(message))

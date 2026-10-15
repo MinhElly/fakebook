@@ -96,3 +96,7 @@ management:
   health:
     mail:
       enabled: false
+
+application:
+  feed:
+    cursor-secret: integration-test-key-at-least-32-characters
