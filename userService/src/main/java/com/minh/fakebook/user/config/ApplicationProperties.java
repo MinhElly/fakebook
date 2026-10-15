@@ -12,11 +12,16 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 public class ApplicationProperties {
 
     private final Liquibase liquibase = new Liquibase();
+    private final Cache cache = new Cache();
 
     // jhipster-needle-application-properties-property
 
     public Liquibase getLiquibase() {
         return liquibase;
+    }
+
+    public Cache getCache() {
+        return cache;
     }
 
     // jhipster-needle-application-properties-property-getter
@@ -31,6 +36,37 @@ public class ApplicationProperties {
 
         public void setAsyncStart(Boolean asyncStart) {
             this.asyncStart = asyncStart;
+        }
+    }
+
+    public static class Cache {
+
+        private final UserProfile userProfile = new UserProfile();
+
+        public UserProfile getUserProfile() {
+            return userProfile;
+        }
+
+        public static class UserProfile {
+
+            private boolean enabled = true;
+            private int ttlSeconds = 1800;
+
+            public boolean isEnabled() {
+                return enabled;
+            }
+
+            public void setEnabled(boolean enabled) {
+                this.enabled = enabled;
+            }
+
+            public int getTtlSeconds() {
+                return ttlSeconds;
+            }
+
+            public void setTtlSeconds(int ttlSeconds) {
+                this.ttlSeconds = ttlSeconds;
+            }
         }
     }
 

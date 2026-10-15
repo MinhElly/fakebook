@@ -1300,6 +1300,18 @@ class MediaResourceIT {
             .andExpect(status().isForbidden());
     }
 
+    @Test
+    @Transactional
+    void avatarMediaFileIsCachedPubliclyAndImmutable() throws Exception {
+        media.setPurpose(com.minh.fakebook.media.domain.enumeration.MediaPurpose.AVATAR);
+        media.setUrl("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAA=");
+        insertedMedia = mediaRepository.saveAndFlush(media);
+        restMediaMockMvc.perform(get(ENTITY_API_URL + "/{id}/file", media.getId()).with(jwt().jwt(t -> t.subject("00000000-0000-4000-8000-000000000099"))))
+            .andExpect(status().isOk())
+            .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.header().string("Cache-Control", org.hamcrest.Matchers.containsString("public")))
+            .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.header().string("Cache-Control", org.hamcrest.Matchers.containsString("immutable")));
+    }
+
     protected long getRepositoryCount() {
         return mediaRepository.count();
     }
