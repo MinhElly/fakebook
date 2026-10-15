@@ -73,7 +73,7 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
       });
   }, [syncAuthenticatedState]);
 
-  const redirectUri = `${window.location.origin}/`;
+  const redirectUri = ["/login", "/register"].includes(window.location.pathname) ? `${window.location.origin}/` : window.location.href;
 
   return (
     <AuthContext.Provider

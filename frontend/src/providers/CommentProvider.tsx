@@ -7,7 +7,10 @@ import { useUserStore } from "@/stores/userStore";
 import { getTimeAgo } from "@/utils/timeUtils";
 import { useRealtime } from "@/providers/RealtimeProvider";
 import { useEffect, useRef } from "react";
+import useRequireLogin from "@/hooks/useRequireLogin";
+
 export default function CommentProvider({ children }: { children: React.ReactNode }) {
+  const requireLogin = useRequireLogin();
   const [comments, setComments] = useState<Comment[]>([]);
   const [fetchedPosts, setFetchedPosts] = useState<Set<string>>(new Set());
   const { user, status } = useAuth();
@@ -111,6 +114,7 @@ export default function CommentProvider({ children }: { children: React.ReactNod
   }, [status, subscribe]);
 
   async function createComment(postId: string, content: string, parentId: string | null = null) {
+    if (!requireLogin()) return null;
     const dto = await apiCreateComment(postId, content, parentId);
     if (dto) {
       const newComment: Comment = {
@@ -133,6 +137,7 @@ export default function CommentProvider({ children }: { children: React.ReactNod
   }
 
   async function updateComment(id: string, content: string) {
+    if (!requireLogin()) return;
     const dto = await apiUpdateComment(id, content);
     if (dto) {
       setComments(prev => prev.map(c => c.id === id ? { ...c, content: dto.content } : c));
@@ -140,6 +145,7 @@ export default function CommentProvider({ children }: { children: React.ReactNod
   }
 
   async function deleteComment(id: string) {
+    if (!requireLogin()) return;
     const success = await apiDeleteComment(id);
     if (success) {
       setComments(prev => prev.filter(c => c.id !== id && c.parentId !== id));
@@ -147,7 +153,8 @@ export default function CommentProvider({ children }: { children: React.ReactNod
   }
 
   async function toggleLike(id: string) {
-    // Optimistic UI for now, actual implementation needs Reaction API
+    if (!requireLogin()) return;
+    // Existing comment reaction UI remains outside this feature scope.
     setComments(prev => prev.map(c => {
       if (c.id === id) {
         return { ...c, liked: !c.liked, likes: c.liked ? Math.max(0, c.likes - 1) : c.likes + 1 };

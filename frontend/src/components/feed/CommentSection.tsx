@@ -23,7 +23,10 @@ interface CommentItemProps {
   depth?: number;
 }
 
+import useRequireLogin from "@/hooks/useRequireLogin";
+
 function CommentItem({ comment, postId, depth = 0 }: CommentItemProps) {
+  const requireLogin = useRequireLogin();
   const { updateComment, deleteComment, toggleLike, getReplies, createComment } = useCommentStore();
   const { profile } = useUserStore();
 
@@ -48,6 +51,7 @@ function CommentItem({ comment, postId, depth = 0 }: CommentItemProps) {
   const currentReaction = REACTIONS.find(r => r.key === commentReaction);
 
   function pickCommentReaction(key: string) {
+    if (!requireLogin()) return;
     const wasReacted = !!commentReaction;
     if (commentReaction === key) {
       setCommentReaction(null);
@@ -60,6 +64,7 @@ function CommentItem({ comment, postId, depth = 0 }: CommentItemProps) {
   }
 
   function handleCommentLikeClick() {
+    if (!requireLogin()) return;
     if (commentReaction) {
       setCommentReaction(null);
       toggleLike(comment.id);

@@ -47,6 +47,7 @@ export default function EditProfileModal({ onClose }: Props) {
       if (avatarFile) {
         const formData = new FormData();
         formData.append("file", avatarFile);
+        formData.append("purpose", "AVATAR");
         const res = await api.post("/services/mediaservice/api/media/upload", formData, {
           headers: { "Content-Type": "multipart/form-data" },
         });
@@ -56,6 +57,7 @@ export default function EditProfileModal({ onClose }: Props) {
       if (coverFile) {
         const formData = new FormData();
         formData.append("file", coverFile);
+        formData.append("purpose", "COVER");
         const res = await api.post("/services/mediaservice/api/media/upload", formData, {
           headers: { "Content-Type": "multipart/form-data" },
         });

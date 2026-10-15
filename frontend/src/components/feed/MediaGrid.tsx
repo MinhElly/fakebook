@@ -1,3 +1,4 @@
+import MediaImage from "./MediaImage";
 import { useState } from "react";
 import { getMediaUrl } from "@/services/mediaService";
 
@@ -34,13 +35,10 @@ export default function MediaGrid({ mediaIds = [], images = [] }: MediaGridProps
             className="w-full max-h-[500px] overflow-hidden cursor-pointer flex items-center justify-center bg-black/10"
             onClick={() => setSelectedMedia(mediaList[0])}
           >
-            <img
+            <MediaImage
               src={mediaList[0]}
               alt="Post attachment"
               className="w-full h-auto object-cover hover:scale-[1.01] transition-transform duration-200"
-              onError={e => {
-                (e.target as HTMLImageElement).style.display = "none";
-              }}
             />
           </div>
         )}
@@ -53,7 +51,7 @@ export default function MediaGrid({ mediaIds = [], images = [] }: MediaGridProps
                 className="h-[300px] overflow-hidden cursor-pointer relative bg-black/10"
                 onClick={() => setSelectedMedia(url)}
               >
-                <img
+                <MediaImage
                   src={url}
                   alt={`Attachment ${index + 1}`}
                   className="w-full h-full object-cover hover:scale-105 transition-transform duration-200"
@@ -69,7 +67,7 @@ export default function MediaGrid({ mediaIds = [], images = [] }: MediaGridProps
               className="col-span-2 h-[320px] overflow-hidden cursor-pointer relative bg-black/10"
               onClick={() => setSelectedMedia(mediaList[0])}
             >
-              <img
+              <MediaImage
                 src={mediaList[0]}
                 alt="Attachment 1"
                 className="w-full h-full object-cover hover:scale-105 transition-transform duration-200"
@@ -82,7 +80,7 @@ export default function MediaGrid({ mediaIds = [], images = [] }: MediaGridProps
                   className="h-1/2 overflow-hidden cursor-pointer relative bg-black/10"
                   onClick={() => setSelectedMedia(url)}
                 >
-                  <img
+                  <MediaImage
                     src={url}
                     alt={`Attachment ${index + 2}`}
                     className="w-full h-full object-cover hover:scale-105 transition-transform duration-200"
@@ -101,7 +99,7 @@ export default function MediaGrid({ mediaIds = [], images = [] }: MediaGridProps
                 className="h-[180px] overflow-hidden cursor-pointer relative bg-black/10"
                 onClick={() => setSelectedMedia(url)}
               >
-                <img
+                <MediaImage
                   src={url}
                   alt={`Attachment ${index + 1}`}
                   className="w-full h-full object-cover hover:scale-105 transition-transform duration-200"
@@ -112,7 +110,7 @@ export default function MediaGrid({ mediaIds = [], images = [] }: MediaGridProps
               className="h-[180px] overflow-hidden cursor-pointer relative bg-black/10"
               onClick={() => setSelectedMedia(mediaList[3])}
             >
-              <img
+              <MediaImage
                 src={mediaList[3]}
                 alt="Attachment 4"
                 className="w-full h-full object-cover"
@@ -140,7 +138,7 @@ export default function MediaGrid({ mediaIds = [], images = [] }: MediaGridProps
             >
               ✕
             </button>
-            <img
+            <MediaImage
               src={selectedMedia}
               alt="Enlarged preview"
               className="max-w-full max-h-[85vh] object-contain rounded-lg shadow-2xl"

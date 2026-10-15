@@ -3,15 +3,14 @@ import { PostContext } from "@/stores/postStore";
 import type { Post } from "@/types";
 import api from "@/services/apis";
 import { useAuth } from "@/providers/AuthProvider";
-import { getPersonalizedFeed } from "@/services/feedService";
+import { getFeed } from "@/services/feedService";
+import useRequireLogin from "@/hooks/useRequireLogin";
 import { fetchReactionSummaries } from "@/services/reactionService";
-import { fetchCommentSummaries } from "@/services/commentService";
 import { hydratePosts } from "@/utils/postHydration";
 import { useRealtime } from "@/providers/RealtimeProvider";
 
 export default function PostProvider({ children }: { children: React.ReactNode }) {
   const [posts, setPosts] = useState<Post[]>([]);
-  const [page, setPage] = useState(0);
   const [loading, setLoading] = useState(false);
   const [hasMore, setHasMore] = useState(true);
   const [isUploading, setIsUploading] = useState(false);
@@ -20,8 +19,15 @@ export default function PostProvider({ children }: { children: React.ReactNode }
   const { status, user } = useAuth();
   const { subscribe } = useRealtime();
   const visiblePostIdsRef = useRef(new Set<string>());
+  const cursorRef = useRef<string | null>(null);
+  const pendingRef = useRef(false);
+  const generationRef = useRef(0);
+  const [feedMode, setFeedMode] = useState<"home" | "friends">("home");
+  const [feedActive, setFeedActive] = useState(false);
+  const [loginRequired, setLoginRequired] = useState(false);
+  const [feedError, setFeedError] = useState<string | null>(null);
+  const requireLogin = useRequireLogin();
 
-  const PAGE_SIZE = 5;
   const postIdsKey = useMemo(() => posts.map(post => post.id).slice(0, 50).join(","), [posts]);
 
   useEffect(() => {
@@ -43,10 +49,14 @@ export default function PostProvider({ children }: { children: React.ReactNode }
   }, []);
 
   useEffect(() => {
-    if (status === "authenticated") {
-      fetchPosts(0, true);
-    }
-  }, [status]);
+    if (!feedActive || status === "initializing") return;
+    if (feedMode === "friends" && status !== "authenticated") return;
+    generationRef.current++;
+    cursorRef.current = null;
+    setPosts([]);
+    setHasMore(true);
+    void fetchPosts(0, true);
+  }, [status, feedMode, feedActive]);
 
   useEffect(() => {
     if (status !== "authenticated" || !postIdsKey) return;
@@ -110,7 +120,7 @@ export default function PostProvider({ children }: { children: React.ReactNode }
             const count = res.data as number;
             setPosts(prev => prev.map(p => p.id === event.postId ? { ...p, comments: count } : p));
           })
-          .catch(() => {});
+          .catch(() => { });
       }
     });
 
@@ -121,82 +131,37 @@ export default function PostProvider({ children }: { children: React.ReactNode }
     };
   }, [status, refreshReactionPostIds, subscribe]);
 
-  async function fetchPosts(pageNum: number, isForceRefresh = false) {
-    if (loading && !isForceRefresh) return;
+  async function fetchPosts(_pageNum: number, reset = false) {
+    if (pendingRef.current && !reset) return;
+    const generation = generationRef.current;
+    pendingRef.current = true;
     setLoading(true);
+    setFeedError(null);
     try {
-      let postsData: any[] = [];
-      let fetchedCount = 0;
-
-      // 1. Gọi feedService lấy danh sách bài viết trên timeline của user
-      // Always combine personalized items with globally visible PUBLIC posts.
-      // This keeps feed semantics stable when the personalized feed changes
-      // between empty and non-empty.
-      const [feedItems, publicRes] = await Promise.all([
-        getPersonalizedFeed(pageNum, PAGE_SIZE),
-        api.get(
-          `/services/postservice/api/posts?visibility.equals=PUBLIC&sort=createdAt,desc&size=${PAGE_SIZE}&page=${pageNum}`
-        ),
-      ]);
-      const personalizedPosts: any[] = [];
-
-      if (feedItems && feedItems.length > 0) {
-        const postIds = feedItems.map((item) => item.postId);
-        // Hydrate bài viết chi tiết từ postService
-        const postRes = await api.get(
-          `/services/postservice/api/posts?id.in=${postIds.join(",")}`
-        );
-
-        // Sắp xếp bài viết theo đúng thứ tự thời gian của feedService
-        const postMap = new Map<string, any>((postRes.data || []).map((p: any) => [p.id, p]));
-        personalizedPosts.push(...postIds.map((id) => postMap.get(id)).filter(Boolean));
-      }
-
-      const publicPosts = publicRes.data || [];
-      const postsById = new Map<string, any>();
-      [...personalizedPosts, ...publicPosts].forEach((post: any) => postsById.set(post.id, post));
-      postsData = [...postsById.values()]
-        .sort(
-          (left: any, right: any) =>
-            new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime()
-        )
-        .slice(0, PAGE_SIZE);
-      fetchedCount = Math.max(feedItems.length, publicPosts.length);
-
-      const mappedPosts = await hydratePosts(postsData);
-
-      if (pageNum === 0) {
-        if (isForceRefresh) {
-          // Khi đăng bài mới hoặc có polling, ta append các bài mới lên ĐẦU mảng cũ
-          // thay vì ghi đè làm mất các bài cũ người dùng đã cuộn xuống tải.
-          setPosts((prev) => {
-            const newPosts = mappedPosts.filter((m: any) => !prev.some(p => p.id === m.id));
-            return [...newPosts, ...prev];
-          });
-        } else {
-          setPosts(mappedPosts);
-        }
-      } else {
-        setPosts((prev) => {
-          const newPosts = mappedPosts.filter((m: any) => !prev.some(p => p.id === m.id));
-          return [...prev, ...newPosts];
-        });
-      }
-
-      setHasMore(fetchedCount === PAGE_SIZE);
-      setPage(pageNum);
+      const result = await getFeed(feedMode, reset ? null : cursorRef.current);
+      const ids = result.items.map(item => item.postId);
+      const response = ids.length ? await api.get(`/services/postservice/api/posts?id.in=${ids.join(",")}&size=50`) : { data: [] };
+      const map = new Map<string, any>((response.data || []).map((p: any) => [p.id, p]));
+      const hydrated = await hydratePosts(ids.map(id => map.get(id)).filter(Boolean));
+      if (generation !== generationRef.current) return;
+      setPosts(previous => reset ? hydrated : [...previous, ...hydrated.filter(p => !previous.some(old => old.id === p.id))]);
+      cursorRef.current = result.nextCursor;
+      setHasMore(result.hasMore);
+      setLoginRequired(result.loginRequired);
     } catch (error) {
-      console.error("Lỗi khi tải feed:", error);
+      if (generation === generationRef.current) setFeedError("Không tải được bảng tin. Bạn có thể thử lại.");
+      console.error("Feed request failed", error);
     } finally {
-      setLoading(false);
+      if (generation === generationRef.current) { pendingRef.current = false; setLoading(false); }
     }
   }
 
-  function loadMorePosts() {
-    if (hasMore && !loading) {
-      fetchPosts(page + 1);
-    }
-  }
+  function loadMorePosts() { if (hasMore && !loading) void fetchPosts(0); }
+  const changeFeedMode = useCallback((mode: "home" | "friends") => {
+    setFeedMode(mode);
+    setFeedActive(true);
+  }, []);
+  const pauseFeed = useCallback(() => setFeedActive(false), []);
 
   async function addPost(
     content: string,
@@ -205,6 +170,7 @@ export default function PostProvider({ children }: { children: React.ReactNode }
     taggedUserIds?: string[]
   ) {
     try {
+      if (!requireLogin()) return;
       setIsUploading(true);
 
       // Create pending post preview
@@ -235,14 +201,17 @@ export default function PostProvider({ children }: { children: React.ReactNode }
         }
       }
 
-      await api.post("/services/postservice/api/posts/create", {
+      const created = await api.post("/services/postservice/api/posts/create", {
         content: content,
         visibility: visibility,
         mediaIds: mediaIds,
         taggedUserIds: taggedUserIds || []
       });
-      // Fetch lại để có ID mới
+      const [newPost] = await hydratePosts([created.data]);
+      // Explicit creation opens a new snapshot; editing never resets the feed.
+      generationRef.current++;
       await fetchPosts(0, true);
+      window.dispatchEvent(new CustomEvent("fakebook:post-changed", { detail: { post: newPost, created: true } }));
       setToastMessage("Đã đăng bài viết!");
     } catch (error) {
       console.error("Lỗi khi thêm bài viết:", error);
@@ -257,31 +226,37 @@ export default function PostProvider({ children }: { children: React.ReactNode }
   async function updatePost(
     id: string,
     content: string,
-    imageFile: File | string | null,
+    imageFile: File | string | null | undefined,
     visibility: string = "PUBLIC",
-    taggedUserIds?: string[]
+    taggedUserIds?: string[],
+    version?: number
   ) {
     try {
-      let mediaIds: string[] = [];
+      if (!requireLogin()) return;
+      let mediaIds: string[] | undefined;
 
       if (imageFile instanceof File) {
         const formData = new FormData();
         formData.append("file", imageFile);
         formData.append("purpose", "POST");
         const mediaRes = await api.post("/services/mediaservice/api/media/upload", formData);
-        if (mediaRes.data && mediaRes.data.id) {
-          mediaIds.push(mediaRes.data.id);
-        }
-      } else if (typeof imageFile === "string" && imageFile.length > 0) {
-        const oldPost = posts.find(p => p.id === id);
+        if (!mediaRes.data?.id) throw new Error("Upload did not return a media ID");
+        mediaIds = [mediaRes.data.id];
+      } else if (imageFile === null) {
+        mediaIds = [];
       }
 
-      await api.put(`/services/postservice/api/posts/${id}`, {
+      const response = await api.put(`/services/postservice/api/posts/${id}`, {
+        id: id,
         content: content,
         visibility: visibility,
-        taggedUserIds: taggedUserIds || []
+        mediaIds,
+        taggedUserIds,
+        version,
       });
-      await fetchPosts(0, true);
+      const [updated] = await hydratePosts([response.data]);
+      setPosts(previous => previous.map(p => p.id === id ? updated : p));
+      window.dispatchEvent(new CustomEvent("fakebook:post-changed", { detail: { post: updated } }));
     } catch (error) {
       console.error("Lỗi khi cập nhật bài viết:", error);
       setToastMessage("Có lỗi xảy ra khi cập nhật!");
@@ -291,9 +266,10 @@ export default function PostProvider({ children }: { children: React.ReactNode }
 
   async function deletePost(id: string) {
     try {
+      if (!requireLogin()) return;
       await api.delete(`/services/postservice/api/posts/${id}`);
       setPosts(prev => prev.filter(post => post.id !== id));
-      await fetchPosts(0, true);
+      window.dispatchEvent(new CustomEvent("fakebook:post-changed", { detail: { deletedId: id } }));
       setToastMessage("Đã xoá bài viết thành công!");
     } catch (error) {
       console.error("Lỗi khi xoá bài viết:", error);
@@ -304,7 +280,7 @@ export default function PostProvider({ children }: { children: React.ReactNode }
 
   return (
     <PostContext.Provider value={{
-      posts, loading, hasMore, isUploading, pendingPost, toastMessage, setToastMessage, loadMorePosts, addPost, updatePost, deletePost
+      posts, loading, hasMore, isUploading, pendingPost, toastMessage, setToastMessage, loadMorePosts, addPost, updatePost, deletePost, feedMode, changeFeedMode, pauseFeed, loginRequired, feedError, retryFeed: () => fetchPosts(0)
     }}>
       {children}
     </PostContext.Provider>

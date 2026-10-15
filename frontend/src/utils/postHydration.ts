@@ -1,3 +1,4 @@
+import { getMediaUrl } from "@/services/mediaService";
 import api from "@/services/apis";
 import type { Post } from "@/types";
 import { fetchCommentSummaries } from "@/services/commentService";
@@ -8,6 +9,8 @@ export async function hydratePosts(postsData: any[]): Promise<Post[]> {
 
   const mappedPosts = postsData.map((dto: any) => ({
     id: dto.id,
+    version: dto.version,
+    createdAt: dto.createdAt,
     authorId: dto.authorId,
     user: dto.authorId,
     avatar: "/default-avatar.svg",
@@ -67,46 +70,11 @@ export async function hydratePosts(postsData: any[]): Promise<Post[]> {
     }
   }
 
-  // 2. Fetch media URLs
-  const allMediaIds = new Set<string>();
-  mappedPosts.forEach((p: any) => {
-    (p.mediaIds || []).forEach((id: string) => allMediaIds.add(id));
-    if (p.avatarMediaId) allMediaIds.add(p.avatarMediaId);
+  // File access is authorized against the current parent Post; metadata is not public.
+  mappedPosts.forEach((post: any) => {
+    post.image = post.mediaIds.length ? getMediaUrl(post.mediaIds[0]) : null;
+    post.avatar = post.avatarMediaId ? getMediaUrl(post.avatarMediaId) : "/default-avatar.svg";
   });
-
-  if (allMediaIds.size > 0) {
-    try {
-      const mediaRes = await api.get(
-        `/services/mediaservice/api/media?id.in=${Array.from(allMediaIds).join(",")}`,
-        { timeout: 3000 }
-      );
-      const mediaMap: Record<string, string> = {};
-      mediaRes.data.forEach((m: any) => {
-        mediaMap[m.id] = m.url;
-      });
-
-      mappedPosts.forEach((post: any) => {
-        post.mediaIds = (post.mediaIds || []).filter((id: string) => Boolean(mediaMap[id]));
-        post.image = post.mediaIds.length > 0 ? mediaMap[post.mediaIds[0]] : null;
-        if (post.avatarMediaId && mediaMap[post.avatarMediaId]) {
-          post.avatar = mediaMap[post.avatarMediaId];
-        } else {
-          post.avatar = "/default-avatar.svg";
-        }
-      });
-    } catch (e) {
-      console.warn("MediaService tắt hoặc không phản hồi.");
-      mappedPosts.forEach((post: any) => {
-        post.image = null;
-        post.mediaIds = [];
-        post.avatar = "/default-avatar.svg";
-      });
-    }
-  } else {
-    mappedPosts.forEach((post: any) => {
-      post.avatar = "/default-avatar.svg";
-    });
-  }
 
   // 3. Fetch comment summaries
   try {

@@ -1,3 +1,4 @@
+import MediaImage from "@/components/feed/MediaImage";
 import { useState } from "react";
 import { useNavigate } from "react-router";
 import Post from "@/components/feed/Post";
@@ -27,6 +28,8 @@ interface Props {
   onEditAvatar?: () => void;
   loading?: boolean;
   hasMore?: boolean;
+  feedError?: string | null;
+  retryFeed?: () => void;
 }
 
 const TABS_OWN   = ["Bài viết", "Giới thiệu", "Bạn bè", "Ảnh", "Video"];
@@ -34,7 +37,7 @@ const TABS_OTHER = ["Dòng thời gian", "Giới thiệu", "Bạn bè", "Ảnh",
 
 export default function ProfileLayout({
   user, isOwn, posts, friends = [], mutualFriends = [], mutualCount = 0,
-  actionButtons, onEditCover, onEditAvatar, loading = false, hasMore = false
+  actionButtons, onEditCover, onEditAvatar, loading = false, hasMore = false, feedError, retryFeed
 }: Props) {
   const navigate = useNavigate();
   const TABS = isOwn ? TABS_OWN : TABS_OTHER;
@@ -75,7 +78,7 @@ export default function ProfileLayout({
         <div className="max-w-[940px] mx-auto">
           {/* Cover */}
           <div className="relative">
-            <img src={coverSrc} alt="cover" className="w-full h-[200px] sm:h-[280px] md:h-[350px] object-cover rounded-b-xl" />
+            <MediaImage src={coverSrc} alt="cover" className="w-full h-[200px] sm:h-[280px] md:h-[350px] object-cover rounded-b-xl" />
             {isOwn && onEditCover && (
               <button onClick={onEditCover}
                 className="absolute bottom-4 right-4 bg-white/90 hover:bg-white text-[#1C1E21] text-sm font-semibold px-3 py-1.5 rounded-lg flex items-center gap-2 transition-colors shadow">
@@ -121,7 +124,7 @@ export default function ProfileLayout({
               <div className="flex items-center gap-1 mt-2">
                 <div className="flex -space-x-2 overflow-hidden">
                   {mutualFriends.slice(0, 5).map((f) => (
-                    <img key={f.id} src={f.avatar || "/default-avatar.svg"} alt={f.name} title={f.name}
+                    <MediaImage key={f.id} src={f.avatar || "/default-avatar.svg"} alt={f.name} title={f.name}
                       className="w-8 h-8 rounded-full object-cover border-2 border-white cursor-pointer hover:opacity-90 transition-opacity"
                       onClick={() => navigate(`/profile/${f.id}`)} />
                   ))}
@@ -243,7 +246,7 @@ export default function ProfileLayout({
                   <div className="grid grid-cols-3 gap-2">
                     {mutualFriends.slice(0, 6).map((f) => (
                       <div key={f.id} className="text-center cursor-pointer group" onClick={() => navigate(`/profile/${f.id}`)}>
-                        <img src={f.avatar || "/default-avatar.svg"} alt={f.name} className="w-full aspect-square rounded-xl object-cover group-hover:opacity-90 transition-opacity bg-[#F0F2F5]" />
+                        <MediaImage src={f.avatar || "/default-avatar.svg"} alt={f.name} className="w-full aspect-square rounded-xl object-cover group-hover:opacity-90 transition-opacity bg-[#F0F2F5]" />
                         <p className="text-xs font-medium text-[#1C1E21] mt-1 leading-tight truncate group-hover:underline">{f.name}</p>
                       </div>
                     ))}
@@ -255,6 +258,7 @@ export default function ProfileLayout({
             {/* Right col: posts */}
             <div className="flex-1 space-y-3 min-w-0">
               {isOwn && <PostCreator />}
+              {feedError && <p role="alert" className="rounded-xl bg-white p-4">{feedError} <button onClick={retryFeed} className="text-blue-600">Thử lại</button></p>}
               {posts.length === 0
                 ? <div className="bg-white rounded-xl shadow-sm border border-[#E4E6EB] p-8 text-center text-[#65676B]">
                   <div className="flex justify-center mb-4"><svg className="w-16 h-16 text-[#65676B]" fill="currentColor" viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-2h2v2zm0-4H7v-2h2v2zm0-4H7V7h2v2zm6 8h-4v-2h4v2zm0-4h-4v-2h4v2zm0-4h-4V7h4v2z"/></svg></div>

@@ -1,14 +1,15 @@
 import { useState, useEffect } from "react";
 import EditProfileModal from "@/components/profile/EditProfileModal";
 import ProfileLayout from "@/components/profile/ProfileLayout";
-import { usePostStore } from "@/stores/postStore";
+import useProfilePosts from "@/hooks/useProfilePosts";
 import { useUserStore } from "@/stores/userStore";
 import { getCurrentUserProfile, getAllFriends, getUserAvatarUrl } from "@/services/friendsService";
 import type { FriendUser } from "@/types";
 import { useAuth } from "@/providers/AuthProvider";
 
 export default function ProfilePage() {
-  const { posts, loadMorePosts, hasMore, loading } = usePostStore();
+  const { user } = useAuth();
+  const { posts, loadMorePosts, hasMore, error: feedError, loading } = useProfilePosts(user?.id);
   const { profile } = useUserStore();
   const [friends, setFriends] = useState<FriendUser[]>([]);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -52,8 +53,7 @@ export default function ProfilePage() {
     return () => window.removeEventListener("scroll", handleScroll);
   }, [hasMore, loading]);
 
-  const { user } = useAuth();
-  const myPosts = posts.filter((p) => p.authorId === user?.id);
+  const myPosts = posts;
 
   const actionButtons = (
     <>
@@ -89,6 +89,7 @@ export default function ProfilePage() {
         user={profile}
         isOwn={true}
         posts={myPosts}
+        feedError={feedError} retryFeed={loadMorePosts}
         friends={friends}
         actionButtons={actionButtons}
         onEditCover={() => setShowEditModal(true)}

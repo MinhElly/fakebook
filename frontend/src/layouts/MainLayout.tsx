@@ -1,4 +1,4 @@
-import { Outlet, Navigate } from "react-router";
+import { Outlet } from "react-router";
 import NavBar from "@/components/navbar/NavBar";
 import { useAuth } from "@/providers/AuthProvider";
 import { useFriendRequestRealtime } from "@/hooks/useFriendRequestRealtime";
@@ -18,7 +18,7 @@ export default function MainLayout() {
     return <SplashScreen />;
   }
 
-  if (status !== "authenticated") return <Navigate to="/login" replace />;
+
 
   return (
     <div className="min-h-screen bg-[#F0F2F5]" style={{ fontFamily: "'Inter', system-ui, sans-serif" }}>
