@@ -99,7 +99,12 @@ public class PostDTO implements Serializable {
         this.mediaIds = mediaIds;
     }
 
-    private Set<UUID> taggedUserIds = new HashSet<>();
+    // Null means omitted on update; empty means explicitly remove all tags.
+    private Set<UUID> taggedUserIds;
+    private Long version;
+
+    public Long getVersion() { return version; }
+    public void setVersion(Long version) { this.version = version; }
 
     public Set<UUID> getTaggedUserIds() {
         return taggedUserIds;

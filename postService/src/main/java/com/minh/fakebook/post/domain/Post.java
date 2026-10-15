@@ -60,6 +60,13 @@ public class Post implements Serializable {
     @Column(name = "updated_at")
     private Instant updatedAt;
 
+    @Version
+    @Column(name = "version", nullable = false)
+    private Long version;
+
+    public Long getVersion() { return version; }
+    public void setVersion(Long version) { this.version = version; }
+
     @ElementCollection(fetch = FetchType.LAZY)
     @CollectionTable(name = "post_tagged_users", joinColumns = @JoinColumn(name = "post_id"))
     @Column(name = "user_id", length = 36)

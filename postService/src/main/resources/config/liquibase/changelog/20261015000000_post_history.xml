@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+    <changeSet id="20261015000000_post_history" author="codex">
+        <addColumn tableName="posts"><column name="version" type="bigint" defaultValueNumeric="0"><constraints nullable="false"/></column></addColumn>
+        <createTable tableName="post_revision">
+            <column name="post_id" type="varchar(36)"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="revision" type="bigint"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="editor_id" type="varchar(36)"><constraints nullable="false"/></column>
+            <column name="edited_at" type="varchar(40)"><constraints nullable="false"/></column>
+            <column name="changed_fields" type="varchar(255)"><constraints nullable="false"/></column>
+            <column name="snapshot" type="${clobType}"><constraints nullable="false"/></column>
+        </createTable>
+    </changeSet>
+</databaseChangeLog>

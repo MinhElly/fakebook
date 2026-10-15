@@ -15,5 +15,8 @@ public record PostUpdatedEvent(
         String content,
         PostVisibility visibility,
         PostStatus status,
-        Instant updatedAt) {
+        Instant updatedAt, Instant createdAt) {
+    public PostUpdatedEvent(UUID id, UUID authorId, String content, PostVisibility visibility, PostStatus status, Instant updatedAt) {
+        this(id, authorId, content, visibility, status, updatedAt, null);
+    }
 }
