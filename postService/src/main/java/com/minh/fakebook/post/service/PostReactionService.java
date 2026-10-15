@@ -18,6 +18,7 @@ import com.minh.fakebook.post.service.mapper.PostReactionMapper;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -42,6 +43,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import com.minh.fakebook.post.service.event.ReactionCountsChanged;
+import org.springframework.context.ApplicationEventPublisher;
+
 @Service
 @Transactional
 public class PostReactionService {
@@ -54,19 +58,28 @@ public class PostReactionService {
     private final PostRepository postRepository;
     private final UserServiceClient userServiceClient;
     private final Outbox outbox;
+    private final PostReactionCountsCache postReactionCountsCache;
+    private final PostReactionCountsReader postReactionCountsReader;
+    private final ApplicationEventPublisher eventPublisher;
 
     public PostReactionService(
         PostReactionRepository postReactionRepository,
         PostReactionMapper postReactionMapper,
         PostRepository postRepository,
         UserServiceClient userServiceClient,
-        Outbox outbox
+        Outbox outbox,
+        PostReactionCountsCache postReactionCountsCache,
+        PostReactionCountsReader postReactionCountsReader,
+        ApplicationEventPublisher eventPublisher
     ) {
         this.postReactionRepository = postReactionRepository;
         this.postReactionMapper = postReactionMapper;
         this.postRepository = postRepository;
         this.userServiceClient = userServiceClient;
         this.outbox = outbox;
+        this.postReactionCountsCache = postReactionCountsCache;
+        this.postReactionCountsReader = postReactionCountsReader;
+        this.eventPublisher = eventPublisher;
     }
 
     /**
@@ -92,19 +105,24 @@ public class PostReactionService {
             PostReaction reaction = existingReaction.orElseThrow();
             if (reaction.getReactionType() == postReactionDTO.getReactionType()) {
                 postReactionRepository.delete(reaction);
+                publishReactionCountsChanged(postId);
                 return null;
             }
 
             reaction.setReactionType(postReactionDTO.getReactionType());
             reaction.setUpdatedAt(Instant.now());
-            return postReactionMapper.toDto(postReactionRepository.save(reaction));
+            PostReaction saved = postReactionRepository.save(reaction);
+            publishReactionCountsChanged(postId);
+            return postReactionMapper.toDto(saved);
         }
 
         PostReaction reaction = postReactionMapper.toEntity(postReactionDTO);
         reaction.setUserId(currentUserId);
         reaction.setPost(targetPost);
         reaction.setCreatedAt(Instant.now());
-        return postReactionMapper.toDto(postReactionRepository.save(reaction));
+        PostReaction saved = postReactionRepository.save(reaction);
+        publishReactionCountsChanged(postId);
+        return postReactionMapper.toDto(saved);
     }
 
     public PostReactionDTO update(PostReactionDTO postReactionDTO) {
@@ -135,7 +153,9 @@ public class PostReactionService {
             throw new AccessDeniedException("You can only delete your own reaction");
         }
 
+        UUID postId = reaction.getPost().getId();
         postReactionRepository.delete(reaction);
+        publishReactionCountsChanged(postId);
     }
 
     public PostReactionSummaryDTO setReaction(UUID postId, ReactionType requestedType) {
@@ -166,9 +186,10 @@ public class PostReactionService {
         }
         if (changed) {
             publishReactionChanged(postId, "SET");
+            publishReactionCountsChanged(postId);
         }
 
-        return getSummary(postId, currentUserId);
+        return getSummaryFromDatabase(postId, currentUserId);
     }
 
     public PostReactionSummaryDTO removeCurrentUserReaction(UUID postId) {
@@ -181,9 +202,10 @@ public class PostReactionService {
             postReactionRepository.delete(existing.orElseThrow());
             postReactionRepository.flush();
             publishReactionChanged(postId, "REMOVE");
+            publishReactionCountsChanged(postId);
         }
 
-        return getSummary(postId, currentUserId);
+        return getSummaryFromDatabase(postId, currentUserId);
     }
 
     @Transactional(readOnly = true)
@@ -213,7 +235,7 @@ public class PostReactionService {
             .map(Post::getId)
             .toList();
 
-        return buildSummaries(visiblePostIds, currentUserId);
+        return buildSummariesUsingCache(visiblePostIds, currentUserId);
     }
 
     @Transactional(readOnly = true)
@@ -228,44 +250,55 @@ public class PostReactionService {
         });
     }
 
-    private List<PostReactionSummaryDTO> buildSummaries(List<UUID> postIds, UUID currentUserId) {
-        if (postIds.isEmpty()) {
-            return List.of();
-        }
-
-        Map<UUID, EnumMap<ReactionType, Long>> countsByPost = new HashMap<>();
-        for (UUID postId : postIds) {
-            countsByPost.put(postId, emptyCounts());
-        }
-
-        for (PostReactionRepository.ReactionCountProjection row : postReactionRepository.countByPostIds(postIds)) {
-            countsByPost.get(row.getPostId()).put(row.getReactionType(), row.getReactionCount());
-        }
-
+    private List<PostReactionSummaryDTO> assembleSummaries(
+        List<UUID> postIds,
+        Map<UUID, Map<ReactionType, Long>> countsByPost,
+        UUID currentUserId
+    ) {
         Map<UUID, ReactionType> myReactionByPost = new HashMap<>();
-        for (PostReaction reaction : currentUserId == null ? java.util.List.<PostReaction>of() : postReactionRepository.findAllByPostIdInAndUserId(postIds, currentUserId)) {
-            myReactionByPost.put(reaction.getPost().getId(), reaction.getReactionType());
+        if (currentUserId != null && !postIds.isEmpty()) {
+            for (PostReaction reaction : postReactionRepository.findAllByPostIdInAndUserId(postIds, currentUserId)) {
+                myReactionByPost.put(reaction.getPost().getId(), reaction.getReactionType());
+            }
         }
 
         List<PostReactionSummaryDTO> result = new ArrayList<>();
         for (UUID postId : postIds) {
-            EnumMap<ReactionType, Long> counts = countsByPost.get(postId);
-            long total = counts.values().stream().mapToLong(Long::longValue).sum();
-            result.add(new PostReactionSummaryDTO(postId, total, counts, myReactionByPost.get(postId)));
+            Map<ReactionType, Long> counts = countsByPost.getOrDefault(postId, Map.of());
+            EnumMap<ReactionType, Long> enumCounts = new EnumMap<>(ReactionType.class);
+            for (ReactionType type : ReactionType.values()) {
+                enumCounts.put(type, counts.getOrDefault(type, 0L));
+            }
+            long total = enumCounts.values().stream().mapToLong(Long::longValue).sum();
+            result.add(new PostReactionSummaryDTO(postId, total, enumCounts, myReactionByPost.get(postId)));
         }
         return result;
     }
 
-    private PostReactionSummaryDTO getSummary(UUID postId, UUID currentUserId) {
-        return buildSummaries(List.of(postId), currentUserId).getFirst();
+    private List<PostReactionSummaryDTO> buildSummariesUsingCache(List<UUID> postIds, UUID currentUserId) {
+        if (postIds.isEmpty()) {
+            return List.of();
+        }
+        Map<UUID, Map<ReactionType, Long>> counts = postReactionCountsCache.getCounts(postIds);
+        return assembleSummaries(postIds, counts, currentUserId);
     }
 
-    private EnumMap<ReactionType, Long> emptyCounts() {
-        EnumMap<ReactionType, Long> counts = new EnumMap<>(ReactionType.class);
-        for (ReactionType type : ReactionType.values()) {
-            counts.put(type, 0L);
+    private List<PostReactionSummaryDTO> buildSummariesFromDatabase(List<UUID> postIds, UUID currentUserId) {
+        if (postIds.isEmpty()) {
+            return List.of();
         }
-        return counts;
+        Map<UUID, Map<ReactionType, Long>> counts = postReactionCountsReader.loadFromDatabase(postIds);
+        return assembleSummaries(postIds, counts, currentUserId);
+    }
+
+    private PostReactionSummaryDTO getSummaryFromDatabase(UUID postId, UUID currentUserId) {
+        return buildSummariesFromDatabase(List.of(postId), currentUserId).getFirst();
+    }
+
+    private void publishReactionCountsChanged(UUID postId) {
+        if (postId != null) {
+            eventPublisher.publishEvent(new ReactionCountsChanged(postId));
+        }
     }
 
     private UUID requireCurrentUserId() {
