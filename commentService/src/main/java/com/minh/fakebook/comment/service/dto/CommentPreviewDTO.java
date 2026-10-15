@@ -1,6 +1,7 @@
 package com.minh.fakebook.comment.service.dto;
 
+import java.io.Serializable;
 import java.time.Instant;
 import java.util.UUID;
 
-public record CommentPreviewDTO(UUID id, UUID authorId, String content, Instant createdAt) {}
+public record CommentPreviewDTO(UUID id, UUID authorId, String content, Instant createdAt) implements Serializable {}

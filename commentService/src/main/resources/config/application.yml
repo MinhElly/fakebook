@@ -266,7 +266,11 @@ jhipster:
 # https://www.jhipster.tech/common-application-properties/
 # ===================================================================
 
-# application:
+application:
+  cache:
+    comment-summary:
+      enabled: true
+      ttl-seconds: 20
 
 namastack:
   outbox:
