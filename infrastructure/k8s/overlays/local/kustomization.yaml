@@ -99,29 +99,29 @@ patches:
 images:
   - name: fakebook-gateway
     newName: ghcr.io/minhelly/fakebook-gateway
-    newTag: sha-cd22d4a04839bc636dbe476e8ffe01b13c6ffbb6
-    digest: sha256:6c396850e79009394aef5e93871c06249ba2750e8f1a94c9000d6ebb9f0212bd
+    newTag: sha-40cace21185459460491a6633a04467f255f01e4
+    digest: sha256:86ccc9ab2ac704d15eef549f09633f4d169f42e8a8c376707ad678824bade81c
   - name: fakebook-userservice
     newName: ghcr.io/minhelly/fakebook-userservice
-    newTag: sha-cd22d4a04839bc636dbe476e8ffe01b13c6ffbb6
-    digest: sha256:16c8712e1ad2a3250967a785900f64415f537949f41d8e12a9744352ffcbb855
+    newTag: sha-40cace21185459460491a6633a04467f255f01e4
+    digest: sha256:2baa5e900d6b62a1dd143c91b69ed8753e8598813b5c50f39ba1364b1b94ea05
   - name: fakebook-postservice
     newName: ghcr.io/minhelly/fakebook-postservice
-    newTag: sha-cd22d4a04839bc636dbe476e8ffe01b13c6ffbb6
-    digest: sha256:3596d2b6d227b579b362652d8220b83912cc49183205028246d369f4330825ec
+    newTag: sha-40cace21185459460491a6633a04467f255f01e4
+    digest: sha256:becfeaa58de7999e3f3edc3f630ab2c2b9dab6e64bd50ce8a720c99c9d8214c1
   - name: fakebook-mediaservice
     newName: ghcr.io/minhelly/fakebook-mediaservice
-    newTag: sha-cd22d4a04839bc636dbe476e8ffe01b13c6ffbb6
-    digest: sha256:74cae48a869e9b0d97a93fb7840037078615865f5999caeb2e9f6373f62bf44b
+    newTag: sha-40cace21185459460491a6633a04467f255f01e4
+    digest: sha256:0ce62b25dc2ec02747eb22a53f16d9994e90314bd572fb832c8fcf480071cded
   - name: fakebook-commentservice
     newName: ghcr.io/minhelly/fakebook-commentservice
-    newTag: sha-cd22d4a04839bc636dbe476e8ffe01b13c6ffbb6
-    digest: sha256:a36b2cd8c25cb83631f73807c09ecc03e221bceb048f16693bb312621b599331
+    newTag: sha-40cace21185459460491a6633a04467f255f01e4
+    digest: sha256:d194705277947a6721e6e683ffdeb5abc4d8088a7fc6a0446fdbe6621b684b85
   - name: fakebook-feedservice
     newName: ghcr.io/minhelly/fakebook-feedservice
-    newTag: sha-cd22d4a04839bc636dbe476e8ffe01b13c6ffbb6
-    digest: sha256:0eac5faf5b5d6713c813bc7592c468c4a4cc038c6d2cdf6a20c9f1d1557ae644
+    newTag: sha-40cace21185459460491a6633a04467f255f01e4
+    digest: sha256:754b5fc71aed647a133d02a9512e82db5258b122444fc1f94a4c898b98ac0eb3
   - name: fakebook-frontend
     newName: ghcr.io/minhelly/fakebook-frontend
-    newTag: sha-cd22d4a04839bc636dbe476e8ffe01b13c6ffbb6
-    digest: sha256:43193c5d389185d86f0e74ce519cfb1e2370ed4b6f7a0c7ab64a09b16fe01e3d
+    newTag: sha-40cace21185459460491a6633a04467f255f01e4
+    digest: sha256:93b2bf111385457db09fa79d8c4bbd795eb1af9fc95f4dce8ff6ba3f353d2071
