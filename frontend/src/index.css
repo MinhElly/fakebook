@@ -19,6 +19,14 @@ body,
   height: 100%;
 }
 
+@keyframes skeleton-pulse {
+  50% { opacity: 0.5; }
+}
+.skeleton { animation: skeleton-pulse 1.6s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .skeleton, .animate-pulse, .animate-spin, .animate-fb-pulse { animation: none !important; }
+}
+
 @keyframes slideUp {
   from {
     transform: translateY(100%);

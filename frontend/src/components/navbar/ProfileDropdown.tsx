@@ -1,3 +1,4 @@
+import Skeleton from "@/components/ui/Skeleton";
 import MediaImage from "@/components/feed/MediaImage";
 import { useNavigate } from "react-router";
 import Dropdown from "@/components/ui/Dropdown";
@@ -11,7 +12,7 @@ interface Props {
 export default function ProfileDropdown({ onClose }: Props) {
   const navigate = useNavigate();
   const { logout } = useAuth();
-  const { profile } = useUserStore();
+  const { profile, loading: profileLoading } = useUserStore();
 
   function handleViewProfile() {
     onClose();
@@ -27,9 +28,9 @@ export default function ProfileDropdown({ onClose }: Props) {
     <Dropdown className="w-[340px]">
       <div className="p-2">
         <button onClick={handleViewProfile} className="flex items-center gap-3 w-full p-2 rounded-xl hover:bg-[#F0F2F5] transition-colors">
-          <MediaImage src={profile.avatar} alt="me" referrerPolicy="no-referrer" onError={(e) => { e.currentTarget.src = "/default-avatar.svg"; }} className="w-14 h-14 rounded-full object-cover flex-shrink-0" />
+          {profileLoading ? <Skeleton className="size-9 shrink-0 rounded-full" /> : <MediaImage src={profile.avatar} alt="me" referrerPolicy="no-referrer" onError={(e) => { e.currentTarget.src = "/default-avatar.svg"; }} className="w-14 h-14 rounded-full object-cover flex-shrink-0" />}
           <div className="text-left">
-            <p className="font-bold text-[#1C1E21]">{profile.name}</p>
+            <p className="font-bold text-[#1C1E21]">{profileLoading ? <Skeleton className="h-4 w-28" /> : profile.name}</p>
             <p className="text-[#1877F2] text-sm">Xem trang cá nhân của bạn</p>
           </div>
         </button>

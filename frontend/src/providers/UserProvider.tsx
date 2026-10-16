@@ -9,6 +9,9 @@ const DEFAULT_COVER = "/default-cover.svg";
 
 export default function UserProvider({ children }: { children: React.ReactNode }) {
   const { status, user } = useAuth();
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [attempt, setAttempt] = useState(0);
   const [profile, setProfile] = useState<UserProfile>({
     name: user?.firstName && user?.lastName ? `${user.firstName} ${user.lastName}` : (user?.username || "Người dùng"),
     avatar: DEFAULT_AVATAR,
@@ -21,10 +24,13 @@ export default function UserProvider({ children }: { children: React.ReactNode }
   });
 
   useEffect(() => {
-    if (status !== "authenticated") return;
+    let active = true;
+    if (status !== "authenticated") { setLoading(false); return; }
+    setLoading(true); setError(null);
 
     api.get("/services/userservice/api/user-profiles/me")
       .then(({ data }) => {
+        if (!active) return;
         const fullName = data.displayName ||
           (user?.firstName && user?.lastName ? `${user.firstName} ${user.lastName}` : (user?.username || user?.email));
 
@@ -49,6 +55,8 @@ export default function UserProvider({ children }: { children: React.ReactNode }
         }));
       })
       .catch(() => {
+        if (!active) return;
+        setError("Không tải được hồ sơ của bạn.");
         if (user) {
           const fallbackName = (user.firstName && user.lastName)
             ? `${user.firstName} ${user.lastName}`
@@ -57,8 +65,9 @@ export default function UserProvider({ children }: { children: React.ReactNode }
             setProfile((prev) => ({ ...prev, name: fallbackName }));
           }
         }
-      });
-  }, [status, user]);
+      }).finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, [status, user?.id, attempt]);
 
   async function updateProfile(data: Partial<UserProfile>): Promise<boolean> {
     try {
@@ -84,7 +93,7 @@ export default function UserProvider({ children }: { children: React.ReactNode }
   }
 
   return (
-    <UserContext.Provider value={{ profile, updateProfile }}>
+    <UserContext.Provider value={{ profile, updateProfile, loading, error, retry: () => setAttempt(n => n + 1) }}>
       {children}
     </UserContext.Provider>
   );

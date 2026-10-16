@@ -1,3 +1,5 @@
+import Skeleton from "@/components/ui/Skeleton";
+import LoadError from "@/components/ui/LoadError";
 import { useRef, useState } from "react";
 import { useFriendStore } from "@/stores/friendStore";
 import { useOutsideClick } from "@/hooks/useOutsideClick";
@@ -9,13 +11,17 @@ interface Props {
 }
 
 export default function FriendButton({ user, size = "md" }: Props) {
-  const { getStatus, sendRequest, cancelRequest, acceptRequest, rejectRequest, removeFriend } = useFriendStore();
+  const { loading, loadError, retry, pendingUsers, getStatus, sendRequest, cancelRequest, acceptRequest, rejectRequest, removeFriend } = useFriendStore();
   const [showMenu, setShowMenu] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   useOutsideClick(menuRef, () => setShowMenu(false));
 
   const status = getStatus(user.id);
   const pad = size === "sm" ? "px-3 py-1.5 text-xs" : "px-4 py-2 text-sm";
+
+  if (loading) return <span role="status" aria-label="Đang tải trạng thái bạn bè"><Skeleton className="h-9 w-28" /></span>;
+  if (loadError) return <LoadError message={loadError} onRetry={retry} />;
+  if (pendingUsers.has(String(user.id))) return <button disabled className={`rounded-lg bg-[#E4E6EB] ${pad}`}>Đang xử lý…</button>;
 
   if (status === "friends") {
     return (

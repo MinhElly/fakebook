@@ -1,5 +1,6 @@
+import { FriendsSkeleton } from "@/components/ui/Skeleton";
 import MediaImage from "@/components/feed/MediaImage";
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { useSearchParams, useNavigate } from "react-router";
 import FriendsSidebar from "@/components/friends/FriendsSidebar";
 import FriendCard from "@/components/friends/FriendCard";
@@ -40,6 +41,8 @@ export default function FriendsPage() {
   const [followingList, setFollowingList] = useState<FollowDTO[]>([]);
   const [followerList, setFollowerList] = useState<FollowDTO[]>([]);
 
+  const generation = useRef(0);
+  const [loaded, setLoaded] = useState(false);
   const [loading, setLoading] = useState<boolean>(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState<string>("");
@@ -57,25 +60,29 @@ export default function FriendsPage() {
 
   // Load all initial data from REST API
   const loadData = useCallback(async () => {
+    const request = ++generation.current;
     setLoading(true);
     setErrorMsg(null);
 
     try {
       // 1. Get current logged-in user profile
       const user = await getCurrentUserProfile();
+      if (request !== generation.current) return;
       setMyUser(user);
 
       if (user && user.id) {
         // 2. Parallel fetch requests, sent requests, suggestions, friends, following & followers
         const [reqRes, sentRes, sugRes, friendsRes, followingRes, followerRes] = await Promise.all([
-          getFriendRequests(user.id).catch(() => []),
-          getSentFriendRequests(user.id).catch(() => []),
-          getFriendSuggestions(user.id).catch(() => []),
-          getAllFriends(user.id).catch(() => []),
-          getMyFollowingList().catch(() => []),
-          getMyFollowerList().catch(() => []),
+          getFriendRequests(user.id),
+          getSentFriendRequests(user.id),
+          getFriendSuggestions(user.id),
+          getAllFriends(user.id),
+          getMyFollowingList(),
+          getMyFollowerList(),
         ]);
 
+        if (request !== generation.current) return;
+        setLoaded(true);
         setRequests(reqRes);
         setSentRequests(sentRes);
         setSuggestions(sugRes);
@@ -85,14 +92,15 @@ export default function FriendsPage() {
       }
     } catch (err) {
       console.error("Lỗi khi tải dữ liệu trang bạn bè:", err);
-      setErrorMsg("Không thể kết nối với máy chủ API. Vui lòng kiểm tra lại dịch vụ Backend.");
+      if (request === generation.current) setErrorMsg("Không tải được dữ liệu bạn bè. Vui lòng thử lại.");
     } finally {
-      setLoading(false);
+      if (request === generation.current) setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    loadData();
+    void loadData();
+    return () => { generation.current++; };
   }, [loadData]);
 
   // Handlers for friend actions
@@ -169,7 +177,7 @@ export default function FriendsPage() {
       {/* ── Right Content Area ────────────────────────────────────── */}
       <main className="flex-1 p-4 md:p-6 lg:p-8 max-w-[1400px] w-full mx-auto">
         {errorMsg && (
-          <div className="mb-6 p-4 rounded-xl bg-red-50 border border-red-200 text-red-700 text-sm flex items-center justify-between">
+          <div role="alert" className="mb-6 p-4 rounded-xl bg-red-50 border border-red-200 text-red-700 text-sm flex items-center justify-between">
             <span>{errorMsg}</span>
             <button onClick={loadData} className="font-semibold underline hover:no-underline ml-4">
               Thử lại
@@ -178,7 +186,7 @@ export default function FriendsPage() {
         )}
 
         {/* ── TAB 1: OVERVIEW ───────────────────────────────────────── */}
-        {activeTab === "overview" && (
+        {(loading || loaded) && activeTab === "overview" && (
           <div className="space-y-8">
             {/* Lời mời kết bạn section */}
             <section>
@@ -201,8 +209,8 @@ export default function FriendsPage() {
                 )}
               </div>
 
-              {loading ? (
-                <SkeletonGrid />
+              {loading && !loaded ? (
+                <FriendsSkeleton />
               ) : requests.length === 0 ? (
                 <div className="bg-white rounded-xl border border-[#E4E6EB] p-8 text-center">
                   <div className="w-12 h-12 bg-[#F0F2F5] rounded-full flex items-center justify-center mx-auto mb-2 text-[#65676B]">
@@ -247,8 +255,8 @@ export default function FriendsPage() {
                 )}
               </div>
 
-              {loading ? (
-                <SkeletonGrid />
+              {loading && !loaded ? (
+                <FriendsSkeleton />
               ) : suggestions.length === 0 ? (
                 <div className="bg-white rounded-xl border border-[#E4E6EB] p-8 text-center">
                   <p className="text-sm font-medium text-[#65676B]">Hiện chưa có thêm gợi ý kết bạn mới nào.</p>
@@ -272,7 +280,7 @@ export default function FriendsPage() {
         )}
 
         {/* ── TAB 2: REQUESTS ───────────────────────────────────────── */}
-        {activeTab === "requests" && (
+        {(loading || loaded) && activeTab === "requests" && (
           <div>
             <div className="flex items-center justify-between mb-6">
               <div>
@@ -289,8 +297,8 @@ export default function FriendsPage() {
               </button>
             </div>
 
-            {loading ? (
-              <SkeletonGrid />
+            {loading && !loaded ? (
+              <FriendsSkeleton />
             ) : requests.length === 0 ? (
               <div className="bg-white rounded-2xl border border-[#E4E6EB] p-12 text-center max-w-md mx-auto my-8">
                 <div className="w-16 h-16 bg-[#F0F2F5] rounded-full flex items-center justify-center mx-auto mb-3 text-[#65676B]">
@@ -321,15 +329,15 @@ export default function FriendsPage() {
         )}
 
         {/* ── TAB 3: SUGGESTIONS ────────────────────────────────────── */}
-        {activeTab === "suggestions" && (
+        {(loading || loaded) && activeTab === "suggestions" && (
           <div>
             <div className="mb-6">
               <h1 className="text-2xl font-bold text-[#1C1E21]">Gợi ý bạn bè</h1>
               <p className="text-sm text-[#65676B] mt-0.5">Khám phá và kết nối với những người bạn có thể biết</p>
             </div>
 
-            {loading ? (
-              <SkeletonGrid />
+            {loading && !loaded ? (
+              <FriendsSkeleton />
             ) : suggestions.length === 0 ? (
               <div className="bg-white rounded-2xl border border-[#E4E6EB] p-12 text-center max-w-md mx-auto my-8">
                 <p className="text-base font-semibold text-[#050505]">Hiện chưa có thêm gợi ý kết bạn nào</p>
@@ -352,7 +360,7 @@ export default function FriendsPage() {
         )}
 
         {/* ── TAB 4: ALL FRIENDS ────────────────────────────────────── */}
-        {activeTab === "all" && (
+        {(loading || loaded) && activeTab === "all" && (
           <div>
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
               <div>
@@ -385,8 +393,8 @@ export default function FriendsPage() {
               </div>
             </div>
 
-            {loading ? (
-              <SkeletonGrid />
+            {loading && !loaded ? (
+              <FriendsSkeleton />
             ) : filteredFriends.length === 0 ? (
               <div className="bg-white rounded-2xl border border-[#E4E6EB] p-12 text-center max-w-md mx-auto my-8">
                 <p className="text-base font-semibold text-[#050505]">
@@ -421,7 +429,7 @@ export default function FriendsPage() {
         )}
 
         {/* ── TAB 5: FOLLOWING ──────────────────────────────────────── */}
-        {activeTab === "following" && (
+        {(loading || loaded) && activeTab === "following" && (
           <div>
             <div className="mb-6">
               <h1 className="text-2xl font-bold text-[#1C1E21]">Đang theo dõi</h1>
@@ -430,8 +438,8 @@ export default function FriendsPage() {
               </p>
             </div>
 
-            {loading ? (
-              <SkeletonGrid />
+            {loading && !loaded ? (
+              <FriendsSkeleton />
             ) : followingList.length === 0 ? (
               <div className="bg-white rounded-2xl border border-[#E4E6EB] p-12 text-center max-w-md mx-auto my-8">
                 <p className="text-base font-semibold text-[#050505]">Bạn chưa theo dõi người dùng nào</p>
@@ -487,7 +495,7 @@ export default function FriendsPage() {
         )}
 
         {/* ── TAB 6: FOLLOWERS ──────────────────────────────────────── */}
-        {activeTab === "followers" && (
+        {(loading || loaded) && activeTab === "followers" && (
           <div>
             <div className="mb-6">
               <h1 className="text-2xl font-bold text-[#1C1E21]">Người theo dõi</h1>
@@ -496,8 +504,8 @@ export default function FriendsPage() {
               </p>
             </div>
 
-            {loading ? (
-              <SkeletonGrid />
+            {loading && !loaded ? (
+              <FriendsSkeleton />
             ) : followerList.length === 0 ? (
               <div className="bg-white rounded-2xl border border-[#E4E6EB] p-12 text-center max-w-md mx-auto my-8">
                 <p className="text-base font-semibold text-[#050505]">Chưa có ai theo dõi bạn</p>
@@ -566,24 +574,6 @@ export default function FriendsPage() {
 
       {/* Toast Notification */}
       {toastMessage && <Toast message={toastMessage} type="success" onClose={() => setToastMessage(null)} />}
-    </div>
-  );
-}
-
-// Skeleton placeholder while data is loading from backend
-function SkeletonGrid() {
-  return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3.5 animate-pulse">
-      {Array.from({ length: 10 }).map((_, i) => (
-        <div key={i} className="bg-white border border-[#E4E6EB] rounded-xl overflow-hidden">
-          <div className="aspect-square bg-[#E4E6EB] w-full" />
-          <div className="p-3 space-y-2">
-            <div className="h-4 bg-[#E4E6EB] rounded-md w-3/4" />
-            <div className="h-3 bg-[#E4E6EB] rounded-md w-1/2" />
-            <div className="h-8 bg-[#E4E6EB] rounded-lg w-full mt-2" />
-          </div>
-        </div>
-      ))}
     </div>
   );
 }

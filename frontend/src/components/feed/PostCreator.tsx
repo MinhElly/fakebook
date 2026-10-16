@@ -1,3 +1,4 @@
+import Skeleton from "@/components/ui/Skeleton";
 import MediaImage from "@/components/feed/MediaImage";
 import { useState } from "react";
 import { useUserStore } from "@/stores/userStore";
@@ -7,10 +8,12 @@ import useRequireLogin from "@/hooks/useRequireLogin";
 
 export default function PostCreator() {
   const requireLogin = useRequireLogin();
-  const { profile } = useUserStore();
+  const { profile, loading: profileLoading } = useUserStore();
   const [showModal, setShowModal] = useState(false);
 
   const firstName = profile.name ? profile.name.trim().split(" ").pop() : "";
+
+  if (profileLoading) return <div role="status" aria-label="Đang tải hồ sơ" className="mb-3 flex gap-3 rounded-xl bg-white p-4"><Skeleton className="size-10 rounded-full" /><Skeleton className="h-10 flex-1 rounded-full" /></div>;
 
   return (
     <>

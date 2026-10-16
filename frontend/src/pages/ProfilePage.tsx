@@ -1,43 +1,39 @@
+import { ProfileSkeleton } from "@/components/ui/Skeleton";
+import LoadError from "@/components/ui/LoadError";
 import { useState, useEffect } from "react";
 import EditProfileModal from "@/components/profile/EditProfileModal";
 import ProfileLayout from "@/components/profile/ProfileLayout";
 import useProfilePosts from "@/hooks/useProfilePosts";
 import { useUserStore } from "@/stores/userStore";
-import { getCurrentUserProfile, getAllFriends, getUserAvatarUrl } from "@/services/friendsService";
+import { getAllFriends, getUserAvatarUrl } from "@/services/friendsService";
 import type { FriendUser } from "@/types";
 import { useAuth } from "@/providers/AuthProvider";
 
 export default function ProfilePage() {
   const { user } = useAuth();
   const { posts, loadMorePosts, hasMore, error: feedError, loading } = useProfilePosts(user?.id);
-  const { profile } = useUserStore();
+  const { profile, loading: profileLoading, error: profileError, retry: retryProfile } = useUserStore();
+  const [friendsLoading, setFriendsLoading] = useState(true);
+  const [friendsError, setFriendsError] = useState<string | null>(null);
+  const [friendsAttempt, setFriendsAttempt] = useState(0);
   const [friends, setFriends] = useState<FriendUser[]>([]);
   const [showEditModal, setShowEditModal] = useState(false);
 
   useEffect(() => {
-    getCurrentUserProfile()
-      .then(async (me) => {
-        if (me && me.id) {
-          const friendships = await getAllFriends(me.id);
-          const formatted: FriendUser[] = friendships.map((f) => {
-            const friendUser = f.friend?.id === me.id ? f.user : f.friend;
-            return {
-              id: friendUser.id,
-              name: friendUser.displayName || friendUser.username || "Người dùng",
-              avatar: getUserAvatarUrl(friendUser),
-              cover: "/default-cover.svg",
-              mutualFriends: 0,
-              location: friendUser.location || "",
-              work: friendUser.work || "",
-              education: friendUser.education || "",
-              bio: friendUser.bio || "",
-            };
-          });
-          setFriends(formatted);
-        }
-      })
-      .catch((err) => console.error("Lỗi khi tải danh sách bạn bè trang cá nhân:", err));
-  }, []);
+    let active = true;
+    setFriendsLoading(true); setFriendsError(null);
+    if (!user?.id) { setFriendsLoading(false); return; }
+    getAllFriends(user.id).then(friendships => {
+      const formatted: FriendUser[] = friendships.map(f => {
+        const friend = f.friend?.id === user.id ? f.user : f.friend;
+        return { id: friend.id, name: friend.displayName || friend.username || "Người dùng", avatar: getUserAvatarUrl(friend), cover: "/default-cover.svg", mutualFriends: 0, location: friend.location || "", work: friend.work || "", education: friend.education || "", bio: friend.bio || "" };
+      });
+      if (active) setFriends(formatted);
+    })
+      .catch(() => { if (active) setFriendsError("Không tải được danh sách bạn bè."); })
+      .finally(() => { if (active) setFriendsLoading(false); });
+    return () => { active = false; };
+  }, [user?.id, friendsAttempt]);
 
   // Bắt sự kiện cuộn chuột để làm Infinity Scroll giống Feed
   useEffect(() => {
@@ -52,6 +48,9 @@ export default function ProfilePage() {
     window.addEventListener("scroll", handleScroll);
     return () => window.removeEventListener("scroll", handleScroll);
   }, [hasMore, loading]);
+
+  if (profileLoading) return <ProfileSkeleton />;
+  if (profileError) return <LoadError message={profileError} onRetry={retryProfile} />;
 
   const myPosts = posts;
 
@@ -86,6 +85,9 @@ export default function ProfilePage() {
   return (
     <>
       <ProfileLayout
+        friendsLoading={friendsLoading}
+        friendsError={friendsError}
+        retryFriends={() => setFriendsAttempt(n => n + 1)}
         user={profile}
         isOwn={true}
         posts={myPosts}

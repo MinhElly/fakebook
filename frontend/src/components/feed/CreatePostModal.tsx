@@ -1,3 +1,5 @@
+import { UserRowsSkeleton } from "@/components/ui/Skeleton";
+import LoadError from "@/components/ui/LoadError";
 import MediaImage from "./MediaImage";
 import { useState, useEffect, useRef } from "react";
 import { usePostStore } from "@/stores/postStore";
@@ -119,11 +121,19 @@ export default function CreatePostModal({ onClose, editPost }: Props) {
   const [submitError, setSubmitError] = useState<string | null>(null);
   const isSubmittingRef = useRef(false);
 
+  const [friendsLoading, setFriendsLoading] = useState(false);
+  const [friendsLoaded, setFriendsLoaded] = useState(false);
+  const [friendsError, setFriendsError] = useState(false);
+  const [friendsAttempt, setFriendsAttempt] = useState(0);
   useEffect(() => {
-    if (showTagFriends && friendsList.length === 0) {
-      getMyFriends().then(res => setFriendsList(res)).catch(err => console.error(err));
-    }
-  }, [showTagFriends]);
+    if (!showTagFriends || friendsLoaded) return;
+    let active = true;
+    setFriendsLoading(true); setFriendsError(false);
+    getMyFriends().then(res => { if (active) { setFriendsList(res); setFriendsLoaded(true); } })
+      .catch(() => { if (active) setFriendsError(true); })
+      .finally(() => { if (active) setFriendsLoading(false); });
+    return () => { active = false; };
+  }, [showTagFriends, friendsLoaded, friendsAttempt]);
 
   useEffect(() => {
     textareaRef.current?.focus();
@@ -159,7 +169,7 @@ export default function CreatePostModal({ onClose, editPost }: Props) {
     }
 
     // New posts use the upload placeholder; edits stay open until the server confirms.
-    if (!isEdit) onClose();
+
 
     try {
       if (isEdit) {
@@ -167,6 +177,7 @@ export default function CreatePostModal({ onClose, editPost }: Props) {
         onClose();
       } else {
         await addPost(finalContent, imageFile || imageUrl, visibility, taggedUserIds);
+        onClose();
       }
     } catch (error) {
       const status = (error as { response?: { status?: number } }).response?.status;
@@ -180,56 +191,58 @@ export default function CreatePostModal({ onClose, editPost }: Props) {
     }
   }
 
-    function handleCurrentLocation() {
-      if (!navigator.geolocation) {
-        alert("Your browser does not support Geolocation!");
-        return;
-      }
-      setIsSearchingLoc(true);
-      navigator.geolocation.getCurrentPosition(async (pos) => {
-        try {
-          // Use OpenStreetMap API to reverse-geocode coordinates into address
-          const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=` + pos.coords.latitude + `&lon=` + pos.coords.longitude);
-          const data = await res.json();
-          const placeName = data.display_name.split(",")[0]; // Get the most specific area name
-          setLocation(placeName);
-          setSearchResults([]);
-        } catch (err) {
-          alert("Error fetching location!");
-        } finally {
-          setIsSearchingLoc(false);
-        }
-      }, () => {
-        alert("Permission to access location was denied!");
-        setIsSearchingLoc(false);
-      });
-    }
-  
+  const locationRequest = useRef(0);
+  const locationAbort = useRef<AbortController | null>(null);
+  const [locationError, setLocationError] = useState(false);
+  const [locationSearched, setLocationSearched] = useState(false);
+  const retryLocation = useRef<() => void>(() => {});
+  useEffect(() => () => {
+    locationRequest.current++;
+    locationAbort.current?.abort();
+    if (searchTimeout.current) clearTimeout(searchTimeout.current);
+  }, []);
 
-    // Handle typing to search location (with 500ms debounce)
-    function handleSearchLocation(query: string) {
-      setLocation(query);
-      if (query.trim().length < 3) {
-        setSearchResults([]);
-        return;
-      }
+  function startLocationRequest() {
+    if (searchTimeout.current) clearTimeout(searchTimeout.current);
+    locationAbort.current?.abort();
+    locationAbort.current = new AbortController();
+    setLocationError(false); setSearchResults([]); setLocationSearched(false);
+    return ++locationRequest.current;
+  }
 
-      if (searchTimeout.current) clearTimeout(searchTimeout.current);
+  function handleCurrentLocation() {
+    retryLocation.current = handleCurrentLocation;
+    const request = startLocationRequest();
+    if (!navigator.geolocation) { setLocationError(true); return; }
+    setIsSearchingLoc(true);
+    navigator.geolocation.getCurrentPosition(async pos => {
+      if (request !== locationRequest.current) return;
+      try {
+        const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${pos.coords.latitude}&lon=${pos.coords.longitude}`, { signal: locationAbort.current?.signal });
+        if (!res.ok) throw new Error("Location unavailable");
+        const data = await res.json();
+        if (request === locationRequest.current) { setLocation(data.display_name.split(",")[0]); setSearchResults([]); }
+      } catch { if (request === locationRequest.current) setLocationError(true); }
+      finally { if (request === locationRequest.current) setIsSearchingLoc(false); }
+    }, () => { if (request === locationRequest.current) { setLocationError(true); setIsSearchingLoc(false); } }, { timeout: 10000 });
+  }
 
-      searchTimeout.current = setTimeout(async () => {
-        setIsSearchingLoc(true);
-        try {
-          // Use OpenStreetMap API to search places by name
-          const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=` + query + `&limit=5`);
-          const data = await res.json();
-          setSearchResults(data);
-        } catch (err) {
-          console.error("Error finding location:", err);
-        } finally {
-          setIsSearchingLoc(false);
-        }
-      }, 500);
-    }
+  function handleSearchLocation(query: string) {
+    setLocation(query);
+    retryLocation.current = () => handleSearchLocation(query);
+    const request = startLocationRequest();
+    if (query.trim().length < 3) { setIsSearchingLoc(false); return; }
+    setIsSearchingLoc(true);
+    searchTimeout.current = setTimeout(async () => {
+      try {
+        const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5`, { signal: locationAbort.current?.signal });
+        if (!res.ok) throw new Error("Location unavailable");
+        const data = await res.json();
+        if (request === locationRequest.current) { setSearchResults(data); setLocationSearched(true); }
+      } catch { if (request === locationRequest.current) setLocationError(true); }
+      finally { if (request === locationRequest.current) setIsSearchingLoc(false); }
+    }, 500);
+  }
 
     function insertEmoji(emoji: string) {
       const el = textareaRef.current;
@@ -465,9 +478,7 @@ export default function CreatePostModal({ onClose, editPost }: Props) {
           {showTagFriends && (
             <div className="mx-4 mb-3 p-3 border border-[#CED0D4] rounded-lg max-h-60 overflow-y-auto">
               <h3 className="font-semibold text-sm mb-2">Gắn thẻ người khác</h3>
-              {friendsList.length === 0 ? (
-                <p className="text-sm text-gray-500">Đang tải bạn bè...</p>
-              ) : (
+              {friendsError ? <LoadError message="Không tải được bạn bè." onRetry={() => setFriendsAttempt(n => n + 1)} /> : friendsLoading || !friendsLoaded ? <UserRowsSkeleton count={3} /> : friendsList.length === 0 ? <p className="py-3 text-sm text-[#65676B]">Chưa có bạn bè.</p> : (
                 <div className="flex flex-col gap-2">
                   {friendsList.map(f => {
                     const friendId = f.user.id === user?.id ? f.friend.id : f.user.id;
@@ -560,6 +571,9 @@ export default function CreatePostModal({ onClose, editPost }: Props) {
                 </button>
               </div>
 
+              {isSearchingLoc && <UserRowsSkeleton count={2} label="Đang tìm địa điểm" />}
+              {locationError && <LoadError message="Không tải được địa điểm." onRetry={() => retryLocation.current()} />}
+              {locationSearched && !isSearchingLoc && !locationError && searchResults.length === 0 && <p className="py-2 text-sm text-[#65676B]">Không tìm thấy địa điểm phù hợp.</p>}
               {/* Dropdown Results */}
               {searchResults.length > 0 && (
                 <div

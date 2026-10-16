@@ -1,3 +1,5 @@
+import { UserRowsSkeleton } from "@/components/ui/Skeleton";
+import LoadError from "@/components/ui/LoadError";
 import MediaImage from "@/components/feed/MediaImage";
 import { useEffect, useState } from "react";
 import { Link } from "react-router";
@@ -16,11 +18,14 @@ export default function RightSidebar() {
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [loading, setLoading] = useState(true);
   const { status, user } = useAuth();
+  const [error, setError] = useState(false);
+  const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
     if (status !== "authenticated" || !user) return;
     
     let isMounted = true;
+    setLoading(true); setError(false);
 
     const fetchContacts = async () => {
       try {
@@ -65,7 +70,7 @@ export default function RightSidebar() {
           setContacts(mappedContacts);
         }
       } catch (error) {
-        console.error("Could not fetch contacts:", error);
+        if (isMounted) setError(true);
       } finally {
         if (isMounted) setLoading(false);
       }
@@ -76,15 +81,14 @@ export default function RightSidebar() {
     return () => {
       isMounted = false;
     };
-  }, [status, user]);
+  }, [status, user?.id, attempt]);
 
   return (
     <aside className="fixed bottom-0 right-0 top-14 hidden w-[360px] flex-col px-4 py-4 xl:flex">
       <h2 className="px-2 text-lg font-bold text-[#1C1E21] mb-2">Người liên hệ</h2>
-      {loading ? (
-        <div className="flex justify-center py-4 text-sm text-gray-500">Đang tải...</div>
-      ) : contacts.length > 0 ? (
-        <div className="flex flex-col space-y-1">
+      {error && <LoadError message="Không tải được người liên hệ." onRetry={() => setAttempt(n => n + 1)} />}
+      {loading && contacts.length === 0 ? <UserRowsSkeleton /> : contacts.length > 0 ? (
+        <div className="flex flex-col space-y-1 overflow-y-auto">
           {contacts.map((contact) => (
             <Link
               key={contact.id}
@@ -103,7 +107,7 @@ export default function RightSidebar() {
             </Link>
           ))}
         </div>
-      ) : (
+      ) : !error && !loading && (
         <FeatureEmptyState
           compact
           title="Chưa có người liên hệ"

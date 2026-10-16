@@ -1,13 +1,13 @@
+import { ProfileSkeleton } from "@/components/ui/Skeleton";
 import useRequireLogin from "@/hooks/useRequireLogin";
 import { useAuth } from "@/providers/AuthProvider";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router";
 import ProfileLayout, { type ProfileUser } from "@/components/profile/ProfileLayout";
 import FollowButton from "@/components/profile/FollowButton";
 import { getUserProfileDetails, type UserProfileDetail } from "@/services/profileService";
 import { resolveApiUrl } from "@/config/runtime-config";
 import {
-  getCurrentUserProfile,
   getAllFriends,
   sendFriendRequest,
   cancelFriendRequest,
@@ -23,7 +23,7 @@ export default function UserProfilePage() {
   const { userId } = useParams<{ userId: string }>();
   const navigate = useNavigate();
   const requireLogin = useRequireLogin();
-  const { status } = useAuth();
+  const { status, user: account } = useAuth();
   const { posts, loadMorePosts, hasMore, error: feedError, loading: loadingPosts } = useProfilePosts(userId);
 
   const [profileDetail, setProfileDetail] = useState<UserProfileDetail | null>(null);
@@ -32,6 +32,18 @@ export default function UserProfilePage() {
   const [mutualFriends, setMutualFriends] = useState<FriendUser[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const friendsScope = useRef("");
+  const friendActionLock = useRef(false);
+  const activeProfile = useRef(userId);
+  activeProfile.current = userId;
+  const [friendBusy, setFriendBusy] = useState(false);
+  const [friendActionError, setFriendActionError] = useState<string | null>(null);
+  const [mutualLoading, setMutualLoading] = useState(false);
+  const [mutualError, setMutualError] = useState<string | null>(null);
+  const [friendsLoading, setFriendsLoading] = useState(true);
+  const [friendsError, setFriendsError] = useState<string | null>(null);
+  const [attempt, setAttempt] = useState(0);
+  const [friendsAttempt, setFriendsAttempt] = useState(0);
   const [showFriendMenu, setShowFriendMenu] = useState<boolean>(false);
 
   useEffect(() => {
@@ -47,186 +59,104 @@ export default function UserProfilePage() {
     return () => window.removeEventListener("scroll", handleScroll);
   }, [hasMore, loadingPosts]);
 
-  // 1. Fetch current logged-in user profile
+  useEffect(() => { setCurrentUserId(account?.id || null); }, [account?.id]);
+
   useEffect(() => {
-    if (status !== "authenticated") return;
-    getCurrentUserProfile()
-      .then((me) => setCurrentUserId(me.id))
-      .catch((err) => console.error("Không thể lấy thông tin tài khoản hiện tại:", err));
-  }, [status]);
+    let active = true;
+    setProfileDetail(null); setLoading(true); setError(null);
+    if (!userId) { setError("Không tìm thấy ID người dùng."); setLoading(false); return; }
+    getUserProfileDetails(userId).then(detail => { if (active) setProfileDetail(detail); })
+      .catch(() => { if (active) setError("Không thể tải hồ sơ người dùng."); })
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, [userId, status, account?.id, attempt]);
 
-  // 2. Fetch target user profile details and target user's friends list
   useEffect(() => {
-    if (!userId) {
-      setError("Không tìm thấy thông tin ID người dùng.");
-      setLoading(false);
-      return;
-    }
-
-    setLoading(true);
-    setError(null);
-
-    Promise.all([
-      getUserProfileDetails(userId),
-      status === "authenticated" ? getAllFriends(userId).catch(() => []) : Promise.resolve([]),
-    ])
-      .then(([detail, targetFriendships]) => {
-        setProfileDetail(detail);
-
-        // Format target user's friends
-        const formattedTargetFriends: FriendUser[] = targetFriendships.map((f) => {
-          const friendUser = f.friend?.id === userId ? f.user : f.friend;
-          return {
-            id: friendUser.id,
-            name: friendUser.displayName || friendUser.username || "Người dùng",
-            avatar: getUserAvatarUrl(friendUser),
-            cover: "/default-cover.svg",
-            mutualFriends: 0,
-            location: friendUser.location || "",
-            work: friendUser.work || "",
-            education: friendUser.education || "",
-            bio: friendUser.bio || "",
-          };
-        });
-
-        setFriends(formattedTargetFriends);
-      })
-      .catch((err) => {
-        console.error("Lỗi khi tải thông tin hồ sơ người dùng:", err);
-        setError("Không thể tải thông tin hồ sơ người dùng.");
-      })
-      .finally(() => {
-        setLoading(false);
-      });
-  }, [userId, status]);
+    let active = true;
+    const scope = `${status}:${account?.id}:${userId}`;
+    if (friendsScope.current !== scope) { setFriends([]); setMutualFriends([]); friendsScope.current = scope; }
+    setFriendsLoading(true); setFriendsError(null);
+    if (!userId || status !== "authenticated") { setFriendsLoading(false); return; }
+    getAllFriends(userId).then(items => {
+      if (!active) return;
+      setFriends(items.map(f => {
+        const friend = f.friend?.id === userId ? f.user : f.friend;
+        return { id: friend.id, name: friend.displayName || friend.username || "Người dùng", avatar: getUserAvatarUrl(friend), cover: "/default-cover.svg", mutualFriends: 0, location: friend.location || "", work: friend.work || "", education: friend.education || "", bio: friend.bio || "" };
+      }));
+    }).catch(() => { if (active) setFriendsError("Không tải được danh sách bạn bè."); })
+      .finally(() => { if (active) setFriendsLoading(false); });
+    return () => { active = false; };
+  }, [userId, status, account?.id, friendsAttempt]);
 
   // 3. Compute real mutual friends if currentUserId & targetUserId exist
   useEffect(() => {
+    setMutualError(null);
     if (!currentUserId || !userId || currentUserId === userId || friends.length === 0) {
+      setMutualLoading(false);
       setMutualFriends([]);
       return;
     }
 
+    let active = true;
+    setMutualLoading(true);
     getAllFriends(currentUserId)
       .then((myFriendships) => {
         const myFriendIds = new Set(
           myFriendships.map((f) => (f.friend?.id === currentUserId ? f.user?.id : f.friend?.id))
         );
         const actualMutual = friends.filter((f) => myFriendIds.has(String(f.id)));
-        setMutualFriends(actualMutual);
+        if (active) setMutualFriends(actualMutual);
       })
-      .catch(console.error);
+      .catch(() => { if (active) setMutualError("Không tải được bạn chung."); })
+      .finally(() => { if (active) setMutualLoading(false); });
+    return () => { active = false; };
   }, [currentUserId, userId, friends]);
 
-  // Handle action buttons (Thêm bạn bè / Hủy lời mời / Chấp nhận / Bạn bè)
-  const handleToggleFriend = async () => {
-    if (!requireLogin()) return;
-    if (!profileDetail || !currentUserId) return;
-    const currentStatus = profileDetail.friendshipStatus;
-
-    if (currentStatus === "NONE") {
-      setProfileDetail({ ...profileDetail, friendshipStatus: "PENDING_SENT" });
-      try {
-        const req = await sendFriendRequest(currentUserId, profileDetail.id);
-        if (req && req.id) {
-          setProfileDetail((prev) => (prev ? { ...prev, friendRequestId: req.id } : prev));
-        }
-      } catch {
-        setProfileDetail((prev) => (prev ? { ...prev, friendshipStatus: "NONE" } : prev));
-      }
-    } else if (currentStatus === "PENDING_SENT") {
-      setProfileDetail({ ...profileDetail, friendshipStatus: "NONE" });
-      try {
-        if (profileDetail.friendRequestId) {
-          await cancelFriendRequest(profileDetail.friendRequestId);
-        }
-      } catch {
-        setProfileDetail((prev) => (prev ? { ...prev, friendshipStatus: "PENDING_SENT" } : prev));
-      }
-    } else if (currentStatus === "PENDING_RECEIVED") {
-      if (!profileDetail.friendRequestId) return;
-      setProfileDetail({ ...profileDetail, friendshipStatus: "FRIEND" });
-      try {
-        await acceptFriendRequestById(profileDetail.friendRequestId, currentUserId, profileDetail.id);
-        // Refresh friends list after accepting
-        getAllFriends(profileDetail.id).then((targetFriendships) => {
-          const formattedTargetFriends: FriendUser[] = targetFriendships.map((f) => {
-            const friendUser = f.friend?.id === profileDetail.id ? f.user : f.friend;
-            return {
-              id: friendUser.id,
-              name: friendUser.displayName || friendUser.username || "Người dùng",
-              avatar: getUserAvatarUrl(friendUser),
-              cover: "/default-cover.svg",
-              mutualFriends: 0,
-              location: friendUser.location || "",
-              work: friendUser.work || "",
-              education: friendUser.education || "",
-              bio: friendUser.bio || "",
-            };
-          });
-          setFriends(formattedTargetFriends);
-        });
-      } catch {
-        setProfileDetail((prev) => (prev ? { ...prev, friendshipStatus: "PENDING_RECEIVED" } : prev));
-      }
-    }
-  };
-
-  // Handle Decline / Reject Friend Request
-  const handleRejectRequest = async () => {
-    if (!requireLogin()) return;
-    if (!profileDetail || !profileDetail.friendRequestId) return;
-    setProfileDetail({ ...profileDetail, friendshipStatus: "NONE" });
-    try {
-      await rejectFriendRequest(profileDetail.friendRequestId);
-    } catch {
-      setProfileDetail((prev) => (prev ? { ...prev, friendshipStatus: "PENDING_RECEIVED" } : prev));
-    }
-  };
-
-  // Handle Unfriend action
-  const handleUnfriend = async () => {
-    if (!requireLogin()) return;
-    if (!profileDetail || !currentUserId) return;
-    if (!window.confirm(`Bạn có chắc chắn muốn hủy kết bạn với ${profileDetail.displayName}?`)) return;
-
-    setShowFriendMenu(false);
-    setProfileDetail({ ...profileDetail, friendshipStatus: "NONE" });
-
-    try {
-      await unfriend(profileDetail.id);
-      // Update target user's friends list
-      const targetFriendships = await getAllFriends(profileDetail.id);
-      const formattedTargetFriends: FriendUser[] = targetFriendships.map((f) => {
-        const friendUser = f.friend?.id === profileDetail.id ? f.user : f.friend;
-        return {
-          id: friendUser.id,
-          name: friendUser.displayName || friendUser.username || "Người dùng",
-          avatar: getUserAvatarUrl(friendUser),
-          cover: "/default-cover.svg",
-          mutualFriends: 0,
-          location: friendUser.location || "",
-          work: friendUser.work || "",
-          education: friendUser.education || "",
-          bio: friendUser.bio || "",
-        };
-      });
-      setFriends(formattedTargetFriends);
-    } catch (err) {
-      console.error("Lỗi khi hủy kết bạn:", err);
-    }
-  };
-
-  if (loading) {
-    return (
-      <main className="min-h-[calc(100vh-56px)] bg-[#F0F2F5] px-4 py-12 flex justify-center items-center">
-        <div className="bg-white p-8 rounded-xl shadow-sm text-center">
-          <div className="inline-block animate-spin rounded-full h-10 w-10 border-4 border-[#1877F2] border-t-transparent mb-3"></div>
-          <p className="text-sm font-semibold text-[#65676B]">Đang tải hồ sơ người dùng...</p>
-        </div>
-      </main>
-    );
+  async function runFriendAction(action: () => Promise<void>) {
+    if (!requireLogin() || friendActionLock.current || !profileDetail) return;
+    friendActionLock.current = true; setFriendBusy(true); setFriendActionError(null);
+    try { await action(); }
+    catch { if (activeProfile.current === profileDetail.id) setFriendActionError("Thao tác chưa thành công. Vui lòng thử lại."); }
+    finally { friendActionLock.current = false; setFriendBusy(false); }
   }
+
+  const handleToggleFriend = () => runFriendAction(async () => {
+    if (!profileDetail || !currentUserId) return;
+    let next = profileDetail.friendshipStatus;
+    let requestId = profileDetail.friendRequestId;
+    if (next === "NONE") {
+      requestId = (await sendFriendRequest(currentUserId, profileDetail.id))?.id;
+      next = "PENDING_SENT";
+    } else if (next === "PENDING_SENT") {
+      if (!requestId) throw new Error("Missing friend request");
+      await cancelFriendRequest(requestId); next = "NONE";
+    } else if (next === "PENDING_RECEIVED") {
+      if (!requestId) throw new Error("Missing friend request");
+      await acceptFriendRequestById(requestId, currentUserId, profileDetail.id); next = "FRIEND";
+    }
+    if (activeProfile.current !== profileDetail.id) return;
+    setProfileDetail(prev => prev ? { ...prev, friendshipStatus: next, friendRequestId: requestId } : prev);
+    setFriendsAttempt(n => n + 1);
+  });
+
+  const handleRejectRequest = () => runFriendAction(async () => {
+    if (!profileDetail?.friendRequestId) throw new Error("Missing friend request");
+    await rejectFriendRequest(profileDetail.friendRequestId);
+    if (activeProfile.current === profileDetail.id) setProfileDetail(prev => prev ? { ...prev, friendshipStatus: "NONE" } : prev);
+  });
+
+  const handleUnfriend = () => {
+    if (!profileDetail || !window.confirm(`Bạn có chắc chắn muốn hủy kết bạn với ${profileDetail.displayName}?`)) return;
+    return runFriendAction(async () => {
+      await unfriend(profileDetail.id);
+      if (activeProfile.current !== profileDetail.id) return;
+      setShowFriendMenu(false);
+      setProfileDetail(prev => prev ? { ...prev, friendshipStatus: "NONE" } : prev);
+      setFriendsAttempt(n => n + 1);
+    });
+  };
+
+  if (loading || (profileDetail && profileDetail.id !== userId)) return <ProfileSkeleton />;
 
   if (error || !profileDetail) {
     return (
@@ -234,6 +164,7 @@ export default function UserProfilePage() {
         <div className="mx-auto max-w-[720px] rounded-xl border border-[#E4E6EB] bg-white p-8 text-center">
           <div className="flex justify-center mb-4"><svg className="w-16 h-16 text-[#65676B]" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg></div>
           <h2 className="text-xl font-bold text-[#1C1E21]">{error || "Không tìm thấy hồ sơ người dùng"}</h2>
+          <button onClick={() => setAttempt(n => n + 1)} className="mt-3 text-[#1877F2]">Thử lại</button>
           <p className="text-sm text-[#65676B] mt-1 mb-6">Trang này có thể đã bị xóa hoặc đường dẫn không đúng.</p>
           <button
             onClick={() => navigate(-1)}
@@ -374,14 +305,19 @@ export default function UserProfilePage() {
 
   return (
     <ProfileLayout
+      mutualLoading={mutualLoading}
+      mutualError={mutualError}
+      friendsLoading={friendsLoading}
+      friendsError={friendsError}
+      retryFriends={() => setFriendsAttempt(n => n + 1)}
       user={user}
       isOwn={isOwn}
       posts={targetUserPosts}
       feedError={feedError} retryFeed={loadMorePosts}
       friends={friends}
-      mutualCount={mutualFriends.length || profileDetail.mutualFriendsCount}
+      mutualCount={friendsLoading || mutualLoading ? profileDetail.mutualFriendsCount : mutualFriends.length}
       mutualFriends={mutualFriends}
-      actionButtons={actionButtons}
+      actionButtons={<fieldset disabled={friendBusy} className="contents">{actionButtons}{friendBusy && <span role="status" className="text-sm text-[#65676B]">Đang xử lý…</span>}{friendActionError && <span role="alert" className="text-sm text-[#B42318]">{friendActionError}</span>}</fieldset>}
       loading={loadingPosts}
       hasMore={hasMore}
     />
