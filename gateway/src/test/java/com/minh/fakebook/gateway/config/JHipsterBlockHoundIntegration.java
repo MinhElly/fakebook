@@ -7,6 +7,10 @@ public class JHipsterBlockHoundIntegration implements BlockHoundIntegration {
 
     @Override
     public void applyTo(BlockHound.Builder builder) {
+        // Lettuce guards non-blocking command dispatch with a short ReentrantLock.
+        // Interrupting acquisition with BlockHound can leave its writer count negative.
+        builder.allowBlockingCallsInside("io.lettuce.core.protocol.SharedLock", "incrementWriters");
+        builder.allowBlockingCallsInside("io.lettuce.core.protocol.SharedLock", "doExclusive");
         builder.allowBlockingCallsInside("java.util.UUID", "randomUUID");
         builder.allowBlockingCallsInside("org.springframework.validation.beanvalidation.SpringValidatorAdapter", "validate");
         builder.allowBlockingCallsInside("com.minh.fakebook.gateway.service.MailService", "sendEmailFromTemplate");

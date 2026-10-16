@@ -1,7 +1,7 @@
 spring:
   cloud:
     function:
-      definition: reactionEventConsumer;friendRequestEventConsumer;commentEventConsumer
+      definition: reactionEventConsumer;friendRequestEventConsumer;commentEventConsumer;presenceFriendshipConsumer
     stream:
       kafka:
         binder:
@@ -9,6 +9,10 @@ spring:
           auto-create-topics: true
           brokers: localhost:9092
         bindings:
+          presenceFriendshipConsumer-in-0:
+            consumer:
+              enable-dlq: true
+              dlq-name: friendship-events-gateway-presence-dlt
           reactionEventConsumer-in-0:
             consumer:
               enable-dlq: true
@@ -22,6 +26,14 @@ spring:
               enable-dlq: true
               dlq-name: comment-events-gateway-dlt
       bindings:
+        presenceFriendshipConsumer-in-0:
+          destination: friendship-events
+          content-type: application/json
+          group: gateway-presence-permissions
+          consumer:
+            max-attempts: 3
+            back-off-initial-interval: 1000
+            back-off-multiplier: 2.0
         reactionEventConsumer-in-0:
           destination: post-reaction-events
           content-type: application/json
