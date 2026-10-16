@@ -9,12 +9,14 @@ import java.time.LocalDate;
 import java.util.UUID;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
+import org.hibernate.annotations.DynamicUpdate;
 
 /**
  * A UserProfile.
  */
 @Entity
 @Table(name = "user_profiles")
+@DynamicUpdate
 @SuppressWarnings("common-java:DuplicatedBlocks")
 public class UserProfile implements Serializable {
 
@@ -77,6 +79,9 @@ public class UserProfile implements Serializable {
 
     @Column(name = "updated_at")
     private Instant updatedAt;
+
+    @Column(name = "last_seen_at")
+    private Instant lastSeenAt;
 
     // jhipster-needle-entity-add-field - JHipster will add fields here
 
@@ -260,6 +265,19 @@ public class UserProfile implements Serializable {
 
     public void setUpdatedAt(Instant updatedAt) {
         this.updatedAt = updatedAt;
+    }
+
+    public Instant getLastSeenAt() {
+        return this.lastSeenAt;
+    }
+
+    public void setLastSeenAt(Instant lastSeenAt) {
+        this.lastSeenAt = lastSeenAt;
+    }
+
+    public UserProfile lastSeenAt(Instant lastSeenAt) {
+        this.setLastSeenAt(lastSeenAt);
+        return this;
     }
 
     // jhipster-needle-entity-add-getters-setters - JHipster will add getters and setters here
