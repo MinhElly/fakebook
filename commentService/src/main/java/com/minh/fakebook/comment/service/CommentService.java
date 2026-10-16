@@ -48,6 +48,8 @@ public class CommentService {
     private final PostCacheResolver postCacheResolver;
     private final CommentViewAuthorizationService authorization;
 
+    private final CommentHistoryService history;
+
     private final Outbox outbox;
     private final ApplicationEventPublisher eventPublisher;
 
@@ -58,8 +60,10 @@ public class CommentService {
             PostCacheResolver postCacheResolver,
             Outbox outbox,
             CommentViewAuthorizationService authorization,
-            ApplicationEventPublisher eventPublisher
+            ApplicationEventPublisher eventPublisher,
+            CommentHistoryService history
     ) {
+        this.history = history;
         this.commentRepository = commentRepository;
         this.commentMapper = commentMapper;
         this.userFeignClient = userFeignClient;
@@ -109,13 +113,22 @@ public class CommentService {
          public Optional<CommentDTO> updateComment(UUID commentId, String content, UUID authorId) {
             LOG.debug("Request to update Comment : {} by user {}", commentId, authorId);
 
-            return commentRepository.findById(commentId).map(comment -> {
+            return commentRepository.findByIdForUpdate(commentId).map(comment -> {
                 // Check ownership to prevent unauthorized updates
                 if (!comment.getAuthorId().equals(authorId) && !isAdmin()) {
                     throw new AccessDeniedException("You can only edit your own comments.");
                 }
+                if (CommentStatus.DELETED.equals(comment.getStatus())) {
+                    throw new BadRequestAlertException("Cannot edit a deleted comment", "comment", "commentdeleted");
+                }
+                if (java.util.Objects.equals(comment.getContent(), content)) return commentMapper.toDto(comment);
+                if (comment.getEditCount() == 0) history.record(comment, comment.getAuthorId(), comment.getCreatedAt());
+                Instant editedAt = Instant.now();
                 comment.setContent(content);
-                comment = commentRepository.save(comment);
+                comment.setEditedAt(editedAt);
+                comment.setEditCount(comment.getEditCount() + 1);
+                comment = commentRepository.saveAndFlush(comment);
+                history.record(comment, authorId, editedAt);
                 eventPublisher.publishEvent(new CommentSummaryChanged(comment.getPostId()));
                 publishCommentChangedEvent(comment.getPostId(), "UPDATED");
                 return commentMapper.toDto(comment);
@@ -215,7 +228,7 @@ public class CommentService {
     public void deleteComment(UUID commentId, UUID currentUserId, boolean isAdmin) {
         LOG.debug("Request to delete Comment : {} by user {}", commentId, currentUserId);
 
-        commentRepository.findById(commentId).ifPresent(comment -> {
+        commentRepository.findByIdForUpdate(commentId).ifPresent(comment -> {
             // Check ownership to prevent unauthorized deletes, but allow admins to bypass
             if (!comment.getAuthorId().equals(currentUserId) && !isAdmin) {
                 throw new AccessDeniedException(
@@ -260,6 +273,12 @@ public class CommentService {
             publishCommentChangedEvent(reply.getPostId(), "CREATED");
             return commentMapper.toDto(reply);
         }
+
+    @Transactional(readOnly = true)
+    public Optional<java.util.List<CommentHistoryService.Revision>> history(UUID id, Long before, int size) {
+        // Reuse the current read policy, including deleted-comment and post visibility checks.
+        return findOne(id).map(comment -> history.list(id, before, size));
+    }
 
     private void publishCommentChangedEvent(UUID postId, String action) {
         Instant occurredAt = Instant.now();

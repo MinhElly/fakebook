@@ -179,6 +179,15 @@ public class CommentResource {
      * @param id the id of the commentDTO to retrieve.
      * @return the {@link ResponseEntity} with status {@code 200 (OK)} and with body the commentDTO, or with status {@code 404 (Not Found)}.
      */
+    @GetMapping("/{id}/history")
+    public ResponseEntity<List<com.minh.fakebook.comment.service.CommentHistoryService.Revision>> history(
+        @PathVariable("id") UUID id,
+        @org.springframework.web.bind.annotation.RequestParam(required = false) Long before,
+        @org.springframework.web.bind.annotation.RequestParam(defaultValue = "20") int size
+    ) {
+        return ResponseUtil.wrapOrNotFound(commentService.history(id, before, size));
+    }
+
     @GetMapping("/{id}")
     public ResponseEntity<CommentDTO> getComment(@PathVariable("id") UUID id) {
         LOG.debug("REST request to get Comment : {}", id);

@@ -273,6 +273,133 @@ class CommentResourceIT {
             .andExpect(status().isNotFound());
     }
 
+    @Autowired
+    private com.minh.fakebook.comment.service.CommentService commentService;
+
+    @Autowired
+    private org.springframework.transaction.PlatformTransactionManager transactions;
+
+    @org.springframework.test.context.bean.override.mockito.MockitoBean
+    private com.minh.fakebook.comment.client.UserServiceClient userService;
+
+    private void editComment(UUID id, String text) throws Exception {
+        restCommentMockMvc.perform(put(ENTITY_API_URL + "/{id}", id)
+            .with(jwt().jwt(token -> token.subject(AUTHOR_ID.toString())))
+            .with(csrf()).contentType(MediaType.APPLICATION_JSON)
+            .content(objectMapper.writeValueAsBytes(new UpdateCommentRequestDTO(text))))
+            .andExpect(status().isOk());
+    }
+
+    @Test
+    @Transactional
+    void historyPreservesBaselineAndPaginatesActualEdits() throws Exception {
+        comment = commentRepository.saveAndFlush(comment);
+        editComment(comment.getId(), UPDATED_CONTENT);
+        editComment(comment.getId(), UPDATED_CONTENT);
+        editComment(comment.getId(), "Third content");
+        restCommentMockMvc.perform(get(ENTITY_API_URL + "/{id}", comment.getId()))
+            .andExpect(jsonPath("$.editCount").value(2)).andExpect(jsonPath("$.editedAt").isNotEmpty());
+        restCommentMockMvc.perform(get(ENTITY_API_URL + "/{id}/history?size=1", comment.getId()))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(1))
+            .andExpect(jsonPath("$[0].revision").value(2)).andExpect(jsonPath("$[0].content").value("Third content"));
+        restCommentMockMvc.perform(get(ENTITY_API_URL + "/{id}/history?before=2", comment.getId()))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(2))
+            .andExpect(jsonPath("$[0].content").value(UPDATED_CONTENT))
+            .andExpect(jsonPath("$[1].revision").value(0)).andExpect(jsonPath("$[1].content").value(DEFAULT_CONTENT));
+    }
+
+    @Test
+    @Transactional
+    void newCommentHasNoEditsAndMissingHistoryReturns404() throws Exception {
+        comment = commentRepository.saveAndFlush(comment);
+        restCommentMockMvc.perform(get(ENTITY_API_URL + "/{id}", comment.getId()))
+            .andExpect(jsonPath("$.editCount").value(0)).andExpect(jsonPath("$.editedAt").isEmpty());
+        restCommentMockMvc.perform(get(ENTITY_API_URL + "/{id}/history", comment.getId()))
+            .andExpect(status().isOk()).andExpect(jsonPath("$").isEmpty());
+        restCommentMockMvc.perform(get(ENTITY_API_URL + "/{id}/history", UUID.randomUUID()))
+            .andExpect(status().isNotFound());
+    }
+
+    @Test
+    @Transactional
+    void historyRechecksCurrentVisibilityAndDeletedPolicy() throws Exception {
+        comment = saveCommentForPublicPost(CommentStatus.ACTIVE);
+        editComment(comment.getId(), UPDATED_CONTENT);
+        UUID id = comment.getId();
+        restCommentMockMvc.perform(get(ENTITY_API_URL + "/{id}/history", id)
+            .with(jwt().jwt(token -> token.subject(OTHER_USER_ID.toString())))).andExpect(status().isOk());
+        var post = postCacheRepository.findById(comment.getPostId()).orElseThrow();
+        post.setVisibility("PRIVATE"); postCacheRepository.saveAndFlush(post);
+        restCommentMockMvc.perform(get(ENTITY_API_URL + "/{id}/history", id)
+            .with(jwt().jwt(token -> token.subject(OTHER_USER_ID.toString())))).andExpect(status().isForbidden());
+        post.setVisibility("FRIENDS"); postCacheRepository.saveAndFlush(post);
+        org.mockito.Mockito.when(userService.checkFriendship(OTHER_USER_ID, post.getAuthorId())).thenReturn(false);
+        restCommentMockMvc.perform(get(ENTITY_API_URL + "/{id}/history", id)
+            .with(jwt().jwt(token -> token.subject(OTHER_USER_ID.toString())))).andExpect(status().isForbidden());
+        org.mockito.Mockito.when(userService.checkFriendship(OTHER_USER_ID, post.getAuthorId())).thenReturn(true);
+        restCommentMockMvc.perform(get(ENTITY_API_URL + "/{id}/history", id)
+            .with(jwt().jwt(token -> token.subject(OTHER_USER_ID.toString())))).andExpect(status().isOk());
+        post.setVisibility("PUBLIC"); postCacheRepository.saveAndFlush(post);
+        comment.setStatus(CommentStatus.DELETED); commentRepository.saveAndFlush(comment);
+        restCommentMockMvc.perform(get(ENTITY_API_URL + "/{id}/history", id)
+            .with(jwt().jwt(token -> token.subject(OTHER_USER_ID.toString())))).andExpect(status().isForbidden());
+        restCommentMockMvc.perform(get(ENTITY_API_URL + "/{id}/history", id)
+            .with(jwt().jwt(token -> token.subject(AUTHOR_ID.toString())))).andExpect(status().isOk());
+        restCommentMockMvc.perform(put(ENTITY_API_URL + "/{id}", id)
+            .with(jwt().jwt(token -> token.subject(AUTHOR_ID.toString())))
+            .with(csrf()).contentType(MediaType.APPLICATION_JSON)
+            .content(objectMapper.writeValueAsBytes(new UpdateCommentRequestDTO("Cannot edit"))))
+            .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @Transactional
+    void replyAndAdminEditKeepEditorAndPreviewMetadata() throws Exception {
+        var parent = commentRepository.saveAndFlush(comment);
+        var reply = commentRepository.saveAndFlush(new Comment().postId(POST_ID).authorId(AUTHOR_ID)
+            .parentComment(parent).content("Reply").status(CommentStatus.ACTIVE));
+        editComment(reply.getId(), "Edited reply");
+        restCommentMockMvc.perform(put(ENTITY_API_URL + "/{id}", parent.getId())
+            .with(jwt().jwt(token -> token.subject(OTHER_USER_ID.toString()))
+                .authorities(new org.springframework.security.core.authority.SimpleGrantedAuthority(AuthoritiesConstants.ADMIN)))
+            .with(csrf()).contentType(MediaType.APPLICATION_JSON)
+            .content(objectMapper.writeValueAsBytes(new UpdateCommentRequestDTO(UPDATED_CONTENT))))
+            .andExpect(status().isOk());
+        restCommentMockMvc.perform(get(ENTITY_API_URL + "/{id}/history", parent.getId()))
+            .andExpect(jsonPath("$[0].editorId").value(OTHER_USER_ID.toString()));
+        restCommentMockMvc.perform(post(ENTITY_API_URL + "/summaries").with(csrf())
+            .contentType(MediaType.APPLICATION_JSON).content("{\"postIds\":[\"" + POST_ID + "\"]}"))
+            .andExpect(status().isOk()).andExpect(jsonPath("$[0].previewComment.editCount").value(1))
+            .andExpect(jsonPath("$[0].previewComment.editedAt").isNotEmpty());
+    }
+
+    @Test
+    void concurrentEditsAndRollbackPreserveHistory() throws Exception {
+        var tx = new org.springframework.transaction.support.TransactionTemplate(transactions);
+        UUID id = tx.execute(t -> commentRepository.saveAndFlush(comment).getId());
+        var pool = java.util.concurrent.Executors.newFixedThreadPool(2);
+        try {
+            var start = new java.util.concurrent.CountDownLatch(1);
+            java.util.List<java.util.concurrent.Future<?>> edits = new java.util.ArrayList<>();
+            for (String text : java.util.List.of("Concurrent A", "Concurrent B")) {
+                edits.add(pool.submit(() -> { start.await(); commentService.updateComment(id, text, AUTHOR_ID); return null; }));
+            }
+            start.countDown();
+            for (var edit : edits) edit.get(30, java.util.concurrent.TimeUnit.SECONDS);
+            assertThat(commentRepository.findById(id).orElseThrow().getEditCount()).isEqualTo(2);
+            assertThat(fixtureJdbc.queryForObject("SELECT COUNT(*) FROM comment_revision WHERE comment_id = ?", Long.class, id.toString())).isEqualTo(3);
+            org.junit.jupiter.api.Assertions.assertThrows(IllegalStateException.class, () -> tx.execute(t -> {
+                commentService.updateComment(id, "Rolled back", AUTHOR_ID);
+                throw new IllegalStateException("Abort transaction");
+            }));
+            assertThat(commentRepository.findById(id).orElseThrow().getEditCount()).isEqualTo(2);
+            assertThat(fixtureJdbc.queryForObject("SELECT COUNT(*) FROM comment_revision WHERE comment_id = ?", Long.class, id.toString())).isEqualTo(3);
+        } finally {
+            pool.shutdownNow();
+            tx.executeWithoutResult(t -> commentRepository.deleteById(id));
+        }
+    }
+
     @Test
     @Transactional
     void deleteOwnCommentSoftDeletesIt() throws Exception {

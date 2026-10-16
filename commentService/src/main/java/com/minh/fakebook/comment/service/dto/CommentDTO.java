@@ -29,6 +29,15 @@ public class CommentDTO implements Serializable {
 
     private CommentDTO parentComment;
 
+    private java.time.Instant editedAt;
+
+    private long editCount;
+
+    public java.time.Instant getEditedAt() { return editedAt; }
+    public void setEditedAt(java.time.Instant editedAt) { this.editedAt = editedAt; }
+    public long getEditCount() { return editCount; }
+    public void setEditCount(long editCount) { this.editCount = editCount; }
+
     private java.time.Instant createdAt;
 
     public java.time.Instant getCreatedAt() {

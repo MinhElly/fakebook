@@ -209,7 +209,9 @@ class CommentSummaryCacheIT {
                 .content(requestBody)
         )
             .andExpect(status().isOk())
-            .andExpect(jsonPath("$[0].previewComment.content").value("Edited content"));
+            .andExpect(jsonPath("$[0].previewComment.content").value("Edited content"))
+            .andExpect(jsonPath("$[0].previewComment.editCount").value(1))
+            .andExpect(jsonPath("$[0].previewComment.editedAt").isNotEmpty());
     }
 
     @Test

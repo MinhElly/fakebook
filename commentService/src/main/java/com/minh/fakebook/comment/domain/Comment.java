@@ -64,6 +64,17 @@ public class Comment implements Serializable {
         this.createdAt = createdAt;
     }
 
+    @Column(name = "edited_at")
+    private java.time.Instant editedAt;
+
+    @Column(name = "edit_count", nullable = false)
+    private long editCount;
+
+    public java.time.Instant getEditedAt() { return editedAt; }
+    public void setEditedAt(java.time.Instant editedAt) { this.editedAt = editedAt; }
+    public long getEditCount() { return editCount; }
+    public void setEditCount(long editCount) { this.editCount = editCount; }
+
     // jhipster-needle-entity-add-field - JHipster will add fields here
 
     public UUID getId() {
