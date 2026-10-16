@@ -1,3 +1,7 @@
+import CommentHistory from "@/components/feed/CommentHistory";
+import { CommentSkeleton } from "@/components/ui/Skeleton";
+import LoadError from "@/components/ui/LoadError";
+import { useAuth } from "@/providers/AuthProvider";
 import MediaImage from "@/components/feed/MediaImage";
 import { useState, useRef, useEffect } from "react";
 import { Link } from "react-router";
@@ -32,6 +36,11 @@ function CommentItem({ comment, postId, depth = 0, previewAuthorId }: CommentIte
   const { updateComment, deleteComment, toggleLike, getReplies, createComment } = useCommentStore();
   const { profile } = useUserStore();
 
+  const { user: account } = useAuth();
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [pendingAction, setPendingAction] = useState(false);
+  const actionLock = useRef(false);
+  const [actionError, setActionError] = useState("");
   const [editing, setEditing] = useState(false);
   const [editText, setEditText] = useState(comment.content);
   const [showReplyBox, setShowReplyBox] = useState(false);
@@ -79,7 +88,7 @@ function CommentItem({ comment, postId, depth = 0, previewAuthorId }: CommentIte
   useOutsideClick(menuRef, () => setShowMenu(false));
 
   const replies = getReplies(comment.id).filter(reply => !previewAuthorId || reply.authorId === previewAuthorId);
-  const isOwn = comment.user === profile.name;
+  const isOwn = comment.authorId === account?.id;
 
   useEffect(() => {
     if (editing) editRef.current?.focus();
@@ -89,18 +98,26 @@ function CommentItem({ comment, postId, depth = 0, previewAuthorId }: CommentIte
     if (showReplyBox) replyRef.current?.focus();
   }, [showReplyBox]);
 
+  async function runAction(action: () => Promise<boolean>, done: () => void) {
+    if (actionLock.current) return;
+    actionLock.current = true; setPendingAction(true); setActionError("");
+    try {
+      if (await action()) done();
+      else setActionError("Không thể hoàn tất thao tác. Vui lòng thử lại.");
+    } catch { setActionError("Không thể hoàn tất thao tác. Vui lòng thử lại."); }
+    finally { actionLock.current = false; setPendingAction(false); }
+  }
+
   function handleSaveEdit() {
     if (!editText.trim()) return;
-    updateComment(comment.id, editText);
-    setEditing(false);
+    void runAction(() => updateComment(comment.id, editText), () => setEditing(false));
   }
 
   function handleReply() {
     if (!replyText.trim()) return;
-    createComment(postId, replyText, comment.id);
-    setReplyText("");
-    setShowReplyBox(false);
-    setShowReplies(true);
+    void runAction(async () => !!(await createComment(postId, replyText, comment.id)), () => {
+      setReplyText(""); setShowReplyBox(false); setShowReplies(true);
+    });
   }
 
   return (
@@ -126,6 +143,7 @@ function CommentItem({ comment, postId, depth = 0, previewAuthorId }: CommentIte
             <p className="font-semibold text-[#1C1E21] text-xs mb-1">{comment.user}</p>
             <textarea
               ref={editRef}
+              disabled={pendingAction}
               value={editText}
               onChange={(e) => setEditText(e.target.value)}
               className="w-full bg-transparent outline-none text-sm text-[#1C1E21] resize-none leading-snug"
@@ -136,7 +154,7 @@ function CommentItem({ comment, postId, depth = 0, previewAuthorId }: CommentIte
               }}
             />
             <div className="flex gap-2 mt-1">
-              <button onClick={handleSaveEdit} className="text-xs text-[#1877F2] font-semibold hover:underline">Lưu</button>
+              <button disabled={pendingAction} onClick={handleSaveEdit} className="text-xs text-[#1877F2] font-semibold hover:underline">{pendingAction ? "Đang lưu…" : "Lưu"}</button>
               <span className="text-xs text-[#65676B]">·</span>
               <button onClick={() => { setEditing(false); setEditText(comment.content); }} className="text-xs text-[#65676B] hover:underline">Hủy</button>
             </div>
@@ -165,6 +183,7 @@ function CommentItem({ comment, postId, depth = 0, previewAuthorId }: CommentIte
             {isOwn && (
               <div ref={menuRef} className="relative self-center opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
                 <button
+                  aria-label={`Tùy chọn bình luận của ${comment.user}`}
                   onClick={() => setShowMenu(p => !p)}
                   className="w-7 h-7 rounded-full hover:bg-[#E4E6EB] flex items-center justify-center text-[#65676B] transition-colors"
                 >
@@ -173,18 +192,19 @@ function CommentItem({ comment, postId, depth = 0, previewAuthorId }: CommentIte
                 {showMenu && (
                   <div className="absolute left-full top-0 ml-1 bg-white rounded-xl shadow-xl border border-[#E4E6EB] w-44 z-20 py-1 overflow-hidden">
                     <button
-                      onClick={() => { setEditing(true); setShowMenu(false); }}
+                      onClick={() => { setEditText(comment.content); setActionError(""); setEditing(true); setShowMenu(false); }}
                       className="flex items-center gap-2 w-full px-3 py-2 hover:bg-[#F0F2F5] text-sm text-[#1C1E21] font-medium transition-colors"
                     >
                       <svg className="w-4 h-4 text-[#65676B]" fill="currentColor" viewBox="0 0 20 20"><path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z"/></svg>
                       Chỉnh sửa
                     </button>
                     <button
-                      onClick={() => { deleteComment(comment.id); setShowMenu(false); }}
+                      disabled={pendingAction}
+                      onClick={() => void runAction(() => deleteComment(comment.id), () => setShowMenu(false))}
                       className="flex items-center gap-2 w-full px-3 py-2 hover:bg-[#F0F2F5] text-sm text-red-600 font-medium transition-colors"
                     >
                       <svg className="w-4 h-4 text-red-500" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd"/></svg>
-                      Xóa
+                      {pendingAction ? "Đang xóa…" : "Xóa"}
                     </button>
                   </div>
                 )}
@@ -195,7 +215,7 @@ function CommentItem({ comment, postId, depth = 0, previewAuthorId }: CommentIte
 
         {/* Meta actions */}
         {!editing && (
-          <div className="flex items-center gap-3 mt-0.5 ml-2 relative">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-0.5 ml-2 relative">
             {/* Reaction button with mini picker */}
             <div
               className="relative flex items-center"
@@ -240,9 +260,13 @@ function CommentItem({ comment, postId, depth = 0, previewAuthorId }: CommentIte
               </button>
             )}
             <span className="text-xs text-[#65676B]">{comment.time}</span>
+            {comment.editedAt && <button type="button" onClick={() => setHistoryOpen(true)} className="text-xs text-[#65676B] hover:underline focus-visible:outline-2">(đã chỉnh sửa)</button>}
           </div>
         )}
 
+        {actionError && <p role="alert" className="mt-2 text-xs text-[#B42318]">{actionError}</p>}
+        {pendingAction && showReplyBox && <p role="status" className="text-xs text-[#65676B]">Đang gửi phản hồi…</p>}
+        {historyOpen && <CommentHistory id={comment.id} onClose={() => setHistoryOpen(false)} />}
         {/* View replies toggle */}
         {depth === 0 && replies.length > 0 && !previewAuthorId && (
           <button
@@ -266,6 +290,7 @@ function CommentItem({ comment, postId, depth = 0, previewAuthorId }: CommentIte
             <div className="flex-1 flex items-center bg-[#F0F2F5] rounded-full px-3 h-8 gap-2">
               <input
                 ref={replyRef}
+                disabled={pendingAction}
                 value={replyText}
                 onChange={(e) => setReplyText(e.target.value)}
                 placeholder={`Phản hồi ${comment.user}...`}
@@ -322,8 +347,12 @@ interface CommentSectionProps {
 }
 
 export default function CommentSection({ postId, initialVisible = false, isModal = false, previewAuthorId, autoFocusInput = true }: CommentSectionProps) {
-  const { getPostComments, createComment, fetchComments } = useCommentStore();
+  const { getPostComments, createComment, fetchComments, fetchedPosts, loadingPosts, errors } = useCommentStore();
+  const [submitting, setSubmitting] = useState(false);
+  const submitLock = useRef(false);
+  const [submitError, setSubmitError] = useState("");
   const { profile } = useUserStore();
+  const { user: account } = useAuth();
 
   const [text, setText] = useState("");
   const [visible, setVisible] = useState(initialVisible);
@@ -421,18 +450,15 @@ export default function CommentSection({ postId, initialVisible = false, isModal
   };
 
   async function handleSubmit() {
-    if (!text.trim()) return;
-    const tempText = text;
-    setText("");
-    
-    const newId = await createComment(postId, tempText, null);
-    
-    setVisible(true);
-    setShowAll(true);
-    
-    if (newId && !isModal) {
-      setLocalCommentIds(prev => new Set(prev).add(newId));
-    }
+    if (!text.trim() || submitLock.current) return;
+    submitLock.current = true; setSubmitting(true); setSubmitError("");
+    try {
+      const newId = await createComment(postId, text, null);
+      if (!newId) { setSubmitError("Không gửi được bình luận. Vui lòng thử lại."); return; }
+      setText(""); setVisible(true); setShowAll(true);
+      if (!isModal) setLocalCommentIds(prev => new Set(prev).add(newId));
+    } catch { setSubmitError("Không gửi được bình luận. Vui lòng thử lại."); }
+    finally { submitLock.current = false; setSubmitting(false); }
   }
 
   function focusInput() {
@@ -482,6 +508,13 @@ export default function CommentSection({ postId, initialVisible = false, isModal
         </div>
       )}
 
+      {visible && (isModal || previewAuthorId) && <div aria-busy={loadingPosts.has(postId)}>
+        {!fetchedPosts.has(postId) && !errors[postId] && <CommentSkeleton />}
+        {errors[postId] && <LoadError message={errors[postId]} onRetry={() => void fetchComments(postId, true)} />}
+        {fetchedPosts.has(postId) && !errors[postId] && topComments.length === 0 && <p className="px-4 py-3 text-sm text-[#65676B]">Chưa có bình luận.</p>}
+      </div>}
+      {submitError && <p role="alert" className="px-4 py-2 text-sm text-[#B42318]">{submitError}</p>}
+      {submitting && <p role="status" className="px-4 text-xs text-[#65676B]">Đang gửi bình luận…</p>}
       {/* Comments list */}
       {visible && displayed.length > 0 && (
         <div className="px-4 pb-2">
@@ -513,6 +546,7 @@ export default function CommentSection({ postId, initialVisible = false, isModal
         <div className="flex-1 flex items-center bg-[#F0F2F5] hover:bg-[#E4E6EB] rounded-full px-4 h-9 gap-2 transition-colors">
           <input
             ref={inputRef}
+            disabled={submitting}
             value={text}
             onChange={(e) => setText(e.target.value)}
             onClick={() => setVisible(true)}
@@ -543,7 +577,7 @@ export default function CommentSection({ postId, initialVisible = false, isModal
               </div>
             )}
             {text && (
-              <button onClick={handleSubmit} className="text-[#1877F2]">
+              <button disabled={submitting} onClick={handleSubmit} className="text-[#1877F2]">
                 <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z"/></svg>
               </button>
             )}

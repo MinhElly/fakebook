@@ -2,6 +2,10 @@ import { createContext, useContext } from "react";
 import type { FriendUser, FriendStatus } from "@/types";
 
 export interface FriendState {
+  loading: boolean;
+  loadError: string | null;
+  retry: () => void;
+  pendingUsers: Set<string>;
   friends: FriendUser[];
   following: FriendUser[];
   pendingReceived: FriendUser[];
@@ -18,6 +22,7 @@ export interface FriendState {
 }
 
 export const FriendContext = createContext<FriendState>({
+  loading: true, loadError: null, retry: () => {}, pendingUsers: new Set(),
   friends: [],
   following: [],
   pendingReceived: [],

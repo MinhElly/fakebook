@@ -1,9 +1,15 @@
+import { PostSkeleton, UserRowsSkeleton, Skeleton } from "@/components/ui/Skeleton";
+import LoadError from "@/components/ui/LoadError";
 import MediaImage from "@/components/feed/MediaImage";
 import { useState } from "react";
 import { useNavigate } from "react-router";
 import Post from "@/components/feed/Post";
 import PostCreator from "@/components/feed/PostCreator";
 import type { Post as PostType, FriendUser } from "@/types";
+import { usePresence } from "@/providers/PresenceProvider";
+import PresenceBadge from "@/components/ui/PresenceBadge";
+import PresenceText from "@/components/ui/PresenceText";
+import PresenceIndicator from "@/components/ui/PresenceIndicator";
 
 export interface ProfileUser {
   name: string;
@@ -17,6 +23,7 @@ export interface ProfileUser {
 }
 
 interface Props {
+  presenceUserId?: string;
   user: ProfileUser;
   isOwn: boolean;
   posts: PostType[];
@@ -26,6 +33,11 @@ interface Props {
   actionButtons: React.ReactNode;
   onEditCover?: () => void;
   onEditAvatar?: () => void;
+  mutualLoading?: boolean;
+  mutualError?: string | null;
+  friendsLoading?: boolean;
+  friendsError?: string | null;
+  retryFriends?: () => void;
   loading?: boolean;
   hasMore?: boolean;
   feedError?: string | null;
@@ -37,7 +49,8 @@ const TABS_OTHER = ["Dòng thời gian", "Giới thiệu", "Bạn bè", "Ảnh",
 
 export default function ProfileLayout({
   user, isOwn, posts, friends = [], mutualFriends = [], mutualCount = 0,
-  actionButtons, onEditCover, onEditAvatar, loading = false, hasMore = false, feedError, retryFeed
+  mutualLoading = false, mutualError, friendsLoading = false, friendsError, retryFriends,
+  actionButtons, onEditCover, onEditAvatar, loading = false, hasMore = false, feedError, retryFeed, presenceUserId
 }: Props) {
   const navigate = useNavigate();
   const TABS = isOwn ? TABS_OWN : TABS_OTHER;
@@ -70,6 +83,7 @@ export default function ProfileLayout({
   );
 
   const friendList = isOwn ? friends : mutualFriends;
+  const presence = usePresence(presenceUserId);
 
   return (
     <div className="min-h-screen bg-[#F0F2F5]">
@@ -112,13 +126,16 @@ export default function ProfileLayout({
 
             {/* Name + stats */}
             <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-[#1C1E21] leading-tight">{user.name}</h1>
+            {presenceUserId && <div className="relative mt-1 pl-4"><span className="absolute left-0 top-1 h-3 w-3"><PresenceBadge status={presence.status} /></span><PresenceText presence={presence} /></div>}
             {user.bio && <p className="text-[#65676B] text-sm mt-0.5">{user.bio}</p>}
             <p className="text-[#65676B] text-sm mt-0.5 font-medium">
-              {isOwn
+              {friendsLoading && friends.length === 0 ? <Skeleton className="mt-2 h-3 w-40" /> : friendsError && friends.length === 0 ? "Chưa tải được danh sách bạn bè" : isOwn
                 ? `${friends.length} người bạn`
-                : `${friends.length} người bạn · ${mutualCount} bạn chung`}
+                : `${friends.length} người bạn${mutualLoading ? "" : ` · ${mutualCount} bạn chung`}`}
             </p>
 
+            {!isOwn && mutualLoading && <UserRowsSkeleton count={1} label="Đang tải bạn chung" />}
+            {!isOwn && mutualError && <LoadError message={mutualError} onRetry={retryFriends || (() => {})} />}
             {/* Mutual friends avatars preview (others only) */}
             {!isOwn && mutualFriends.length > 0 && (
               <div className="flex items-center gap-1 mt-2">
@@ -195,7 +212,8 @@ export default function ProfileLayout({
                   </button>
                 </div>
 
-                {friends.length === 0 ? (
+                {friendsError && friends.length > 0 && <LoadError message={friendsError} onRetry={retryFriends || (() => {})} />}
+                {friendsLoading && friends.length === 0 ? <UserRowsSkeleton /> : friendsError && friends.length === 0 ? <LoadError message={friendsError} onRetry={retryFriends || (() => {})} /> : friends.length === 0 ? (
                   <p className="py-4 text-center text-xs text-[#65676B]">Chưa có bạn bè nào để hiển thị.</p>
                 ) : (
                   <div className="grid grid-cols-3 gap-2">
@@ -219,6 +237,7 @@ export default function ProfileLayout({
                         <p className="text-xs font-medium text-[#1C1E21] mt-1 leading-tight truncate group-hover:underline">
                           {f.name}
                         </p>
+                        <PresenceIndicator userId={String(f.id)} hideUnknown />
                       </div>
                     ))}
                   </div>
@@ -259,7 +278,7 @@ export default function ProfileLayout({
             <div className="flex-1 space-y-3 min-w-0">
               {isOwn && <PostCreator />}
               {feedError && <p role="alert" className="rounded-xl bg-white p-4">{feedError} <button onClick={retryFeed} className="text-blue-600">Thử lại</button></p>}
-              {posts.length === 0
+              {posts.length === 0 && !loading && !feedError
                 ? <div className="bg-white rounded-xl shadow-sm border border-[#E4E6EB] p-8 text-center text-[#65676B]">
                   <div className="flex justify-center mb-4"><svg className="w-16 h-16 text-[#65676B]" fill="currentColor" viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-2h2v2zm0-4H7v-2h2v2zm0-4H7V7h2v2zm6 8h-4v-2h4v2zm0-4h-4v-2h4v2zm0-4h-4V7h4v2z"/></svg></div>
                     <p className="font-semibold text-base text-[#1C1E21]">Chưa có bài viết nào</p>
@@ -274,9 +293,7 @@ export default function ProfileLayout({
 
               {/* Hiển thị vòng xoay đang tải hoặc thông báo hết bài */}
               {loading && (
-                <div className="text-center py-6 text-[#65676B] font-semibold text-sm">
-                  Đang tải thêm bài viết...
-                </div>
+                <PostSkeleton count={posts.length ? 1 : 2} />
               )}
               {!hasMore && posts.length > 0 && (
                 <div className="text-center py-6 text-[#65676B] text-sm">
@@ -484,7 +501,7 @@ export default function ProfileLayout({
 
             {/* Grid of friends */}
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-              {filteredFriends.length === 0 ? (
+              {(friendsLoading || (friendTab === "mutual" && mutualLoading)) && displayFriendsList.length === 0 ? <div className="col-span-full"><UserRowsSkeleton /></div> : friendsError && friends.length === 0 ? <div className="col-span-full"><LoadError message={friendsError} onRetry={retryFriends || (() => {})} /></div> : filteredFriends.length === 0 ? (
                 <div className="col-span-full py-12 text-center">
                   <div className="flex justify-center mb-4"><svg className="w-16 h-16 text-[#65676B]" fill="currentColor" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg></div>
                   <p className="text-[#65676B] font-medium">
@@ -513,6 +530,7 @@ export default function ProfileLayout({
                     </div>
                     <div className="p-3">
                       <p className="font-bold text-sm text-[#1C1E21] group-hover:underline leading-tight truncate">{f.name}</p>
+                      <PresenceIndicator userId={String(f.id)} hideUnknown />
                       {f.mutualFriends > 0 ? (
                         <p className="text-xs text-[#65676B] mt-0.5">{f.mutualFriends} bạn chung</p>
                       ) : (

@@ -11,7 +11,7 @@ import { useRealtime } from "@/providers/RealtimeProvider";
 
 export default function PostProvider({ children }: { children: React.ReactNode }) {
   const [posts, setPosts] = useState<Post[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [hasMore, setHasMore] = useState(true);
   const [isUploading, setIsUploading] = useState(false);
   const [pendingPost, setPendingPost] = useState<any>(null);

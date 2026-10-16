@@ -13,7 +13,7 @@ export default function useProfilePosts(userId?: string) {
 
   const [posts, setPosts] = useState<Post[]>([])
 
-  const [loading, setLoading] = useState(false)
+  const [loading, setLoading] = useState(true)
 
   const [hasMore, setHasMore] = useState(true)
 
@@ -75,6 +75,7 @@ export default function useProfilePosts(userId?: string) {
     setPosts([])
     setHasMore(true)
     void load(true)
+    return () => { generation.current++; pending.current = false }
   }, [load])
 
   useEffect(() => {

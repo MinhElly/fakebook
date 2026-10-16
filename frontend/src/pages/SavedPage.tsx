@@ -1,3 +1,5 @@
+import { PostSkeleton } from "@/components/ui/Skeleton";
+import LoadError from "@/components/ui/LoadError";
 import { useEffect, useState } from "react";
 import LeftSidebar from "@/components/sidebar/LeftSidebar";
 import RightSidebar from "@/components/sidebar/RightSidebar";
@@ -10,28 +12,32 @@ import { hydratePosts } from "@/utils/postHydration";
 export default function SavedPage() {
   const [savedPosts, setSavedPosts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const { status } = useAuth();
+  const { status, user } = useAuth();
+  const [error, setError] = useState(false);
+  const [retry, setRetry] = useState(0);
 
   useEffect(() => {
-    if (status !== "authenticated") return;
+    let active = true;
+    if (status !== "authenticated") { setSavedPosts([]); return; }
 
     const fetchSaved = async () => {
       try {
-        setLoading(true);
+        setLoading(true); setError(false);
         const res = await api.get("/services/postservice/api/posts/saved");
         const postsData = res.data || [];
 
         const hydrated = await hydratePosts(postsData);
-        setSavedPosts(hydrated);
+        if (active) setSavedPosts(hydrated);
       } catch (error) {
-        console.error("Lỗi khi tải bài viết đã lưu:", error);
+        if (active) setError(true);
       } finally {
-        setLoading(false);
+        if (active) setLoading(false);
       }
     };
 
     fetchSaved();
-  }, [status]);
+    return () => { active = false; };
+  }, [status, user?.id, retry]);
 
   return (
     <div className="flex bg-[#F0F2F5] min-h-screen">
@@ -45,15 +51,12 @@ export default function SavedPage() {
         <section className="rounded-xl bg-transparent mt-4 mb-4">
           <h1 className="text-2xl font-bold mb-4 px-2">Bài viết đã lưu</h1>
           
-          {loading ? (
-            <div className="text-center py-6 text-[#65676B] font-semibold text-sm">
-              Đang tải...
-            </div>
-          ) : savedPosts.length > 0 ? (
+          {error && <LoadError message="Không tải được bài viết đã lưu." onRetry={() => setRetry(n => n + 1)} />}
+          {loading && savedPosts.length === 0 ? <PostSkeleton /> : savedPosts.length > 0 ? (
             savedPosts.map((post) => (
               <Post key={post.id} post={post} />
             ))
-          ) : (
+          ) : !error && !loading && (
             <div className="bg-white rounded-xl border border-[#E4E6EB] p-4">
               <FeatureEmptyState 
                 title="Chưa có bài viết nào được lưu" 

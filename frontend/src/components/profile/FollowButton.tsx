@@ -1,3 +1,5 @@
+import Skeleton from "@/components/ui/Skeleton";
+import LoadError from "@/components/ui/LoadError";
 import { useState } from "react";
 import { useFriendStore } from "@/stores/friendStore";
 import type { FriendUser } from "@/types";
@@ -8,7 +10,7 @@ interface Props {
 }
 
 export default function FollowButton({ user, size = "md" }: Props) {
-  const { isFollowing, follow, unfollow } = useFriendStore();
+  const { loading: initialLoading, loadError, retry, pendingUsers, isFollowing, follow, unfollow } = useFriendStore();
   const following = isFollowing(user.id);
   const [loading, setLoading] = useState(false);
   const pad = size === "sm" ? "px-3 py-1.5 text-xs" : "px-4 py-2 text-sm";
@@ -29,10 +31,13 @@ export default function FollowButton({ user, size = "md" }: Props) {
     }
   };
 
+  if (initialLoading) return <span role="status" aria-label="Đang tải trạng thái theo dõi"><Skeleton className="h-9 w-28" /></span>;
+  if (loadError) return <LoadError message={loadError} onRetry={retry} />;
+
   return (
     <button
       onClick={handleToggleFollow}
-      disabled={loading}
+      disabled={loading || pendingUsers.has(String(user.id))}
       className={`flex items-center gap-1.5 font-semibold rounded-lg transition-colors ${pad} ${
         following
           ? "bg-[#E4E6EB] hover:bg-[#D8DADF] text-[#1C1E21]"

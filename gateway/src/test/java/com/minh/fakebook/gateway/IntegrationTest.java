@@ -2,18 +2,23 @@ package com.minh.fakebook.gateway;
 
 import com.minh.fakebook.gateway.config.AsyncSyncConfiguration;
 import com.minh.fakebook.gateway.config.DatabaseTestcontainer;
+import com.minh.fakebook.gateway.config.RedisTestContainer;
 import com.minh.fakebook.gateway.config.TestSecurityConfiguration;
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.context.ContextConfiguration;
 
 /**
  * Base composite annotation for integration tests.
  */
 @Target(ElementType.TYPE)
 @Retention(RetentionPolicy.RUNTIME)
+@ContextConfiguration(initializers = RedisTestContainer.class)
+@ExtendWith(RedisTestContainer.class)
 @SpringBootTest(classes = { GatewayApp.class, AsyncSyncConfiguration.class, TestSecurityConfiguration.class, DatabaseTestcontainer.class })
 public @interface IntegrationTest {
     // 5s is Spring's default https://github.com/spring-projects/spring-framework/blob/main/spring-test/src/main/java/org/springframework/test/web/reactive/server/DefaultWebTestClient.java#L106

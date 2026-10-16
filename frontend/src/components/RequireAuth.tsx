@@ -1,3 +1,4 @@
+import { AppSkeleton } from "@/components/ui/Skeleton";
 import type { ReactNode } from "react"
 
 import { useEffect, useRef } from "react"
@@ -23,5 +24,5 @@ export default function RequireAuth({ children }: { children: ReactNode }) {
     </div>
   )
 
-  return status === "authenticated" ? children : null
+  return status === "authenticated" ? children : <AppSkeleton />
 }

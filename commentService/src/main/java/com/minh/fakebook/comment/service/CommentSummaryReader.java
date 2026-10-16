@@ -69,6 +69,6 @@ public class CommentSummaryReader {
         if (comment == null) {
             return null;
         }
-        return new CommentPreviewDTO(comment.getId(), comment.getAuthorId(), comment.getContent(), comment.getCreatedAt());
+        return new CommentPreviewDTO(comment.getId(), comment.getAuthorId(), comment.getContent(), comment.getCreatedAt(), comment.getEditedAt(), comment.getEditCount());
     }
 }

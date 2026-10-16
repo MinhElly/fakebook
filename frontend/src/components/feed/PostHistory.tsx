@@ -1,3 +1,4 @@
+import { HistorySkeleton } from "@/components/ui/Skeleton";
 import { useEffect, useRef, useState } from "react"
 
 import api from "@/services/apis"
@@ -43,13 +44,18 @@ export default function PostHistory({
 
   const [rows, setRows] = useState<Revision[]>([])
 
-  const [loading, setLoading] = useState(false)
+  const [loading, setLoading] = useState(true)
 
   const [error, setError] = useState(false)
 
+  const generation = useRef(0)
+  const pending = useRef(false)
   const [more, setMore] = useState(true)
 
   async function load(before?: number) {
+    if (pending.current) return
+    pending.current = true
+    const request = generation.current
     setLoading(true)
     setError(false)
 
@@ -59,20 +65,23 @@ export default function PostHistory({
         { params: { before, size: 20 } },
       )
 
+      if (request !== generation.current) return
       setRows((previous) =>
         before === undefined ? data : [...previous, ...data],
       )
       setMore(data.length === 20)
     } catch {
-      setError(true)
+      if (request === generation.current) setError(true)
     } finally {
-      setLoading(false)
+      if (request === generation.current) { pending.current = false; setLoading(false) }
     }
   }
 
   useEffect(() => {
     dialog.current?.showModal()
+    generation.current++; pending.current = false; setRows([])
     void load()
+    return () => { generation.current++; pending.current = false }
   }, [id])
 
   return (
@@ -116,7 +125,7 @@ export default function PostHistory({
       {!loading && !error && rows.length === 0 && (
         <p>Bài viết chưa có lịch sử chỉnh sửa được ghi nhận.</p>
       )}
-      {loading && <p role="status">Đang tải lịch sử…</p>}
+      {loading && <HistorySkeleton />}
       {error && (
         <p role="alert">
           Không tải được lịch sử.{" "}

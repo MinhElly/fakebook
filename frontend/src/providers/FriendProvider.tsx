@@ -1,5 +1,6 @@
+import Toast from "@/components/ui/Toast";
 import useRequireLogin from "@/hooks/useRequireLogin";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { FriendContext } from "@/stores/friendStore";
 import type { FriendUser, FriendStatus } from "@/types";
 import {
@@ -24,6 +25,19 @@ import { resolveApiUrl } from "@/config/runtime-config";
 
 export default function FriendProvider({ children }: { children: React.ReactNode }) {
   const { status } = useAuth();
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [pendingUsers, setPendingUsers] = useState<Set<string>>(new Set());
+  const pending = useRef(new Set<string>());
+  const generation = useRef(0);
+  async function withPending(id: string | number, action: () => Promise<void>) {
+    const key = String(id);
+    if (pending.current.has(key)) return;
+    pending.current.add(key); setPendingUsers(new Set(pending.current)); setActionError(null);
+    try { await action(); }
+    finally { pending.current.delete(key); setPendingUsers(new Set(pending.current)); }
+  }
   const requireLogin = useRequireLogin();
   const [friends, setFriends] = useState<FriendUser[]>([]);
   const [following, setFollowing] = useState<FriendUser[]>([]);
@@ -32,14 +46,17 @@ export default function FriendProvider({ children }: { children: React.ReactNode
 
   // Tải dữ liệu bạn bè & follow ban đầu từ Backend
   const loadInitialData = useCallback(async () => {
+    const active = ++generation.current;
+    setLoading(true); setLoadError(null);
     try {
       const [friendsRes, followingRes, receivedRes, sentRes] = await Promise.all([
-        getMyFriends().catch(() => []),
-        getMyFollowingList().catch(() => []),
-        getFriendRequests().catch(() => []),
-        getSentFriendRequests().catch(() => []),
+        getMyFriends(),
+        getMyFollowingList(),
+        getFriendRequests(),
+        getSentFriendRequests(),
       ]);
 
+      if (active !== generation.current) return;
       // Map bạn bè
       const mappedFriends: FriendUser[] = friendsRes.map((item) => {
         const friendObj = item.friend || item.user;
@@ -95,13 +112,14 @@ export default function FriendProvider({ children }: { children: React.ReactNode
       const sentIds = sentRes.map((item) => item.receiver?.id || item.id);
       setPendingSent(sentIds);
     } catch (err) {
-      console.error("Lỗi khi tải dữ liệu FriendProvider:", err);
-    }
+      if (active === generation.current) setLoadError("Không tải được trạng thái bạn bè và theo dõi.");
+    } finally { if (active === generation.current) setLoading(false); }
   }, []);
 
   useEffect(() => {
     if (status !== "authenticated") return;
-    loadInitialData();
+    void loadInitialData();
+    return () => { generation.current++; };
   }, [status, loadInitialData]);
 
   function getStatus(userId: string | number): FriendStatus {
@@ -124,6 +142,7 @@ export default function FriendProvider({ children }: { children: React.ReactNode
       setPendingSent((prev) => [...prev, user.id]);
       await sendFriendRequest(idStr);
     } catch (err) {
+      setActionError("Thao tác chưa thành công. Vui lòng thử lại.");
       console.error("Lỗi khi gửi lời mời kết bạn:", err);
       setPendingSent((prev) => prev.filter((id) => String(id) !== String(user.id)));
     }
@@ -136,6 +155,7 @@ export default function FriendProvider({ children }: { children: React.ReactNode
       setPendingSent((prev) => prev.filter((id) => String(id) !== idStr));
       await cancelFriendRequest(idStr);
     } catch (err) {
+      setActionError("Thao tác chưa thành công. Vui lòng thử lại.");
       console.error("Lỗi khi hủy lời mời kết bạn:", err);
       setPendingSent((prev) => [...prev, userId]);
     }
@@ -157,6 +177,7 @@ export default function FriendProvider({ children }: { children: React.ReactNode
         await acceptFriendRequestById(match.id);
       }
     } catch (err) {
+      setActionError("Thao tác chưa thành công. Vui lòng thử lại.");
       console.error("Lỗi khi chấp nhận lời mời kết bạn:", err);
       loadInitialData();
     }
@@ -173,6 +194,7 @@ export default function FriendProvider({ children }: { children: React.ReactNode
         await rejectFriendRequest(match.id);
       }
     } catch (err) {
+      setActionError("Thao tác chưa thành công. Vui lòng thử lại.");
       console.error("Lỗi khi từ chối lời mời kết bạn:", err);
       loadInitialData();
     }
@@ -185,6 +207,7 @@ export default function FriendProvider({ children }: { children: React.ReactNode
       setFriends((prev) => prev.filter((f) => String(f.id) !== idStr));
       await unfriend(idStr);
     } catch (err) {
+      setActionError("Thao tác chưa thành công. Vui lòng thử lại.");
       console.error("Lỗi khi hủy kết bạn:", err);
       loadInitialData();
     }
@@ -197,6 +220,7 @@ export default function FriendProvider({ children }: { children: React.ReactNode
       setFollowing((prev) => [...prev, user]);
       await followUser(idStr);
     } catch (err) {
+      setActionError("Thao tác chưa thành công. Vui lòng thử lại.");
       console.error("Lỗi khi theo dõi người dùng:", err);
       setFollowing((prev) => prev.filter((f) => String(f.id) !== String(user.id)));
     }
@@ -209,6 +233,7 @@ export default function FriendProvider({ children }: { children: React.ReactNode
       setFollowing((prev) => prev.filter((f) => String(f.id) !== idStr));
       await unfollowUser(idStr);
     } catch (err) {
+      setActionError("Thao tác chưa thành công. Vui lòng thử lại.");
       console.error("Lỗi khi bỏ theo dõi người dùng:", err);
       loadInitialData();
     }
@@ -217,22 +242,24 @@ export default function FriendProvider({ children }: { children: React.ReactNode
   return (
     <FriendContext.Provider
       value={{
+        loading, loadError, retry: loadInitialData, pendingUsers,
         friends,
         following,
         pendingReceived,
         pendingSent,
         getStatus,
         isFollowing,
-        sendRequest,
-        cancelRequest,
-        acceptRequest,
-        rejectRequest,
-        removeFriend,
-        follow,
-        unfollow,
+        sendRequest: (user) => withPending(user.id, () => sendRequest(user)),
+        cancelRequest: (userId) => withPending(userId, () => cancelRequest(userId)),
+        acceptRequest: (userId) => withPending(userId, () => acceptRequest(userId)),
+        rejectRequest: (userId) => withPending(userId, () => rejectRequest(userId)),
+        removeFriend: (userId) => withPending(userId, () => removeFriend(userId)),
+        follow: (user) => withPending(user.id, () => follow(user)),
+        unfollow: (userId) => withPending(userId, () => unfollow(userId)),
       }}
     >
       {children}
+      {actionError && <Toast message={actionError} type="error" onClose={() => setActionError(null)} />}
     </FriendContext.Provider>
   );
 }

@@ -8,6 +8,8 @@ export interface CommentDTO {
   status?: string;
   parentComment?: { id: string } | null;
   createdAt?: string;
+  editedAt?: string | null;
+  editCount?: number;
   
   // Custom fields typically returned or populated
   authorName?: string;
@@ -21,6 +23,8 @@ export interface CommentPreview {
   authorId: string;
   content: string;
   createdAt: string;
+  editedAt?: string | null;
+  editCount?: number;
 }
 
 export interface CommentSummary {
@@ -56,7 +60,7 @@ export async function getCommentsByPostId(postId: string): Promise<CommentDTO[]>
     return comments;
   } catch (error) {
     console.warn("Failed to fetch comments:", error);
-    return [];
+    throw error;
   }
 }
 
@@ -101,4 +105,16 @@ export async function updateComment(commentId: string, content: string): Promise
     console.error("Failed to update comment:", error);
     return null;
   }
+}
+
+export interface CommentRevision {
+  revision: number;
+  content: string;
+  editorId: string;
+  editedAt: string | null;
+}
+
+export async function getCommentHistory(id: string, before?: number): Promise<CommentRevision[]> {
+  const { data } = await api.get<CommentRevision[]>(`/services/commentservice/api/comments/${id}/history`, { params: { before, size: 20 } });
+  return data;
 }

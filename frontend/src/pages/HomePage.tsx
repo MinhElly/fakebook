@@ -1,3 +1,4 @@
+import { PostSkeleton } from "@/components/ui/Skeleton";
 import LeftSidebar from "@/components/sidebar/LeftSidebar";
 import RightSidebar from "@/components/sidebar/RightSidebar";
 
@@ -70,9 +71,7 @@ export default function HomePage() {
 
         {/* Hiển thị vòng xoay đang tải hoặc thông báo hết bài */}
         {loading && (
-          <div className="text-center py-6 text-[#65676B] font-semibold text-sm">
-            Đang tải thêm bài viết...
-          </div>
+          <PostSkeleton count={posts.length ? 1 : 2} />
         )}
         {!hasMore && posts.length > 0 && (
           <div className="text-center py-6 text-[#65676B] text-sm">

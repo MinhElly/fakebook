@@ -103,6 +103,8 @@ public class SecurityConfiguration {
                     .pathMatchers("/api/authenticate").permitAll()
                     .pathMatchers("/api/register").permitAll()
                     .pathMatchers("/api/auth-info").permitAll()
+                    // No data or lease is created until the one-time ticket AUTH frame succeeds.
+                    .pathMatchers(HttpMethod.GET, "/api/presence/ws").permitAll()
                     .pathMatchers("/error").permitAll()
                     .pathMatchers("/api/admin/**").hasAuthority(AuthoritiesConstants.ADMIN)
                     .pathMatchers("/api/**").authenticated()

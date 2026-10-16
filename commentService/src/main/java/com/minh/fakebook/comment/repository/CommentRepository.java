@@ -16,6 +16,10 @@ import org.springframework.stereotype.Repository;
 @Repository
 public interface CommentRepository extends JpaRepository<Comment, UUID>, JpaSpecificationExecutor<Comment> {
 
+    @Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @Query("select c from Comment c where c.id = :id")
+    java.util.Optional<Comment> findByIdForUpdate(@Param("id") UUID id);
+
     interface CommentCountProjection {
         UUID getPostId();
 
@@ -38,7 +42,7 @@ public interface CommentRepository extends JpaRepository<Comment, UUID>, JpaSpec
     @Query(
         value = """
         select ranked.id, ranked.post_id, ranked.author_id, ranked.content,
-               ranked.status, ranked.parent_comment_id, ranked.created_at
+               ranked.status, ranked.parent_comment_id, ranked.created_at, ranked.edited_at, ranked.edit_count
         from (
             select c.*,
                    row_number() over (

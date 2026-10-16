@@ -148,8 +148,11 @@ export default function Post({ post, isModal = false, context = "feed", presenta
     }
   }
 
+  const postAction = useRef(false);
+  const [postBusy, setPostBusy] = useState(false);
   async function handleSavePost() {
-    if (!requireLogin()) return;
+    if (!requireLogin() || postAction.current) return;
+    postAction.current = true; setPostBusy(true);
     setShowMenu(false);
     try {
       const res = await api.post(`/services/postservice/api/posts/${post.id}/save`);
@@ -160,7 +163,7 @@ export default function Post({ post, isModal = false, context = "feed", presenta
       }
     } catch (e) {
       setToastMessage("Có lỗi xảy ra, vui lòng thử lại!");
-    }
+    } finally { postAction.current = false; setPostBusy(false); }
   }
 
   function handleUserClick(userId: string) {
@@ -354,6 +357,7 @@ export default function Post({ post, isModal = false, context = "feed", presenta
 
   return (
     <>
+      {postBusy && <p role="status" className="p-2 text-sm text-[#65676B]">Đang xử lý…</p>}
       <div data-post-id={post.id} className={presentation === "media" ? "bg-white" : `bg-white rounded-xl shadow-sm border border-[#E4E6EB] ${isModal ? "" : "mb-4"}`}>
         <div className="flex flex-col">
           <div className="flex items-center gap-2 px-4 pt-3">
@@ -435,7 +439,7 @@ export default function Post({ post, isModal = false, context = "feed", presenta
                     Lịch sử chỉnh sửa
                   </button>
                   <button
-                    onClick={handleSavePost}
+                    disabled={postBusy} onClick={handleSavePost}
                     className="w-full flex items-center gap-3 px-4 py-2 hover:bg-[#F0F2F5] transition-colors text-sm text-[#1C1E21] font-medium"
                   >
                     <svg className="w-5 h-5 text-[#1C1E21]" fill="currentColor" viewBox="0 0 24 24">
@@ -595,13 +599,17 @@ export default function Post({ post, isModal = false, context = "feed", presenta
                 Hủy
               </button>
               <button
-                onClick={() => {
-                  deletePost(post.id);
-                  setShowDeleteModal(false);
+                disabled={postBusy}
+                onClick={async () => {
+                  if (postAction.current) return;
+                  postAction.current = true; setPostBusy(true);
+                  try { await deletePost(post.id); setShowDeleteModal(false); }
+                  catch { /* Provider displays the failure; keep confirmation open for retry. */ }
+                  finally { postAction.current = false; setPostBusy(false); }
                 }}
                 className="rounded-md bg-[#1877F2] px-10 py-2 font-semibold text-white hover:bg-[#166FE5]"
               >
-                Xóa
+                {postBusy ? "Đang xóa…" : "Xóa"}
               </button>
             </div>
           </div>

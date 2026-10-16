@@ -16,6 +16,13 @@
 
 ---
 # Conditionally disable springdoc on missing api-docs profile
+presence:
+  allowed-origins: ${FRONTEND_ORIGIN:http://localhost:5173,http://127.0.0.1:5173}
+  ping-interval: 20s
+  reconcile-interval: 30s
+  sweep-delay: 5s
+  persist-delay: 1s
+
 spring:
   config:
     activate:
@@ -121,6 +128,13 @@ management:
       application: ${spring.application.name}
 
 spring:
+  data:
+    redis:
+      url: ${REDIS_URL:redis://localhost:6379}
+      connect-timeout: 2s
+      timeout: 2s
+      repositories:
+        enabled: false
   codec:
     max-in-memory-size: 10MB
   application:
@@ -200,6 +214,12 @@ spring:
         registration:
           oidc:
             scope: openid, profile
+          internal:
+            provider: oidc
+            client-id: ${FAKEBOOK_OIDC_INTERNAL_CLIENT_ID:internal}
+            client-secret: ${FAKEBOOK_OIDC_INTERNAL_CLIENT_SECRET:}
+            authorization-grant-type: client_credentials
+            client-authentication-method: client_secret_basic
   task:
     execution:
       thread-name-prefix: gateway-task-

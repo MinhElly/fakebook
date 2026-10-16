@@ -1,5 +1,5 @@
 import MediaImage from "@/components/feed/MediaImage";
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useUserStore, type UserProfile } from "@/stores/userStore";
 import Toast from "@/components/ui/Toast";
 import api from "@/services/apis";
@@ -39,7 +39,10 @@ export default function EditProfileModal({ onClose }: Props) {
       setForm(prev => ({ ...prev, [k]: e.target.value }));
   }
 
+  const saving = useRef(false);
   async function handleSave() {
+    if (saving.current) return;
+    saving.current = true;
     setIsSaving(true);
     try {
       let uploadedAvatarMediaId = profile.avatarMediaId;
@@ -83,21 +86,9 @@ export default function EditProfileModal({ onClose }: Props) {
       }, 1200);
     } catch (error) {
       console.error(error);
-      setForm({
-        name: profile.name,
-        location: profile.location,
-        education: profile.education,
-        work: profile.work,
-        relationship: profile.relationship,
-        bio: profile.bio,
-      });
-      setAvatarPreview(profile.avatar);
-      setCoverPreview(profile.cover);
-      setAvatarFile(null);
-      setCoverFile(null);
-
       setToast({ message: "Cập nhật thông tin thất bại. Vui lòng thử lại!", type: "error" });
     } finally {
+      saving.current = false;
       setIsSaving(false);
     }
   }

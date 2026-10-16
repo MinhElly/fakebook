@@ -1,3 +1,4 @@
+import { UserRowsSkeleton } from "@/components/ui/Skeleton";
 import MediaImage from "@/components/feed/MediaImage";
 import { useState } from "react";
 import { getUserAvatarUrl, type FriendRequestItem } from "@/services/friendsService";
@@ -49,9 +50,7 @@ export default function SentRequestsModal({
         {/* Modal Body */}
         <div className="p-4 overflow-y-auto flex-1 divide-y divide-[#E4E6EB]">
           {loading ? (
-            <div className="py-12 text-center text-sm text-[#65676B] font-medium">
-              Đang tải danh sách lời mời đã gửi...
-            </div>
+            <UserRowsSkeleton />
           ) : sentRequests.length === 0 ? (
             <div className="py-12 text-center">
               <div className="w-14 h-14 bg-[#F0F2F5] rounded-full flex items-center justify-center mx-auto mb-3 text-[#65676B]">

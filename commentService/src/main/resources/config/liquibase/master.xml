@@ -23,4 +23,5 @@
     <include file="config/liquibase/changelog/20260921000000_add_createdAt_Comment.xml" relativeToChangelogFile="false"/>
     <!-- jhipster-needle-liquibase-add-constraints-changelog - JHipster will add liquibase constraints changelogs here -->
     <!-- jhipster-needle-liquibase-add-incremental-changelog - JHipster will add incremental liquibase changelogs here -->
+    <include file="config/liquibase/changelog/20261016000000_comment_history.xml" relativeToChangelogFile="false"/>
 </databaseChangeLog>

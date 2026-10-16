@@ -107,11 +107,34 @@ public class UserProfileService {
      * @return the persisted entity.
      */
     public UserProfileDTO update(UserProfileDTO userProfileDTO) {
-        LOG.debug("Request to update UserProfile : {}", userProfileDTO);
-        UserProfile userProfile = userProfileMapper.toEntity(userProfileDTO);
+        LOG.debug(
+            "Request to update UserProfile : {}",
+            userProfileDTO
+        );
+
+        UserProfile userProfile = userProfileRepository
+            .findById(userProfileDTO.getId())
+            .orElseThrow(() -> new ResponseStatusException(
+                HttpStatus.NOT_FOUND,
+                "User profile not found"
+            ));
+
+        userProfileMapper.updateProfile(
+            userProfile,
+            userProfileDTO
+        );
+
         userProfile = userProfileRepository.save(userProfile);
-        UserProfileDTO updatedDto = userProfileMapper.toDto(userProfile);
-        eventPublisher.publishEvent(new com.minh.fakebook.user.service.event.UserProfileChanged(updatedDto.getId()));
+
+        UserProfileDTO updatedDto =
+            userProfileMapper.toDto(userProfile);
+
+        eventPublisher.publishEvent(
+            new com.minh.fakebook.user.service.event.UserProfileChanged(
+                updatedDto.getId()
+            )
+        );
+
         return updatedDto;
     }
 
@@ -197,11 +220,11 @@ public class UserProfileService {
     /**
      * Lay profile hien tai tu JWT, neu chua co thi tu dong khoi tao moi voi ID
      * trung voi keycloak sub
-     * 
+     *
      */
     @Cacheable(value = "userProfile", key = "#jwt.subject")
     public UserProfileDTO getOrCreateProfile(Jwt jwt) {
-        LOG.debug(">>> EXECUTING getOrCreateProfile for {}", jwt.getSubject()); 
+        LOG.debug(">>> EXECUTING getOrCreateProfile for {}", jwt.getSubject());
         UUID userId = UUID.fromString(jwt.getSubject());
         return userProfileRepository.findById(userId).map(userProfileMapper::toDto)
                 .orElseGet(() -> createProfileFromJwt(jwt, userId));

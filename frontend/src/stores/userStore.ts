@@ -17,10 +17,14 @@ export interface UserProfile {
 
 export interface UserState {
   profile: UserProfile;
+  loading: boolean;
+  error: string | null;
+  retry: () => void;
   updateProfile: (data: Partial<UserProfile>) => Promise<boolean>;
 }
 
 export const UserContext = createContext<UserState>({
+  loading: true, error: null, retry: () => {},
   profile: {
     name: "Người dùng",
     avatar: "/default-avatar.svg",

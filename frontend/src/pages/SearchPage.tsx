@@ -1,12 +1,13 @@
+import { UserRowsSkeleton } from "@/components/ui/Skeleton";
+import LoadError from "@/components/ui/LoadError";
 import MediaImage from "@/components/feed/MediaImage";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useSearchParams, useNavigate } from "react-router";
 import {
   searchUsers,
   sendFriendRequest,
   cancelFriendRequest,
   type UserSearchResult,
-  type FriendshipStatus,
 } from "@/services/searchService";
 
 import FollowButton from "@/components/profile/FollowButton";
@@ -16,53 +17,46 @@ export default function SearchPage() {
   const navigate = useNavigate();
   const query = searchParams.get("q") || "";
 
+  const pendingActions = useRef(new Set<string>());
+  const [pendingUsers, setPendingUsers] = useState<Set<string>>(new Set());
+  const [actionError, setActionError] = useState<string | null>(null);
+  const currentQuery = useRef(query);
+  currentQuery.current = query;
   const [activeCategory, setActiveCategory] = useState<"all" | "people">("all");
   const [results, setResults] = useState<UserSearchResult[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
+
+  const [error, setError] = useState(false);
+  const [retry, setRetry] = useState(0);
 
   // Filter toggles state (UI mock for fidelity to design)
   const [recentPostsFilter, setRecentPostsFilter] = useState(false);
   const [viewedPostsFilter, setViewedPostsFilter] = useState(false);
 
   useEffect(() => {
-    if (!query.trim()) {
-      setResults([]);
-      return;
-    }
-
+    let active = true;
+    setResults([]); setError(false);
+    if (!query.trim()) { setLoading(false); return; }
     setLoading(true);
-    searchUsers(query)
-      .then((res) => {
-        setResults(res.content);
-      })
-      .finally(() => {
-        setLoading(false);
-      });
-  }, [query]);
+    searchUsers(query).then(res => { if (active) setResults(res.content); })
+      .catch(() => { if (active) setError(true); })
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, [query, retry]);
 
-  // Handle Action Button Click (Thêm bạn bè / Hủy lời mời)
   const handleToggleFriendRequest = async (user: UserSearchResult) => {
+    if (pendingActions.current.has(user.id)) return;
+    const requestQuery = query;
+    pendingActions.current.add(user.id); setPendingUsers(new Set(pendingActions.current)); setActionError(null);
     const currentStatus = user.friendshipStatus;
-    let nextStatus: FriendshipStatus = "NONE";
-
-    if (currentStatus === "NONE") {
-      nextStatus = "PENDING_SENT";
-    } else if (currentStatus === "PENDING_SENT") {
-      nextStatus = "NONE";
-    } else {
-      return;
-    }
-
-    // Optimistic UI Update
-    setResults((prev) =>
-      prev.map((item) => (item.id === user.id ? { ...item, friendshipStatus: nextStatus } : item))
-    );
-
-    if (currentStatus === "NONE") {
-      await sendFriendRequest(user.id);
-    } else if (currentStatus === "PENDING_SENT") {
-      await cancelFriendRequest(user.id);
-    }
+    try {
+      if (currentStatus === "NONE") await sendFriendRequest(user.id);
+      else if (currentStatus === "PENDING_SENT") {
+        if (!(await cancelFriendRequest(user.id))) throw new Error("Cannot cancel request");
+      } else return;
+      if (requestQuery === currentQuery.current) setResults(prev => prev.map(item => item.id === user.id ? { ...item, friendshipStatus: currentStatus === "NONE" ? "PENDING_SENT" : "NONE" } : item));
+    } catch { if (requestQuery === currentQuery.current) setActionError("Thao tác kết bạn chưa thành công. Vui lòng thử lại."); }
+    finally { pendingActions.current.delete(user.id); setPendingUsers(new Set(pendingActions.current)); }
   };
 
   // Split results into Top Featured Match (if any is already a friend) and Others
@@ -71,6 +65,7 @@ export default function SearchPage() {
 
   return (
     <div className="flex min-h-[calc(100vh-56px)] bg-[#F0F2F5]">
+      {actionError && <p role="alert" className="fixed bottom-4 left-4 z-50 rounded-lg bg-white p-3 text-sm text-[#B42318]">{actionError}</p>}
       {/* ── Left Sidebar Filters ────────────────────────────────────── */}
       <aside className="hidden md:block w-80 lg:w-[360px] bg-white border-r border-[#E4E6EB] p-4 flex-shrink-0 min-h-[calc(100vh-56px)]">
         <h1 className="text-2xl font-bold text-[#1C1E21] mb-2">Kết quả tìm kiếm</h1>
@@ -153,7 +148,7 @@ export default function SearchPage() {
       </aside>
 
       {/* ── Main Content Area ────────────────────────────────────────── */}
-      <main className="flex-1 p-4 md:p-6 max-w-4xl mx-auto">
+      <main className="min-w-0 flex-1 p-4 md:p-6 max-w-4xl mx-auto">
         {!query.trim() ? (
           <div className="bg-white p-8 rounded-xl text-center shadow-sm text-[#65676B]">
             <svg className="w-16 h-16 mx-auto mb-3 text-[#B0B3B8]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -162,11 +157,8 @@ export default function SearchPage() {
             <h3 className="text-lg font-bold text-[#1C1E21]">Nhập từ khóa để tìm kiếm</h3>
             <p className="text-sm mt-1">Tìm kiếm bạn bè theo tên hiển thị hoặc tên người dùng.</p>
           </div>
-        ) : loading ? (
-          <div className="bg-white p-8 rounded-xl text-center shadow-sm text-[#65676B]">
-            <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-[#1877F2] border-t-transparent mb-2"></div>
-            <p className="text-sm font-medium">Đang tìm kiếm người dùng "{query}"...</p>
-          </div>
+        ) : error ? <LoadError message="Không tải được kết quả tìm kiếm." onRetry={() => setRetry(n => n + 1)} /> : loading ? (
+          <UserRowsSkeleton label="Đang tìm kiếm" />
         ) : results.length === 0 ? (
           <div className="bg-white p-8 rounded-xl text-center shadow-sm text-[#65676B]">
             <p className="text-lg font-semibold text-[#1C1E21]">Không tìm thấy kết quả nào cho "{query}"</p>
@@ -242,7 +234,7 @@ export default function SearchPage() {
 
                 <div className="divide-y divide-[#E4E6EB]">
                   {otherPeople.map((user) => (
-                    <div key={user.id} className="py-4 first:pt-0 last:pb-0 flex items-center justify-between gap-4">
+                    <div key={user.id} className="py-4 first:pt-0 last:pb-0 flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
                       <div className="flex items-center gap-3 min-w-0">
                         <MediaImage
                           src={user.avatarUrl || "/default-avatar.svg"}
@@ -276,8 +268,9 @@ export default function SearchPage() {
                         </div>
                       </div>
 
+                      {pendingUsers.has(user.id) && <span role="status" className="text-xs text-[#65676B]">Đang xử lý…</span>}
                       {/* Action Button */}
-                      <div className="flex-shrink-0 flex items-center gap-2">
+                      <div className="flex-shrink-0 flex flex-wrap items-center gap-2">
                         <FollowButton
                           user={{
                             id: user.id,
@@ -301,14 +294,14 @@ export default function SearchPage() {
                           </button>
                         ) : user.friendshipStatus === "PENDING_SENT" ? (
                           <button
-                            onClick={() => handleToggleFriendRequest(user)}
+                            disabled={pendingUsers.has(user.id)} onClick={() => handleToggleFriendRequest(user)}
                             className="px-4 py-2 bg-[#E4E6EB] hover:bg-[#D8DADF] text-[#050505] font-semibold text-sm rounded-lg transition-colors"
                           >
                             Hủy lời mời
                           </button>
                         ) : (
                           <button
-                            onClick={() => handleToggleFriendRequest(user)}
+                            disabled={pendingUsers.has(user.id)} onClick={() => handleToggleFriendRequest(user)}
                             className="px-4 py-2 bg-[#1877F2] hover:bg-[#166FE5] text-white font-semibold text-sm rounded-lg transition-colors flex items-center gap-1.5"
                           >
                             <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">

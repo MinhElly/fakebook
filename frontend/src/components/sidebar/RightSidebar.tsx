@@ -1,9 +1,15 @@
+import { UserRowsSkeleton } from "@/components/ui/Skeleton";
+import LoadError from "@/components/ui/LoadError";
 import MediaImage from "@/components/feed/MediaImage";
 import { useEffect, useState } from "react";
 import { Link } from "react-router";
 import api from "@/services/apis";
 import { useAuth } from "@/providers/AuthProvider";
 import FeatureEmptyState from "@/components/ui/FeatureEmptyState";
+import PresenceBadge from "@/components/ui/PresenceBadge";
+import { usePresences } from "@/providers/PresenceProvider";
+import { UNKNOWN_PRESENCE } from "@/services/presenceService";
+import PresenceText from "@/components/ui/PresenceText";
 
 interface Contact {
   id: string;
@@ -16,11 +22,22 @@ export default function RightSidebar() {
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [loading, setLoading] = useState(true);
   const { status, user } = useAuth();
+  const [error, setError] = useState(false);
+  const [attempt, setAttempt] = useState(0);
+  const [visible, setVisible] = useState(() => window.matchMedia("(min-width: 1280px)").matches);
+  const { entries, connected } = usePresences(visible ? contacts.map(contact => contact.id) : []);
+  useEffect(() => {
+    const query = window.matchMedia("(min-width: 1280px)");
+    const changed = () => setVisible(query.matches);
+    query.addEventListener("change", changed);
+    return () => query.removeEventListener("change", changed);
+  }, []);
 
   useEffect(() => {
     if (status !== "authenticated" || !user) return;
     
     let isMounted = true;
+    setLoading(true); setError(false);
 
     const fetchContacts = async () => {
       try {
@@ -65,7 +82,7 @@ export default function RightSidebar() {
           setContacts(mappedContacts);
         }
       } catch (error) {
-        console.error("Could not fetch contacts:", error);
+        if (isMounted) setError(true);
       } finally {
         if (isMounted) setLoading(false);
       }
@@ -76,15 +93,15 @@ export default function RightSidebar() {
     return () => {
       isMounted = false;
     };
-  }, [status, user]);
+  }, [status, user?.id, attempt]);
 
   return (
     <aside className="fixed bottom-0 right-0 top-14 hidden w-[360px] flex-col px-4 py-4 xl:flex">
       <h2 className="px-2 text-lg font-bold text-[#1C1E21] mb-2">Người liên hệ</h2>
-      {loading ? (
-        <div className="flex justify-center py-4 text-sm text-gray-500">Đang tải...</div>
-      ) : contacts.length > 0 ? (
-        <div className="flex flex-col space-y-1">
+      {!connected && contacts.length > 0 && <p role="status" className="px-2 mb-2 text-xs text-[#65676B]">Đang kết nối trạng thái hoạt động…</p>}
+      {error && <LoadError message="Không tải được người liên hệ." onRetry={() => setAttempt(n => n + 1)} />}
+      {loading && contacts.length === 0 ? <UserRowsSkeleton /> : contacts.length > 0 ? (
+        <div className="flex flex-col space-y-1 overflow-y-auto">
           {contacts.map((contact) => (
             <Link
               key={contact.id}
@@ -97,13 +114,13 @@ export default function RightSidebar() {
                   alt={contact.name}
                   className="h-9 w-9 rounded-full object-cover border border-gray-200"
                 />
-                <div className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full border-2 border-white bg-green-500"></div>
+                  <PresenceBadge status={entries[contact.id]?.status} />
               </div>
-              <span className="text-[15px] font-medium text-gray-900">{contact.name}</span>
+              <span className="min-w-0 text-[15px] font-medium text-gray-900"><span className="block truncate">{contact.name}</span><PresenceText presence={entries[contact.id] || UNKNOWN_PRESENCE} /></span>
             </Link>
           ))}
         </div>
-      ) : (
+      ) : !error && !loading && (
         <FeatureEmptyState
           compact
           title="Chưa có người liên hệ"

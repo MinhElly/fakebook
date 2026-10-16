@@ -1,3 +1,4 @@
+import { UserRowsSkeleton } from "@/components/ui/Skeleton";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router";
@@ -176,7 +177,7 @@ export default function ReactorsModal({ postId, onClose }: Props) {
       </button>
     </div>
     <div id="reaction-panel" role="tabpanel" aria-labelledby={`reaction-tab-${selected}`} aria-busy={loading} className="max-h-[min(60dvh,480px)] min-h-[320px] overflow-y-auto px-3 py-2">
-      {loading && <div role="status" aria-label="Đang tải cảm xúc" className="space-y-3 py-1">{[0, 1, 2, 3, 4].map(i => <div key={i} className="flex h-10 items-center gap-3"><div className="size-10 rounded-full bg-[#E4E6EB]" /><div className="h-3 w-32 rounded bg-[#E4E6EB]" /></div>)}</div>}
+      {loading && <UserRowsSkeleton count={5} label="Đang tải cảm xúc" />}
       {error && <div role="alert" className="p-6 text-center text-sm"><p>{error}</p><button type="button" onClick={() => setAttempt(a => a + 1)} className="mt-3 rounded-md bg-[#E4E6EB] px-4 py-2 font-semibold">Thử lại</button></div>}
       {!loading && !error && visible.length === 0 && <p className="p-6 text-center text-sm text-[#65676B]">Chưa có cảm xúc nào.</p>}
       {actionError && <p role="alert" className="px-1 py-2 text-sm text-[#B42318]">{actionError}</p>}

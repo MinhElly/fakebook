@@ -1,3 +1,4 @@
+import Skeleton from "@/components/ui/Skeleton";
 import MediaImage from "@/components/feed/MediaImage";
 import { useNavigate } from "react-router";
 import { useUserStore } from "@/stores/userStore";
@@ -17,7 +18,7 @@ const NAV_LINKS = [
 
 export default function LeftSidebar() {
   const navigate = useNavigate();
-  const { profile } = useUserStore();
+  const { profile, loading: profileLoading } = useUserStore();
 
   return (
     <aside
@@ -36,8 +37,8 @@ export default function LeftSidebar() {
         title={profile.name}
         className="flex items-center md:justify-center lg:justify-start gap-0 lg:gap-3 p-2 rounded-xl hover:bg-[#E4E6EB] transition-colors w-full mb-1"
       >
-        <MediaImage src={profile.avatar} alt="me" referrerPolicy="no-referrer" onError={(e) => { e.currentTarget.src = "/default-avatar.svg"; }} className="w-9 h-9 rounded-full object-cover flex-shrink-0" />
-        <span className="font-semibold text-[#1C1E21] hidden lg:block truncate">{profile.name}</span>
+        {profileLoading ? <Skeleton className="size-9 shrink-0 rounded-full" /> : <MediaImage src={profile.avatar} alt="me" referrerPolicy="no-referrer" onError={(e) => { e.currentTarget.src = "/default-avatar.svg"; }} className="w-9 h-9 rounded-full object-cover flex-shrink-0" />}
+        <span className="font-semibold text-[#1C1E21] hidden lg:block truncate">{profileLoading ? <Skeleton className="h-4 w-28" /> : profile.name}</span>
       </button>
 
       {/* Nav links */}

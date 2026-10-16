@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+    <changeSet id="20261016000000-1" author="codex">
+        <addColumn tableName="comments">
+            <column name="edited_at" type="${datetimeType}"/>
+            <column name="edit_count" type="bigint" defaultValueNumeric="0">
+                <constraints nullable="false"/>
+            </column>
+        </addColumn>
+        <createTable tableName="comment_revision">
+            <column name="comment_id" type="${uuidType}"><constraints nullable="false" primaryKey="true" primaryKeyName="pk_comment_revision"/></column>
+            <column name="revision" type="bigint"><constraints nullable="false" primaryKey="true" primaryKeyName="pk_comment_revision"/></column>
+            <column name="content" type="${clobType}"><constraints nullable="false"/></column>
+            <column name="editor_id" type="${uuidType}"><constraints nullable="false"/></column>
+            <column name="edited_at" type="${datetimeType}"/>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="comment_revision" baseColumnNames="comment_id"
+            referencedTableName="comments" referencedColumnNames="id" constraintName="fk_comment_revision_comment" onDelete="CASCADE"/>
+        <rollback>
+            <dropTable tableName="comment_revision"/>
+            <dropColumn tableName="comments" columnName="edited_at"/>
+            <dropColumn tableName="comments" columnName="edit_count"/>
+        </rollback>
+    </changeSet>
+</databaseChangeLog>
