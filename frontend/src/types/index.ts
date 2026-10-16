@@ -85,6 +85,8 @@ export interface FriendRequest {
 }
 
 export interface Comment {
+  editedAt?: string | null;
+  editCount?: number;
   id: string;
   postId: string;
   parentId: string | null;

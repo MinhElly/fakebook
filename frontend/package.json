@@ -10,7 +10,8 @@
     "dev": "vite --host 0.0.0.0",
     "build": "vite build",
     "preview": "vite preview",
-    "format": "oxfmt"
+    "format": "oxfmt",
+    "test:browser": "node tests/loading-history.browser.cjs"
   },
   "dependencies": {
     "@microsoft/fetch-event-source": "^2.0.1",
