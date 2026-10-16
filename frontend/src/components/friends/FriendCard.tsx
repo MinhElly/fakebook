@@ -2,6 +2,7 @@ import MediaImage from "@/components/feed/MediaImage";
 import { useState } from "react";
 import { useNavigate } from "react-router";
 import { getUserAvatarUrl, type UserSummary } from "@/services/friendsService";
+import PresenceIndicator from "@/components/ui/PresenceIndicator";
 
 export type FriendCardType = "request" | "suggestion" | "friend" | "sent_request";
 
@@ -131,6 +132,7 @@ export default function FriendCard({
 
       {/* ── Content & Actions ──────────────────────────────────────── */}
       <div className="p-3 flex flex-col justify-between flex-1 gap-2">
+        {cardType === "friend" && <PresenceIndicator userId={user.id} enabled={actionDoneText !== "Đã hủy kết bạn"} />}
         <div>
           <h3
             onClick={handleProfileClick}

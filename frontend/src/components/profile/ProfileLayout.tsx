@@ -6,6 +6,10 @@ import { useNavigate } from "react-router";
 import Post from "@/components/feed/Post";
 import PostCreator from "@/components/feed/PostCreator";
 import type { Post as PostType, FriendUser } from "@/types";
+import { usePresence } from "@/providers/PresenceProvider";
+import PresenceBadge from "@/components/ui/PresenceBadge";
+import PresenceText from "@/components/ui/PresenceText";
+import PresenceIndicator from "@/components/ui/PresenceIndicator";
 
 export interface ProfileUser {
   name: string;
@@ -19,6 +23,7 @@ export interface ProfileUser {
 }
 
 interface Props {
+  presenceUserId?: string;
   user: ProfileUser;
   isOwn: boolean;
   posts: PostType[];
@@ -45,7 +50,7 @@ const TABS_OTHER = ["Dòng thời gian", "Giới thiệu", "Bạn bè", "Ảnh",
 export default function ProfileLayout({
   user, isOwn, posts, friends = [], mutualFriends = [], mutualCount = 0,
   mutualLoading = false, mutualError, friendsLoading = false, friendsError, retryFriends,
-  actionButtons, onEditCover, onEditAvatar, loading = false, hasMore = false, feedError, retryFeed
+  actionButtons, onEditCover, onEditAvatar, loading = false, hasMore = false, feedError, retryFeed, presenceUserId
 }: Props) {
   const navigate = useNavigate();
   const TABS = isOwn ? TABS_OWN : TABS_OTHER;
@@ -78,6 +83,7 @@ export default function ProfileLayout({
   );
 
   const friendList = isOwn ? friends : mutualFriends;
+  const presence = usePresence(presenceUserId);
 
   return (
     <div className="min-h-screen bg-[#F0F2F5]">
@@ -120,6 +126,7 @@ export default function ProfileLayout({
 
             {/* Name + stats */}
             <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-[#1C1E21] leading-tight">{user.name}</h1>
+            {presenceUserId && <div className="relative mt-1 pl-4"><span className="absolute left-0 top-1 h-3 w-3"><PresenceBadge status={presence.status} /></span><PresenceText presence={presence} /></div>}
             {user.bio && <p className="text-[#65676B] text-sm mt-0.5">{user.bio}</p>}
             <p className="text-[#65676B] text-sm mt-0.5 font-medium">
               {friendsLoading && friends.length === 0 ? <Skeleton className="mt-2 h-3 w-40" /> : friendsError && friends.length === 0 ? "Chưa tải được danh sách bạn bè" : isOwn
@@ -230,6 +237,7 @@ export default function ProfileLayout({
                         <p className="text-xs font-medium text-[#1C1E21] mt-1 leading-tight truncate group-hover:underline">
                           {f.name}
                         </p>
+                        <PresenceIndicator userId={String(f.id)} hideUnknown />
                       </div>
                     ))}
                   </div>
@@ -522,6 +530,7 @@ export default function ProfileLayout({
                     </div>
                     <div className="p-3">
                       <p className="font-bold text-sm text-[#1C1E21] group-hover:underline leading-tight truncate">{f.name}</p>
+                      <PresenceIndicator userId={String(f.id)} hideUnknown />
                       {f.mutualFriends > 0 ? (
                         <p className="text-xs text-[#65676B] mt-0.5">{f.mutualFriends} bạn chung</p>
                       ) : (

@@ -15,6 +15,7 @@ import CommentProvider from "@/providers/CommentProvider"
 import FriendProvider from "@/providers/FriendProvider"
 
 import RealtimeProvider from "@/providers/RealtimeProvider"
+import PresenceProvider from "@/providers/PresenceProvider"
 
 export default function App() {
   return (
@@ -29,6 +30,7 @@ function DataProviders() {
 
   return (
     <RealtimeProvider key={`${status}:${user?.id || "guest"}`}>
+      <PresenceProvider>
       <UserProvider>
         <PostProvider>
           <CommentProvider>
@@ -38,6 +40,7 @@ function DataProviders() {
           </CommentProvider>
         </PostProvider>
       </UserProvider>
+      </PresenceProvider>
     </RealtimeProvider>
   )
 }

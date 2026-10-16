@@ -305,6 +305,7 @@ export default function UserProfilePage() {
 
   return (
     <ProfileLayout
+      presenceUserId={profileDetail.friendshipStatus === "FRIEND" ? profileDetail.id : undefined}
       mutualLoading={mutualLoading}
       mutualError={mutualError}
       friendsLoading={friendsLoading}
