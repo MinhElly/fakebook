@@ -3,6 +3,8 @@ package com.minh.fakebook.gateway.presence;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.minh.fakebook.gateway.config.RedisTestContainer;
+
 import java.time.Duration;
 import java.time.Instant;
 import java.util.HashSet;
@@ -11,6 +13,7 @@ import java.util.UUID;
 import java.util.function.BiConsumer;
 import java.util.stream.LongStream;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
 import org.springframework.boot.data.redis.autoconfigure.DataRedisAutoConfiguration;
 import org.springframework.boot.data.redis.autoconfigure.DataRedisReactiveAutoConfiguration;
@@ -20,6 +23,7 @@ import org.springframework.data.redis.core.ReactiveStringRedisTemplate;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
+@ExtendWith(RedisTestContainer.class)
 class PresenceRedisStoreIT {
 
     private static final Duration WAIT = Duration.ofSeconds(10);
@@ -30,6 +34,7 @@ class PresenceRedisStoreIT {
 
     private final ApplicationContextRunner contextRunner = new ApplicationContextRunner()
         .withInitializer(new ConfigDataApplicationContextInitializer())
+        .withInitializer(new RedisTestContainer())
         .withPropertyValues(
             "spring.config.location=file:src/main/resources/config/application.yml",
             "spring.profiles.active=presence-redis-test",

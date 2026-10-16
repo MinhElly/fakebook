@@ -5,6 +5,7 @@ import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 import com.minh.fakebook.gateway.client.UserPresenceClient;
+import com.minh.fakebook.gateway.config.RedisTestContainer;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.WebSocket;
@@ -15,6 +16,7 @@ import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
 import org.springframework.boot.data.redis.autoconfigure.DataRedisAutoConfiguration;
 import org.springframework.boot.data.redis.autoconfigure.DataRedisReactiveAutoConfiguration;
@@ -33,6 +35,7 @@ import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 
 /** Real sockets and Redis; UserService permissions are controlled here and tested against SQL in its own IT. */
+@ExtendWith(RedisTestContainer.class)
 class PresenceWebSocketIT {
     private static final Duration WAIT = Duration.ofSeconds(10);
     private static final String ORIGIN = "http://localhost:5173";
@@ -180,7 +183,7 @@ class PresenceWebSocketIT {
     private void withEnvironment(Duration reconciliationInterval, java.util.function.Consumer<Environment> test) {
         new ApplicationContextRunner().withConfiguration(AutoConfigurations.of(
             DataRedisAutoConfiguration.class, DataRedisReactiveAutoConfiguration.class))
-            .withPropertyValues("spring.data.redis.url=" + System.getenv().getOrDefault("REDIS_URL", "redis://localhost:6379"))
+            .withInitializer(new RedisTestContainer())
             .run(context -> {
                 try (var env = new Environment(context.getBean(ReactiveStringRedisTemplate.class), reconciliationInterval)) { test.accept(env); }
             });

@@ -81,6 +81,8 @@ npm run test:browser
 
 `test:presence` dùng Playwright/Chrome; đặt `PLAYWRIGHT_MODULE` nếu Playwright nằm ngoài node_modules dự án, `BROWSER_CHANNEL` nếu cần chọn browser channel khác. Test khởi động Vite ở cổng 5186 và đóng khi xong, dùng route REST/WebSocket có kiểm soát, không dùng tài khoản thật. Ảnh và kết quả nằm trong `.artifacts/presence-browser`.
 
+Các integration test Gateway tự khởi động một Redis Testcontainer riêng cho mỗi JVM, dùng cổng được cấp động. Cả test ứng dụng đầy đủ và các test Redis/WebSocket độc lập đều nhận `spring.data.redis.url` từ container; không cần Redis ở `localhost:6379` và không sử dụng `REDIS_URL` của môi trường phát triển. Khởi động/pull container chạy ở bước thiết lập suite, ngoài timeout 15 giây của từng test. Cần Docker Desktop hoặc Docker trên CI; container test được Testcontainers dọn khi JVM kết thúc.
+
 Môi trường Windows hạn chế attach agent có thể cần ByteBuddy premain qua `JAVA_TOOL_OPTIONS` cho Mockito/BlockHound; đây là cấu hình chạy test, không phải cấu hình ứng dụng. BlockHound chỉ bỏ qua khóa dispatch nội bộ `SharedLock` của Lettuce để không phá writer counter khi khóa có tranh chấp; không bỏ qua toàn bộ I/O của Redis.
 
 Các nhóm kiểm tra:
