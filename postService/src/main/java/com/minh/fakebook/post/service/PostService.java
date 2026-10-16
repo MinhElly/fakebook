@@ -36,6 +36,9 @@ import com.minh.fakebook.post.service.event.MediaCleanupEvent;
 import com.minh.fakebook.post.client.MediaServiceClient;
 import com.minh.fakebook.post.client.dto.MediaValidationDTO;
 import com.minh.fakebook.post.service.event.EventEnvelope;
+import com.minh.fakebook.post.service.event.ReactionCountsChanged;
+import com.minh.fakebook.post.service.event.PostContentChanged;
+import org.springframework.context.ApplicationEventPublisher;
 
 /**
  * Service Implementation for managing {@link Post}.
@@ -62,6 +65,8 @@ public class PostService {
 
     private final MediaServiceClient mediaServiceClient;
     private final PostHistoryService history;
+    private final ApplicationEventPublisher eventPublisher;
+    private final PostContentCache postContentCache;
 
     public PostService(
             PostRepository postRepository,
@@ -71,7 +76,10 @@ public class PostService {
             SavedPostRepository savedPostRepository,
             Outbox outbox,
             UserServiceClient userClient,
-            MediaServiceClient mediaServiceClient, PostHistoryService history) {
+            MediaServiceClient mediaServiceClient,
+            PostHistoryService history,
+            ApplicationEventPublisher eventPublisher,
+            PostContentCache postContentCache) {
         this.postRepository = postRepository;
         this.postMapper = postMapper;
         this.postMediaRepository = postMediaRepository;
@@ -81,6 +89,8 @@ public class PostService {
         this.userClient = userClient;
         this.mediaServiceClient = mediaServiceClient;
         this.history = history;
+        this.eventPublisher = eventPublisher;
+        this.postContentCache = postContentCache;
     }
 
     /**
@@ -137,6 +147,8 @@ public class PostService {
                         savedPost.getVisibility(), savedPost.getStatus(),
                         savedPost.getCreatedAt()),
                 savedPost.getId());
+        eventPublisher.publishEvent(new PostContentChanged(savedPost.getId()));
+        postContentCache.evict(savedPost.getId());
         PostDTO resultDTO = postMapper.toDto(savedPost);
         resultDTO.setMediaIds(mediaIds);
         return resultDTO;
@@ -203,6 +215,8 @@ public class PostService {
         history.record(result, editor, changed, post.getUpdatedAt());
         publishEvent("POST_UPDATED", new PostUpdatedEvent(post.getId(), post.getAuthorId(), post.getContent(),
             post.getVisibility(), post.getStatus(), post.getUpdatedAt(), post.getCreatedAt()), post.getId());
+        eventPublisher.publishEvent(new PostContentChanged(post.getId()));
+        postContentCache.evict(post.getId());
         return result;
     }
 
@@ -272,6 +286,7 @@ public class PostService {
 
         postMediaRepository.deleteByPostId(id);
         postReactionRepository.deleteByPostId(id);
+        eventPublisher.publishEvent(new ReactionCountsChanged(id));
         if (mediaIds != null) {
             for (UUID mediaId : mediaIds) {
                 MediaCleanupEvent event = new MediaCleanupEvent(mediaId, "POST DELETED");
@@ -280,6 +295,8 @@ public class PostService {
             }
         }
         publishEvent("POST_DELETED", new PostDeletedEvent(id), id);
+        eventPublisher.publishEvent(new PostContentChanged(id));
+        postContentCache.evict(id);
         // 5. Delete the actual post
         history.delete(id);
         postRepository.deleteById(id);
@@ -347,6 +364,8 @@ public class PostService {
         history.baseline(result);
         publishEvent("POST_CREATED", new PostCreatedEvent(result.getId(), result.getAuthorId(), result.getContent(),
                 result.getVisibility(), result.getStatus(), result.getCreatedAt()), result.getId());
+        eventPublisher.publishEvent(new PostContentChanged(result.getId()));
+        postContentCache.evict(result.getId());
         return findOne(newPost.getId()).orElseThrow();
     }
 
@@ -361,7 +380,7 @@ public class PostService {
     @Transactional(readOnly = true)
     public Optional<PostDTO> findOne(UUID id) {
         LOG.debug("Request to get Post : {}", id);
-        return postRepository.findById(id).map(post -> {
+        return postContentCache.getPost(id).map(cachedPost -> {
 
             Authentication auth = org.springframework.security.core.context.SecurityContextHolder.getContext()
                     .getAuthentication();
@@ -369,33 +388,33 @@ public class PostService {
             boolean isAdmin = !isGuest && auth.getAuthorities().stream()
                     .anyMatch(a -> a.getAuthority().equals(com.minh.fakebook.post.security.AuthoritiesConstants.ADMIN));
 
-            if (post.getStatus() == PostStatus.DELETED && !isAdmin) {
+            if (cachedPost.status() == PostStatus.DELETED && !isAdmin) {
                 throw new AccessDeniedException("Error: Post not found or has been deleted.");
             }
 
             // 1. Check Private Visibility
-            if (post.getVisibility() == PostVisibility.PRIVATE) {
+            if (cachedPost.visibility() == PostVisibility.PRIVATE) {
                 if (isGuest) {
                     throw new AccessDeniedException("Error: You do not have permission to view this private post.");
                 }
                 if (!isAdmin) {
                     String sub = ((JwtAuthenticationToken) auth).getToken().getSubject();
-                    if (!post.getAuthorId().toString().equals(sub)) {
+                    if (!cachedPost.authorId().toString().equals(sub)) {
                         throw new AccessDeniedException("Error: Only the author can view this private post.");
                     }
                 }
             }
 
             // 2. Check Friends Visibility
-            if (post.getVisibility() == PostVisibility.FRIENDS && !isAdmin) {
+            if (cachedPost.visibility() == PostVisibility.FRIENDS && !isAdmin) {
                 if (isGuest) {
                     throw new AccessDeniedException("Error: You must be logged in to view this friends-only post.");
                 }
                 String sub = ((JwtAuthenticationToken) auth).getToken().getSubject();
                 UUID currentUserId = UUID.fromString(sub);
 
-                if (!post.getAuthorId().equals(currentUserId)) {
-                    boolean areFriends = userClient.areFriends(currentUserId, post.getAuthorId());
+                if (!cachedPost.authorId().equals(currentUserId)) {
+                    boolean areFriends = userClient.areFriends(currentUserId, cachedPost.authorId());
                     if (!areFriends) {
                         throw new AccessDeniedException("Error: You must be a friend of the author to view this post.");
                     }
@@ -403,14 +422,17 @@ public class PostService {
             }
 
             // 3. Convert to DTO
-            PostDTO dto = postMapper.toDto(post);
-
-            // 4. Fetch and attach media IDs
-            List<UUID> mediaIds = postMediaRepository.findByPostIdOrderByDisplayOrderAsc(post.getId())
-                    .stream()
-                    .map(PostMedia::getMediaId)
-                    .toList();
-            dto.setMediaIds(mediaIds);
+            PostDTO dto = new PostDTO();
+            dto.setId(cachedPost.id());
+            dto.setAuthorId(cachedPost.authorId());
+            dto.setContent(cachedPost.content());
+            dto.setVisibility(cachedPost.visibility());
+            dto.setStatus(cachedPost.status());
+            dto.setCreatedAt(cachedPost.createdAt());
+            dto.setUpdatedAt(cachedPost.updatedAt());
+            dto.setMediaIds(cachedPost.mediaIds());
+            dto.setTaggedUserIds(cachedPost.taggedUserIds());
+            dto.setVersion(cachedPost.version());
 
             return dto;
         });

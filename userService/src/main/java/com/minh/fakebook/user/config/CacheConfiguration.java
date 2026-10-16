@@ -81,7 +81,7 @@ public class CacheConfiguration {
         return org.springframework.data.domain.Sort.by(orders);
     }
     @Bean 
-    public RedisCacheManager cacheManager(RedisConnectionFactory connectionFactory){
+    public RedisCacheManager cacheManager(RedisConnectionFactory connectionFactory, ApplicationProperties applicationProperties) {
         ObjectMapper objectMapper = new ObjectMapper();
         objectMapper.registerModule(new JavaTimeModule());
         objectMapper.addMixIn(PageImpl.class, PageImplMixin.class);
@@ -96,12 +96,21 @@ public class CacheConfiguration {
         GenericJackson2JsonRedisSerializer jsonSerializer = GenericJackson2JsonRedisSerializer.builder()
                 .objectMapper(objectMapper).defaultTyping(true).build();
         RedisCacheConfiguration cacheConfig = RedisCacheConfiguration.defaultCacheConfig()
-        .entryTtl(Duration.ofMinutes(30))
-        .disableCachingNullValues()
-        .serializeKeysWith(
-            RedisSerializationContext.SerializationPair.fromSerializer(new StringRedisSerializer()))
-        .serializeValuesWith(
-            RedisSerializationContext.SerializationPair.fromSerializer(jsonSerializer));
-        return RedisCacheManager.builder(connectionFactory).cacheDefaults(cacheConfig).transactionAware().build();
+            .entryTtl(Duration.ofMinutes(30))
+            .disableCachingNullValues()
+            .serializeKeysWith(
+                RedisSerializationContext.SerializationPair.fromSerializer(new StringRedisSerializer()))
+            .serializeValuesWith(
+                RedisSerializationContext.SerializationPair.fromSerializer(jsonSerializer));
+
+        int userProfileTtlSeconds = applicationProperties.getCache().getUserProfile().getTtlSeconds();
+        java.util.Map<String, RedisCacheConfiguration> initialCaches = new java.util.HashMap<>();
+        initialCaches.put(Constants.USER_PROFILE_CACHE, cacheConfig.entryTtl(Duration.ofSeconds(userProfileTtlSeconds)));
+
+        return RedisCacheManager.builder(connectionFactory)
+            .cacheDefaults(cacheConfig)
+            .withInitialCacheConfigurations(initialCaches)
+            .transactionAware()
+            .build();
     }
 }

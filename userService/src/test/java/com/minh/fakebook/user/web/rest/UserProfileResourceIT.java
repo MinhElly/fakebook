@@ -5,6 +5,7 @@ import static com.minh.fakebook.user.domain.UserProfileAsserts.*;
 import static com.minh.fakebook.user.web.rest.TestUtil.createUpdateProxyForBean;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.hasItem;
+import static org.hamcrest.Matchers.hasItems;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
@@ -867,6 +868,62 @@ class UserProfileResourceIT {
 
     protected void assertSameRepositoryCount(long countBefore) {
         assertThat(countBefore).isEqualTo(getRepositoryCount());
+    }
+
+    @Autowired
+    private org.springframework.cache.CacheManager cacheManager;
+
+    @Test
+    void getAllUserProfilesByIdInFastPathAndEviction() throws Exception {
+        UserProfile user1 = new UserProfile();
+        user1.setId(UUID.randomUUID());
+        user1.setUsername("cached_u1");
+        user1.setDisplayName("Cached User 1");
+        user1.setCreatedAt(Instant.now());
+        userProfileRepository.saveAndFlush(user1);
+
+        UserProfile user2 = new UserProfile();
+        user2.setId(UUID.randomUUID());
+        user2.setUsername("cached_u2");
+        user2.setDisplayName("Cached User 2");
+        user2.setCreatedAt(Instant.now());
+        userProfileRepository.saveAndFlush(user2);
+
+        try {
+            // 1. Initial query populates cache
+            restUserProfileMockMvc
+                .perform(get(PUBLIC_ENTITY_API_URL + "?id.in=" + user1.getId() + "," + user2.getId()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.[*].id").value(hasItems(user1.getId().toString(), user2.getId().toString())))
+                .andExpect(jsonPath("$.[*].displayName").value(hasItems("Cached User 1", "Cached User 2")));
+
+            // 2. Cache should now contain the profile
+            var cache = cacheManager.getCache(com.minh.fakebook.user.config.Constants.USER_PROFILE_CACHE);
+            if (cache != null) {
+                assertThat(cache.get(user1.getId().toString())).isNotNull();
+            }
+
+            // 3. User updates display name via PATCH /me
+            UserProfileDTO patchDto = new UserProfileDTO();
+            patchDto.setDisplayName("Updated User 1");
+            restUserProfileMockMvc
+                .perform(
+                    patch(ENTITY_API_URL + "/me")
+                        .with(jwt().jwt(jwt -> jwt.subject(user1.getId().toString()).claim("preferred_username", "cached_u1")))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(om.writeValueAsBytes(patchDto))
+                )
+                .andExpect(status().isOk());
+
+            // 4. Query again - should reflect updated name
+            restUserProfileMockMvc
+                .perform(get(PUBLIC_ENTITY_API_URL + "?id.in=" + user1.getId() + "," + user2.getId()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.[*].displayName").value(hasItems("Updated User 1", "Cached User 2")));
+        } finally {
+            userProfileRepository.deleteById(user1.getId());
+            userProfileRepository.deleteById(user2.getId());
+        }
     }
 
     protected UserProfile getPersistedUserProfile(UserProfile userProfile) {

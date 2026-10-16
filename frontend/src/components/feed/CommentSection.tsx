@@ -22,11 +22,12 @@ interface CommentItemProps {
   comment: Comment;
   postId: string;
   depth?: number;
+  previewAuthorId?: string;
 }
 
 import useRequireLogin from "@/hooks/useRequireLogin";
 
-function CommentItem({ comment, postId, depth = 0 }: CommentItemProps) {
+function CommentItem({ comment, postId, depth = 0, previewAuthorId }: CommentItemProps) {
   const requireLogin = useRequireLogin();
   const { updateComment, deleteComment, toggleLike, getReplies, createComment } = useCommentStore();
   const { profile } = useUserStore();
@@ -77,7 +78,7 @@ function CommentItem({ comment, postId, depth = 0 }: CommentItemProps) {
 
   useOutsideClick(menuRef, () => setShowMenu(false));
 
-  const replies = getReplies(comment.id);
+  const replies = getReplies(comment.id).filter(reply => !previewAuthorId || reply.authorId === previewAuthorId);
   const isOwn = comment.user === profile.name;
 
   useEffect(() => {
@@ -243,7 +244,7 @@ function CommentItem({ comment, postId, depth = 0 }: CommentItemProps) {
         )}
 
         {/* View replies toggle */}
-        {depth === 0 && replies.length > 0 && (
+        {depth === 0 && replies.length > 0 && !previewAuthorId && (
           <button
             onClick={() => setShowReplies(p => !p)}
             className="flex items-center gap-1 mt-1 ml-2 text-xs font-bold text-[#65676B] hover:text-[#1C1E21] transition-colors"
@@ -316,9 +317,11 @@ interface CommentSectionProps {
   postId: string;
   initialVisible?: boolean;
   isModal?: boolean;
+  previewAuthorId?: string;
+  autoFocusInput?: boolean;
 }
 
-export default function CommentSection({ postId, initialVisible = false, isModal = false }: CommentSectionProps) {
+export default function CommentSection({ postId, initialVisible = false, isModal = false, previewAuthorId, autoFocusInput = true }: CommentSectionProps) {
   const { getPostComments, createComment, fetchComments } = useCommentStore();
   const { profile } = useUserStore();
 
@@ -339,15 +342,18 @@ export default function CommentSection({ postId, initialVisible = false, isModal
   useEffect(() => {
     if (initialVisible) {
       setVisible(true);
-      setTimeout(() => inputRef.current?.focus(), 100);
+      if (isModal && autoFocusInput) {
+        const timer = setTimeout(() => inputRef.current?.focus(), 100);
+        return () => clearTimeout(timer);
+      }
     }
-  }, [initialVisible]);
+  }, [initialVisible, isModal, autoFocusInput]);
 
   useEffect(() => {
-    if (visible && isModal) {
+    if (visible && (isModal || previewAuthorId)) {
       fetchComments(postId);
     }
-  }, [visible, isModal, postId, fetchComments]);
+  }, [visible, isModal, previewAuthorId, postId, fetchComments]);
 
   // Close filter dropdown on outside click
   useEffect(() => {
@@ -373,6 +379,8 @@ export default function CommentSection({ postId, initialVisible = false, isModal
     let result = [...topComments];
     // Default sort oldest-first
     result.sort((a, b) => a.timestamp - b.timestamp);
+
+    if (previewAuthorId) return result.slice(0, 1);
 
     if (!isModal) {
       // Feed mode: only show locally created comments (the ones user just typed here)
@@ -486,7 +494,7 @@ export default function CommentSection({ postId, initialVisible = false, isModal
             </button>
           )}
           {displayed.map(c => (
-            <CommentItem key={c.id} comment={c} postId={postId} depth={0} />
+            <CommentItem key={c.id} comment={c} postId={postId} depth={0} previewAuthorId={previewAuthorId} />
           ))}
           {isModal && showAll && filteredComments.length > PREVIEW_COUNT && (
             <button

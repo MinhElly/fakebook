@@ -18,14 +18,14 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import tech.jhipster.config.JHipsterProperties;
 
+import org.redisson.api.RedissonClient;
+
 @Configuration
 @EnableCaching
 public class CacheConfiguration {
 
-    @Bean
-    public javax.cache.configuration.Configuration<Object, Object> jcacheConfiguration(JHipsterProperties jHipsterProperties) {
-        MutableConfiguration<Object, Object> jcacheConfig = new MutableConfiguration<>();
-
+    @Bean(destroyMethod = "shutdown")
+    public RedissonClient redissonClient(JHipsterProperties jHipsterProperties) {
         URI redisUri = URI.create(jHipsterProperties.getCache().getRedis().getServer()[0]);
 
         Config config = new Config();
@@ -53,11 +53,20 @@ public class CacheConfiguration {
                 singleServerConfig.setPassword(redisUri.getUserInfo().substring(redisUri.getUserInfo().indexOf(':') + 1));
             }
         }
+        return Redisson.create(config);
+    }
+
+    @Bean
+    public javax.cache.configuration.Configuration<Object, Object> jcacheConfiguration(
+        JHipsterProperties jHipsterProperties,
+        RedissonClient redissonClient
+    ) {
+        MutableConfiguration<Object, Object> jcacheConfig = new MutableConfiguration<>();
         jcacheConfig.setStatisticsEnabled(true);
         jcacheConfig.setExpiryPolicyFactory(
             CreatedExpiryPolicy.factoryOf(new Duration(TimeUnit.SECONDS, jHipsterProperties.getCache().getRedis().getExpiration()))
         );
-        return RedissonConfiguration.fromInstance(Redisson.create(config), jcacheConfig);
+        return RedissonConfiguration.fromInstance(redissonClient, jcacheConfig);
     }
 
     @Bean
@@ -66,9 +75,24 @@ public class CacheConfiguration {
     }
 
     @Bean
-    public JCacheManagerCustomizer cacheManagerCustomizer(javax.cache.configuration.Configuration<Object, Object> jcacheConfiguration) {
+    public JCacheManagerCustomizer cacheManagerCustomizer(
+        javax.cache.configuration.Configuration<Object, Object> jcacheConfiguration,
+        ApplicationProperties applicationProperties,
+        RedissonClient redissonClient
+    ) {
         return cm -> {
             createCache(cm, com.minh.fakebook.comment.domain.Comment.class.getName(), jcacheConfiguration);
+
+            int summaryTtl = applicationProperties.getCache().getCommentSummary().getTtlSeconds();
+            MutableConfiguration<Object, Object> summaryConfig = new MutableConfiguration<>();
+            summaryConfig.setStatisticsEnabled(true);
+            summaryConfig.setExpiryPolicyFactory(CreatedExpiryPolicy.factoryOf(new Duration(TimeUnit.SECONDS, summaryTtl)));
+
+            createApplicationCache(
+                cm,
+                Constants.COMMENT_SUMMARY_CACHE,
+                RedissonConfiguration.fromInstance(redissonClient, summaryConfig)
+            );
         };
     }
 
@@ -81,6 +105,17 @@ public class CacheConfiguration {
         if (cache != null) {
             cache.clear();
         } else {
+            cm.createCache(cacheName, jcacheConfiguration);
+        }
+    }
+
+    private void createApplicationCache(
+        javax.cache.CacheManager cm,
+        String cacheName,
+        javax.cache.configuration.Configuration<Object, Object> jcacheConfiguration
+    ) {
+        javax.cache.Cache<Object, Object> cache = cm.getCache(cacheName);
+        if (cache == null) {
             cm.createCache(cacheName, jcacheConfiguration);
         }
     }

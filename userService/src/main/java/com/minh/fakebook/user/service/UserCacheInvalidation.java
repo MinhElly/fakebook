@@ -102,6 +102,11 @@ public class UserCacheInvalidation {
                 } catch (Exception ex) {
                     LOG.warn("Failed to evict userProfile optional cache for user {}: {}", user, ex.getMessage());
                 }
+                try {
+                    redis.delete(com.minh.fakebook.user.config.Constants.USER_PROFILE_CACHE + "::" + user);
+                } catch (Exception ex) {
+                    LOG.warn("Failed to evict batch user profile cache for user {}: {}", user, ex.getMessage());
+                }
             }
         };
         if (TransactionSynchronizationManager.isSynchronizationActive()) {

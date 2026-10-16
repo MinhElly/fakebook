@@ -54,13 +54,20 @@ public class PostQueryService extends QueryService<Post> {
 
     private final UserServiceClient userServiceClient;
 
-    public PostQueryService(PostRepository postRepository, PostMapper postMapper,
-            PostMediaRepository postMediaRepository,
-            UserServiceClient userServiceClient) {
+    private final PostContentCache postContentCache;
+
+    public PostQueryService(
+        PostRepository postRepository,
+        PostMapper postMapper,
+        PostMediaRepository postMediaRepository,
+        UserServiceClient userServiceClient,
+        PostContentCache postContentCache
+    ) {
         this.postRepository = postRepository;
         this.postMapper = postMapper;
         this.postMediaRepository = postMediaRepository;
         this.userServiceClient = userServiceClient;
+        this.postContentCache = postContentCache;
     }
 
     /**
@@ -72,18 +79,117 @@ public class PostQueryService extends QueryService<Post> {
     @Transactional(readOnly = true)
     public Page<PostDTO> findByCriteria(PostCriteria criteria, Pageable page) {
         LOG.debug("find by criteria : {}, page: {}", criteria, page);
-        final Specification<Post> specification = createSpecification(criteria);
 
-        return postRepository.findAll(specification, page).map(post -> {
+        if (isIdInOnlyCriteria(criteria)) {
+            return findByIdInWithCache(criteria.getId().getIn(), page);
+        }
+
+        final Specification<Post> specification = createSpecification(criteria);
+        Page<Post> postsPage = postRepository.findAll(specification, page);
+        List<Post> posts = postsPage.getContent();
+        if (posts.isEmpty()) {
+            return postsPage.map(postMapper::toDto);
+        }
+
+        List<UUID> postIds = posts.stream().map(Post::getId).toList();
+        List<PostMedia> mediaList = postMediaRepository.findByPostIdInOrderByDisplayOrderAsc(postIds);
+        java.util.Map<UUID, List<UUID>> mediaMap = new java.util.HashMap<>();
+        for (PostMedia pm : mediaList) {
+            if (pm.getPost() != null && pm.getPost().getId() != null && pm.getMediaId() != null) {
+                mediaMap.computeIfAbsent(pm.getPost().getId(), k -> new ArrayList<>()).add(pm.getMediaId());
+            }
+        }
+
+        return postsPage.map(post -> {
             PostDTO dto = postMapper.toDto(post);
-            List<UUID> mediaIds = postMediaRepository
-                    .findByPostIdOrderByDisplayOrderAsc(post.getId())
-                    .stream()
-                    .map(PostMedia::getMediaId)
-                    .toList();
-            dto.setMediaIds(mediaIds);
+            dto.setMediaIds(mediaMap.getOrDefault(post.getId(), List.of()));
             return dto;
         });
+    }
+
+    private boolean isIdInOnlyCriteria(PostCriteria criteria) {
+        if (criteria == null || criteria.getId() == null || criteria.getId().getIn() == null || criteria.getId().getIn().isEmpty()) {
+            return false;
+        }
+        return criteria.getAuthorId() == null
+            && criteria.getVisibility() == null
+            && criteria.getStatus() == null
+            && criteria.getCreatedAt() == null
+            && criteria.getUpdatedAt() == null;
+    }
+
+    private Page<PostDTO> findByIdInWithCache(List<UUID> requestedIds, Pageable page) {
+        java.util.Map<UUID, com.minh.fakebook.post.service.dto.PostContentCacheDTO> cachedPosts = postContentCache.getPosts(requestedIds);
+
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        boolean isLoggedIn = auth != null && auth.isAuthenticated() && !"anonymousUser".equals(auth.getPrincipal());
+        boolean isAdmin = false;
+        UUID currentUserId = null;
+        List<UUID> friendIds = List.of();
+
+        if (isLoggedIn) {
+            isAdmin = auth.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals(AuthoritiesConstants.ADMIN));
+            if (!isAdmin && auth instanceof JwtAuthenticationToken jwtAuth) {
+                try {
+                    currentUserId = UUID.fromString(jwtAuth.getToken().getSubject());
+                    friendIds = userServiceClient.getFriendIdsByUserId(currentUserId);
+                } catch (DownstreamServiceUnavailableException e) {
+                    LOG.warn("User Service unavailable; returning public and owned posts only", e);
+                }
+            }
+        }
+
+        java.util.Set<UUID> friendSet = new java.util.HashSet<>(friendIds);
+        List<PostDTO> visiblePosts = new ArrayList<>();
+
+        for (UUID id : requestedIds) {
+            com.minh.fakebook.post.service.dto.PostContentCacheDTO post = cachedPosts.get(id);
+            if (post == null || post.isEmpty() || post.status() != PostStatus.ACTIVE) {
+                continue;
+            }
+
+            boolean canView;
+            if (isAdmin) {
+                canView = true;
+            } else if (!isLoggedIn) {
+                canView = post.visibility() == PostVisibility.PUBLIC;
+            } else {
+                if (post.visibility() == PostVisibility.PUBLIC) {
+                    canView = true;
+                } else if (post.authorId().equals(currentUserId)) {
+                    canView = true;
+                } else if (post.visibility() == PostVisibility.FRIENDS && friendSet.contains(post.authorId())) {
+                    canView = true;
+                } else {
+                    canView = false;
+                }
+            }
+
+            if (canView) {
+                PostDTO dto = new PostDTO();
+                dto.setId(post.id());
+                dto.setAuthorId(post.authorId());
+                dto.setContent(post.content());
+                dto.setVisibility(post.visibility());
+                dto.setStatus(post.status());
+                dto.setCreatedAt(post.createdAt());
+                dto.setUpdatedAt(post.updatedAt());
+                dto.setMediaIds(post.mediaIds());
+                dto.setTaggedUserIds(post.taggedUserIds());
+                dto.setVersion(post.version());
+                visiblePosts.add(dto);
+            }
+        }
+
+        if (page.isUnpaged()) {
+            return new org.springframework.data.domain.PageImpl<>(visiblePosts, page, visiblePosts.size());
+        }
+        int start = (int) page.getOffset();
+        int end = Math.min((start + page.getPageSize()), visiblePosts.size());
+        List<PostDTO> pageContent = (start < visiblePosts.size())
+            ? visiblePosts.subList(start, end)
+            : List.of();
+        return new org.springframework.data.domain.PageImpl<>(pageContent, page, visiblePosts.size());
     }
 
     /**

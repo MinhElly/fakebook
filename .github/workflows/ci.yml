@@ -51,6 +51,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Reject stale or expanded local release PRs
+        if: github.event_name == 'pull_request' && github.head_ref == 'codex/gitops-local-release' && github.base_ref == 'develop'
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          python scripts/gitops/release.py verify-local --base "$BASE_SHA" --head "$HEAD_SHA" \
+            --owner "${GITHUB_REPOSITORY_OWNER,,}"
       - name: Validate Compose templates
         run: |
           docker compose -f infrastructure/docker-compose.yml config --quiet
@@ -268,6 +278,38 @@ jobs:
           commit-message: 'chore(gitops): promote local images from ${{ github.sha }}'
           title: 'chore(gitops): release local from ${{ github.sha }}'
           body-path: /tmp/release-body.md
+      - name: Enable protected auto-merge for local release
+        if: steps.pr.outputs.pull-request-number != ''
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+          PR_NUMBER: ${{ steps.pr.outputs.pull-request-number }}
+          PR_HEAD: ${{ steps.pr.outputs.pull-request-head-sha }}
+        run: |
+          # Fail closed: --auto must wait for required checks on an up-to-date PR.
+          gh api graphql -f owner="$GITHUB_REPOSITORY_OWNER" -f name="${GITHUB_REPOSITORY#*/}" \
+            -f query='query($owner: String!, $name: String!) {
+              repository(owner: $owner, name: $name) {
+                autoMergeAllowed squashMergeAllowed
+                ref(qualifiedName: "refs/heads/develop") {
+                  branchProtectionRule {
+                    requiresStatusChecks requiresStrictStatusChecks requiredStatusCheckContexts
+                  }
+                }
+              }
+            }' > /tmp/local-auto-merge-policy.json
+          python - <<'PY'
+          import json
+          repo = json.load(open('/tmp/local-auto-merge-policy.json'))['data']['repository']
+          rule = (repo.get('ref') or {}).get('branchProtectionRule') or {}
+          if not (repo['autoMergeAllowed'] and repo['squashMergeAllowed']
+                  and rule.get('requiresStatusChecks') and rule.get('requiresStrictStatusChecks')
+                  and 'CI/CD Pipeline Summary' in rule.get('requiredStatusCheckContexts', [])):
+              raise SystemExit('Enable repository auto-merge/squash and protect develop with '
+                               'required CI/CD Pipeline Summary + up-to-date branches. '
+                               'No protections are bypassed; release PR remains open.')
+          PY
+          gh pr merge "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" --auto --squash \
+            --match-head-commit "$PR_HEAD"
       - name: Record release PR
         env:
           PR_URL: ${{ steps.pr.outputs.pull-request-url }}

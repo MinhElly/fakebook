@@ -25,8 +25,10 @@ import com.minh.fakebook.comment.domain.PostCache;
 import io.namastack.outbox.Outbox;
 import com.minh.fakebook.comment.service.event.EventEnvelope;
 import com.minh.fakebook.comment.service.event.CommentChangedEvent;
+import com.minh.fakebook.comment.service.event.CommentSummaryChanged;
 import java.time.Instant;
 import java.util.Map;
+import org.springframework.context.ApplicationEventPublisher;
 
 /**
  * Service Implementation for managing {@link com.minh.fakebook.comment.domain.Comment}.
@@ -46,14 +48,17 @@ public class CommentService {
     private final PostCacheResolver postCacheResolver;
     private final CommentViewAuthorizationService authorization;
 
-        private final Outbox outbox;
+    private final Outbox outbox;
+    private final ApplicationEventPublisher eventPublisher;
 
     public CommentService(
             CommentRepository commentRepository,
             CommentMapper commentMapper,
             UserServiceClient userFeignClient,
             PostCacheResolver postCacheResolver,
-            Outbox outbox, CommentViewAuthorizationService authorization
+            Outbox outbox,
+            CommentViewAuthorizationService authorization,
+            ApplicationEventPublisher eventPublisher
     ) {
         this.commentRepository = commentRepository;
         this.commentMapper = commentMapper;
@@ -61,6 +66,7 @@ public class CommentService {
         this.postCacheResolver = postCacheResolver;
         this.outbox = outbox;
         this.authorization = authorization;
+        this.eventPublisher = eventPublisher;
     }
 
 
@@ -85,6 +91,7 @@ public class CommentService {
         comment.setStatus(CommentStatus.ACTIVE);
 
         comment = commentRepository.save(comment);
+        eventPublisher.publishEvent(new CommentSummaryChanged(comment.getPostId()));
         publishCommentChangedEvent(comment.getPostId(), "CREATED");
         return commentMapper.toDto(comment);
     }
@@ -109,6 +116,7 @@ public class CommentService {
                 }
                 comment.setContent(content);
                 comment = commentRepository.save(comment);
+                eventPublisher.publishEvent(new CommentSummaryChanged(comment.getPostId()));
                 publishCommentChangedEvent(comment.getPostId(), "UPDATED");
                 return commentMapper.toDto(comment);
             });
@@ -125,6 +133,7 @@ public class CommentService {
         LOG.debug("Request to save Comment : {}", commentDTO);
         Comment comment = commentMapper.toEntity(commentDTO);
         comment = commentRepository.save(comment);
+        eventPublisher.publishEvent(new CommentSummaryChanged(comment.getPostId()));
         return commentMapper.toDto(comment);
     }
 
@@ -138,6 +147,7 @@ public class CommentService {
         LOG.debug("Request to update Comment : {}", commentDTO);
         Comment comment = commentMapper.toEntity(commentDTO);
         comment = commentRepository.save(comment);
+        eventPublisher.publishEvent(new CommentSummaryChanged(comment.getPostId()));
         return commentMapper.toDto(comment);
     }
 
@@ -153,12 +163,15 @@ public class CommentService {
         return commentRepository
             .findById(commentDTO.getId())
             .map(existingComment -> {
+                UUID oldPostId = existingComment.getPostId();
                 commentMapper.partialUpdate(existingComment, commentDTO);
-
-                return existingComment;
-            })
-            .map(commentRepository::save)
-            .map(commentMapper::toDto);
+                Comment saved = commentRepository.save(existingComment);
+                eventPublisher.publishEvent(new CommentSummaryChanged(saved.getPostId()));
+                if (oldPostId != null && !oldPostId.equals(saved.getPostId())) {
+                    eventPublisher.publishEvent(new CommentSummaryChanged(oldPostId));
+                }
+                return commentMapper.toDto(saved);
+            });
     }
 
     /**
@@ -210,6 +223,7 @@ public class CommentService {
             }
             comment.setStatus(CommentStatus.DELETED);
             commentRepository.save(comment);
+            eventPublisher.publishEvent(new CommentSummaryChanged(comment.getPostId()));
             publishCommentChangedEvent(comment.getPostId(), "DELETED");
         });
     }
@@ -242,6 +256,7 @@ public class CommentService {
             reply.setParentComment(parent);
             
             reply = commentRepository.save(reply);
+            eventPublisher.publishEvent(new CommentSummaryChanged(reply.getPostId()));
             publishCommentChangedEvent(reply.getPostId(), "CREATED");
             return commentMapper.toDto(reply);
         }

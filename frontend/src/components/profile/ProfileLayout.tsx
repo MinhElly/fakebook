@@ -269,7 +269,7 @@ export default function ProfileLayout({
                       <p className="text-sm mt-1">{user.name} chưa đăng bài viết nào trên trang cá nhân.</p>
                     )}
                   </div>
-                : posts.map((post) => <Post key={post.id} post={post} />)
+                : posts.map((post) => <Post key={post.id} post={post} context="profile" />)
               }
 
               {/* Hiển thị vòng xoay đang tải hoặc thông báo hết bài */}

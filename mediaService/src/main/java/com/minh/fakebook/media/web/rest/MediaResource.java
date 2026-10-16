@@ -248,6 +248,15 @@ public class MediaResource {
         if (mediaDTO.isPresent() && mediaDTO.orElseThrow().getStatus() != com.minh.fakebook.media.domain.enumeration.MediaStatus.ACTIVE) return ResponseEntity.notFound().build();
         if (mediaDTO.isPresent() && mediaDTO.orElseThrow().getUrl() != null) {
             String url = mediaDTO.orElseThrow().getUrl();
+            org.springframework.http.CacheControl cacheControl;
+            if (mediaDTO.orElseThrow().getPurpose() == com.minh.fakebook.media.domain.enumeration.MediaPurpose.POST) {
+                cacheControl = org.springframework.http.CacheControl.noStore();
+            } else {
+                cacheControl = org.springframework.http.CacheControl.maxAge(7, java.util.concurrent.TimeUnit.DAYS)
+                        .cachePublic()
+                        .immutable()
+                        .staleWhileRevalidate(1, java.util.concurrent.TimeUnit.DAYS);
+            }
             if (url.startsWith("data:")) {
                 try {
                     String[] parts = url.split(",");
@@ -256,7 +265,7 @@ public class MediaResource {
                     String mimeType = header.substring(header.indexOf(":") + 1, header.indexOf(";"));
                     byte[] imageBytes = java.util.Base64.getDecoder().decode(base64Data);
                     return ResponseEntity.ok()
-                            .cacheControl(org.springframework.http.CacheControl.noStore())
+                            .cacheControl(cacheControl)
                             .contentType(org.springframework.http.MediaType.parseMediaType(mimeType))
                             .body(imageBytes);
                 } catch (Exception e) {
@@ -272,7 +281,8 @@ public class MediaResource {
                 factory.setConnectTimeout(3000); factory.setReadTimeout(30000);
                 var result = org.springframework.web.client.RestClient.builder().requestFactory(factory).build()
                     .get().uri(storage).retrieve().toEntity(byte[].class);
-                return ResponseEntity.ok().header("Cache-Control", "private, no-store")
+                return ResponseEntity.ok()
+                    .cacheControl(cacheControl)
                     .contentType(result.getHeaders().getContentType() == null ? MediaType.APPLICATION_OCTET_STREAM : result.getHeaders().getContentType())
                     .body(result.getBody());
             }

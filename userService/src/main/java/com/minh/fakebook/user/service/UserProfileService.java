@@ -66,19 +66,23 @@ public class UserProfileService {
 
     private final MediaServiceClient mediaClient;
 
+    private final org.springframework.context.ApplicationEventPublisher eventPublisher;
+
     public UserProfileService(
             UserProfileRepository userProfileRepository,
             UserProfileMapper userProfileMapper,
             FriendshipRepository friendshipRepository,
             FriendRequestRepository friendRequestRepository,
             Outbox outbox,
-            MediaServiceClient mediaClient) {
+            MediaServiceClient mediaClient,
+            org.springframework.context.ApplicationEventPublisher eventPublisher) {
         this.userProfileRepository = userProfileRepository;
         this.userProfileMapper = userProfileMapper;
         this.friendshipRepository = friendshipRepository;
         this.friendRequestRepository = friendRequestRepository;
         this.outbox = outbox;
         this.mediaClient = mediaClient;
+        this.eventPublisher = eventPublisher;
     }
 
     /**
@@ -91,7 +95,9 @@ public class UserProfileService {
         LOG.debug("Request to save UserProfile : {}", userProfileDTO);
         UserProfile userProfile = userProfileMapper.toEntity(userProfileDTO);
         userProfile = userProfileRepository.save(userProfile);
-        return userProfileMapper.toDto(userProfile);
+        UserProfileDTO savedDto = userProfileMapper.toDto(userProfile);
+        eventPublisher.publishEvent(new com.minh.fakebook.user.service.event.UserProfileChanged(savedDto.getId()));
+        return savedDto;
     }
 
     /**
@@ -104,7 +110,9 @@ public class UserProfileService {
         LOG.debug("Request to update UserProfile : {}", userProfileDTO);
         UserProfile userProfile = userProfileMapper.toEntity(userProfileDTO);
         userProfile = userProfileRepository.save(userProfile);
-        return userProfileMapper.toDto(userProfile);
+        UserProfileDTO updatedDto = userProfileMapper.toDto(userProfile);
+        eventPublisher.publishEvent(new com.minh.fakebook.user.service.event.UserProfileChanged(updatedDto.getId()));
+        return updatedDto;
     }
 
     /**
@@ -151,7 +159,11 @@ public class UserProfileService {
                     return existingUserProfile;
                 })
                 .map(userProfileRepository::save)
-                .map(userProfileMapper::toDto);
+                .map(userProfileMapper::toDto)
+                .map(savedDto -> {
+                    eventPublisher.publishEvent(new com.minh.fakebook.user.service.event.UserProfileChanged(savedDto.getId()));
+                    return savedDto;
+                });
     }
 
     private void scheduleMediaCleanup(MediaCleanupEvent event) {
@@ -179,6 +191,7 @@ public class UserProfileService {
     public void delete(UUID id) {
         LOG.debug("Request to delete UserProfile : {}", id);
         userProfileRepository.deleteById(id);
+        eventPublisher.publishEvent(new com.minh.fakebook.user.service.event.UserProfileChanged(id));
     }
 
     /**
@@ -206,7 +219,9 @@ public class UserProfileService {
         newProfile.setCreatedAt(Instant.now());
         try {
             UserProfile saved = userProfileRepository.save(newProfile);
-            return userProfileMapper.toDto(saved);
+            UserProfileDTO result = userProfileMapper.toDto(saved);
+            eventPublisher.publishEvent(new com.minh.fakebook.user.service.event.UserProfileChanged(result.getId()));
+            return result;
         } catch (DataIntegrityViolationException e) {
             LOG.warn("Concurrent profile creation detected for user sub: {}, query again from DB", userId);
             return userProfileRepository.findById(userId)

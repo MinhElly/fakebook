@@ -16,10 +16,18 @@ giới hạn vào repository hiện tại. GitHub App token cho phép PR do bot 
 workflow `pull_request`; dùng `GITHUB_TOKEN` cho bước tạo PR không bảo đảm điều đó.
 Xem [GitHub workflow triggers](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/trigger-a-workflow).
 
-Bật branch protection/ruleset cho `develop`: yêu cầu review, CI/CD Pipeline Summary
-thành công, và cập nhật branch với base mới nhất trước merge. Điều này ngăn PR
-phát hành cũ được merge sau khi source mới đã vào `develop`. Chỉ merge PR có SHA
-nguồn đúng bản muốn phát hành; không bật auto-merge trong lần diễn tập đầu.
+Bật **Settings → General → Pull Requests → Allow auto-merge** và **Allow squash
+merging**. Cấu hình branch protection cho `develop`: required status check
+**CI/CD Pipeline Summary** và **Require branches to be up to date before merging**.
+Workflow đọc lại các điều kiện này trước khi yêu cầu auto-merge; thiếu điều kiện
+hoặc không đọc được policy thì job fail và PR phát hành vẫn mở. Gate hiện đọc
+`branchProtectionRule`; repo chỉ dùng rulesets cần bổ sung hỗ trợ trước khi tự động
+phát hành, không được bỏ qua gate.
+
+Nếu `develop` còn yêu cầu approving review, auto-merge vẫn chờ đủ review; workflow
+không tự approve, bỏ qua hoặc thay đổi branch protection. Staging vẫn duyệt PR
+phát hành riêng. Các thiết lập trên GitHub cần được kiểm tra thực tế; sửa workflow
+trong checkout không tự bật repository settings.
 
 GHCR packages phải cho repository Actions quyền publish và cluster quyền pull.
 Nếu package private, cấu hình `imagePullSecrets` cho Pod hoặc ServiceAccount trong
@@ -43,6 +51,18 @@ Chỉ push source vào `develop` tạo/cập nhật PR `codex/gitops-local-relea
 4. Đọc lại GHCR tags và so sánh digest với artifact publisher.
 5. Ghi `newTag: sha-...` và `digest: sha256:...` cho bảy image trong overlay local.
 6. Render Kustomize, rồi mở PR chỉ chứa `kustomization.yaml`.
+7. Kiểm tra repository/branch policy rồi bật `gh pr merge --auto --squash`, ràng
+   buộc đúng head SHA vừa tạo. GitHub chỉ merge khi đủ các yêu cầu của nhánh.
+
+PR local từ `codex/gitops-local-release` vào `develop` còn chạy gate
+`release.py verify-local`: chỉ cho đổi phần bảy image trong overlay local, đủ
+SHA/digest và đúng registry; source build phải thuộc lịch sử base và không được
+có source mới hơn chưa phát hành. Gate nằm trong config validation nên thất bại
+sẽ làm **CI/CD Pipeline Summary** thất bại. Strict up-to-date protection chặn PR
+đang xanh khi base thay đổi; sau khi cập nhật branch, gate kiểm tra lại source.
+Nếu source mới hơn đã vào `develop`, chờ CI mới cập nhật PR phát hành thay vì
+merge bản cũ. Nếu chỉ có thay đổi docs/manifests, có thể cần cập nhật branch để
+chạy lại checks theo strict protection.
 
 Kustomize render reference có digest; tag giữ khả năng truy vết, digest quyết định
 artifact thực tế được pull. Một lần rerun có thể publish lại tag SHA, nhưng manifest
@@ -64,6 +84,13 @@ namespace `fakebook-local`, server `https://kubernetes.default.svc`.
 Auto-sync đang dùng `enabled: true`, `selfHeal: true`, `prune: false` ở thời điểm
 kiểm tra 2026-10-13. CI không gọi Kubernetes/Argo API để triển khai. Sau merge PR,
 Argo CD đồng bộ desired state trong Git.
+
+Luồng local sau khi workflow và các thiết lập GitHub được kích hoạt: người dùng
+merge PR source → CI test/build/push image → bot tạo/cập nhật PR GitOps và bật
+auto-merge → các checks/reviews bắt buộc đạt → GitHub merge → Argo sync → Kubernetes
+rollout. Không cần merge tay PR image nếu nhánh không còn yêu cầu review thủ công.
+Auto-merge chỉ áp dụng cho PR local do job `promote-local` xử lý; staging và PR
+rollback vẫn giữ bước merge riêng.
 
 Chạy PowerShell sau merge:
 

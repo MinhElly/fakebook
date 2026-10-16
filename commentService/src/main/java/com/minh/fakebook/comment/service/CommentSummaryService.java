@@ -1,16 +1,12 @@
 package com.minh.fakebook.comment.service;
 
-import com.minh.fakebook.comment.domain.Comment;
-import com.minh.fakebook.comment.domain.enumeration.CommentStatus;
-import com.minh.fakebook.comment.repository.CommentRepository;
 import com.minh.fakebook.comment.service.dto.CommentPreviewDTO;
+import com.minh.fakebook.comment.service.dto.CommentSummaryCacheDTO;
 import com.minh.fakebook.comment.service.dto.CommentSummaryDTO;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import java.util.function.Function;
-import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -18,43 +14,31 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional(readOnly = true)
 public class CommentSummaryService {
 
-    private final CommentRepository commentRepository;
-
     private final CommentViewAuthorizationService authorizationService;
+    private final CommentSummaryCache summaryCache;
 
-    public CommentSummaryService(CommentRepository commentRepository, CommentViewAuthorizationService authorizationService) {
-        this.commentRepository = commentRepository;
+    public CommentSummaryService(
+        CommentViewAuthorizationService authorizationService,
+        CommentSummaryCache summaryCache
+    ) {
         this.authorizationService = authorizationService;
+        this.summaryCache = summaryCache;
     }
 
     public List<CommentSummaryDTO> getSummaries(List<UUID> requestedPostIds) {
         LinkedHashSet<UUID> postIds = new LinkedHashSet<>(requestedPostIds);
         authorizationService.verifyCanView(postIds);
 
-        Map<UUID, Long> counts = commentRepository
-            .countByPostIdsAndStatus(postIds, CommentStatus.ACTIVE)
-            .stream()
-            .collect(
-                Collectors.toMap(
-                    CommentRepository.CommentCountProjection::getPostId,
-                    CommentRepository.CommentCountProjection::getCommentCount
-                )
-            );
-        Map<UUID, Comment> previews = commentRepository
-            .findLatestActiveRootComments(postIds)
-            .stream()
-            .collect(Collectors.toMap(Comment::getPostId, Function.identity()));
+        Map<UUID, CommentSummaryCacheDTO> summaries = summaryCache.getSummaries(postIds);
 
         return postIds
             .stream()
-            .map(postId -> new CommentSummaryDTO(postId, counts.getOrDefault(postId, 0L), toPreview(previews.get(postId))))
+            .map(postId -> {
+                CommentSummaryCacheDTO dto = summaries.get(postId);
+                long count = dto != null ? dto.commentCount() : 0L;
+                CommentPreviewDTO preview = dto != null ? dto.previewComment() : null;
+                return new CommentSummaryDTO(postId, count, preview);
+            })
             .toList();
-    }
-
-    private CommentPreviewDTO toPreview(Comment comment) {
-        if (comment == null) {
-            return null;
-        }
-        return new CommentPreviewDTO(comment.getId(), comment.getAuthorId(), comment.getContent(), comment.getCreatedAt());
     }
 }

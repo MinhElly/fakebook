@@ -1,6 +1,7 @@
 package com.minh.fakebook.post.repository;
 
 import com.minh.fakebook.post.domain.PostMedia;
+import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.data.jpa.repository.*;
@@ -13,6 +14,8 @@ import org.springframework.stereotype.Repository;
 @Repository
 public interface PostMediaRepository extends JpaRepository<PostMedia, UUID>, JpaSpecificationExecutor<PostMedia> {
     List<PostMedia> findByPostIdOrderByDisplayOrderAsc(UUID postId);
+
+    List<PostMedia> findByPostIdInOrderByDisplayOrderAsc(Collection<UUID> postIds);
 
     List<PostMedia> findByMediaId(UUID mediaId);
 

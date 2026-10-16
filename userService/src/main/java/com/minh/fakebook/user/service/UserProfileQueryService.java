@@ -31,9 +31,16 @@ public class UserProfileQueryService extends QueryService<UserProfile> {
 
     private final UserProfileMapper userProfileMapper;
 
-    public UserProfileQueryService(UserProfileRepository userProfileRepository, UserProfileMapper userProfileMapper) {
+    private final UserProfileCache userProfileCache;
+
+    public UserProfileQueryService(
+        UserProfileRepository userProfileRepository,
+        UserProfileMapper userProfileMapper,
+        UserProfileCache userProfileCache
+    ) {
         this.userProfileRepository = userProfileRepository;
         this.userProfileMapper = userProfileMapper;
+        this.userProfileCache = userProfileCache;
     }
 
     /**
@@ -45,6 +52,31 @@ public class UserProfileQueryService extends QueryService<UserProfile> {
     @Transactional(readOnly = true)
     public Page<UserProfileDTO> findByCriteria(UserProfileCriteria criteria, Pageable page) {
         LOG.debug("find by criteria : {}, page: {}", criteria, page);
+        if (isSimpleIdInQuery(criteria)) {
+            java.util.List<java.util.UUID> requestedIds = criteria.getId().getIn();
+            java.util.Map<java.util.UUID, UserProfileDTO> profileMap = userProfileCache.getProfiles(requestedIds);
+            java.util.List<UserProfileDTO> orderedProfiles = requestedIds.stream()
+                .distinct()
+                .map(profileMap::get)
+                .filter(java.util.Objects::nonNull)
+                .toList();
+
+            if (page == null || page.isUnpaged()) {
+                return new org.springframework.data.domain.PageImpl<>(
+                    orderedProfiles,
+                    page != null ? page : Pageable.unpaged(),
+                    orderedProfiles.size()
+                );
+            }
+
+            int start = (int) page.getOffset();
+            int end = Math.min(start + page.getPageSize(), orderedProfiles.size());
+            java.util.List<UserProfileDTO> pagedList = start >= orderedProfiles.size()
+                ? java.util.List.of()
+                : orderedProfiles.subList(start, end);
+            return new org.springframework.data.domain.PageImpl<>(pagedList, page, orderedProfiles.size());
+        }
+
         final Specification<UserProfile> specification = createSpecification(criteria);
         return userProfileRepository.findAll(specification, page).map(userProfileMapper::toDto);
     }
@@ -57,8 +89,28 @@ public class UserProfileQueryService extends QueryService<UserProfile> {
     @Transactional(readOnly = true)
     public long countByCriteria(UserProfileCriteria criteria) {
         LOG.debug("count by criteria : {}", criteria);
+        if (isSimpleIdInQuery(criteria)) {
+            java.util.List<java.util.UUID> requestedIds = criteria.getId().getIn();
+            return userProfileCache.getProfiles(requestedIds).size();
+        }
         final Specification<UserProfile> specification = createSpecification(criteria);
         return userProfileRepository.count(specification);
+    }
+
+    private boolean isSimpleIdInQuery(UserProfileCriteria criteria) {
+        if (criteria == null || criteria.getId() == null || criteria.getId().getIn() == null || criteria.getId().getIn().isEmpty()) {
+            return false;
+        }
+        return criteria.getId().getEquals() == null
+            && criteria.getId().getNotEquals() == null
+            && criteria.getId().getSpecified() == null
+            && criteria.getId().getNotIn() == null
+            && criteria.getUsername() == null
+            && criteria.getDisplayName() == null
+            && criteria.getAvatarMediaId() == null
+            && criteria.getCoverMediaId() == null
+            && criteria.getCreatedAt() == null
+            && criteria.getUpdatedAt() == null;
     }
 
     /**

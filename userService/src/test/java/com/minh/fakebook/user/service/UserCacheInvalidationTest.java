@@ -38,6 +38,8 @@ class UserCacheInvalidationTest {
             synchronizations.getFirst().afterCommit();
             verify(redis).delete("userProfile::" + senderId);
             verify(redis).delete("userProfile::" + receiverId);
+            verify(redis).delete(com.minh.fakebook.user.config.Constants.USER_PROFILE_CACHE + "::" + senderId);
+            verify(redis).delete(com.minh.fakebook.user.config.Constants.USER_PROFILE_CACHE + "::" + receiverId);
             verify(redis, times(10)).scan(any());
         } finally { TransactionSynchronizationManager.clearSynchronization(); }
     }

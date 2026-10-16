@@ -24,11 +24,14 @@ public class PostBrowseService {
     private final PostService service;
     private final PostMapper mapper;
     private final PostHistoryService history;
+    private final PostContentCache postContentCache;
 
     public PostBrowseService(PostRepository posts, PostMediaRepository media, PostQueryService query,
-            PostService service, PostMapper mapper, PostHistoryService history) {
+            PostService service, PostMapper mapper, PostHistoryService history,
+            PostContentCache postContentCache) {
         this.posts = posts; this.media = media; this.query = query;
         this.service = service; this.mapper = mapper; this.history = history;
+        this.postContentCache = postContentCache;
     }
 
     public record ProfilePage(List<PostDTO> items, String nextCursor, boolean hasMore) {}
@@ -91,10 +94,16 @@ public class PostBrowseService {
     }
 
     public List<Candidate> readable(List<UUID> ids, UUID viewer, Set<UUID> friends) {
-        return posts.findAllById(ids).stream().filter(p -> p.getStatus() == PostStatus.ACTIVE &&
-            (p.getVisibility() == PostVisibility.PUBLIC || p.getAuthorId().equals(viewer) ||
-             p.getVisibility() == PostVisibility.FRIENDS && friends != null && friends.contains(p.getAuthorId())))
-            .map(p -> new Candidate(p.getId(), p.getAuthorId(), p.getVisibility().name(), p.getCreatedAt())).toList();
+        if (ids == null || ids.isEmpty()) return List.of();
+        Map<UUID, com.minh.fakebook.post.service.dto.PostContentCacheDTO> postMap = postContentCache.getPosts(ids);
+        return ids.stream()
+            .map(postMap::get)
+            .filter(Objects::nonNull)
+            .filter(p -> !p.isEmpty())
+            .filter(p -> p.status() == PostStatus.ACTIVE &&
+                (p.visibility() == PostVisibility.PUBLIC || p.authorId().equals(viewer) ||
+                 p.visibility() == PostVisibility.FRIENDS && friends != null && friends.contains(p.authorId())))
+            .map(p -> new Candidate(p.id(), p.authorId(), p.visibility().name(), p.createdAt())).toList();
     }
 
     private List<Post> page(Specification<Post> spec, String cursor, int size) {

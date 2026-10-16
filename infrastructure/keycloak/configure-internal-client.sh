@@ -127,4 +127,48 @@
       --rolename "$internal_role"
   fi
 
+  # JHipster resource servers read the top-level roles claim, not realm_access.roles.
+  # Keep this mapper on the service client so internal API authority checks see ROLE_INTERNAL.
+  role_mapper_id="$(
+    "$kcadm" get "clients/$client_uuid/protocol-mappers/models" \
+      --config "$config_file" \
+      -r "$realm" \
+      --fields id,name \
+      --format csv \
+      --noquotes |
+    tr -d '\r' |
+    while IFS=, read -r mapper_id mapper_name; do
+      if [ "$mapper_name" = "fakebook-internal-roles" ]; then
+        printf '%s\n' "$mapper_id"
+        break
+      fi
+    done
+  )"
+
+  cat > /tmp/fakebook-internal-roles.json <<'JSON'
+{
+  "name": "fakebook-internal-roles",
+  "protocol": "openid-connect",
+  "protocolMapper": "oidc-usermodel-realm-role-mapper",
+  "consentRequired": false,
+  "config": {
+    "multivalued": "true",
+    "claim.name": "roles",
+    "jsonType.label": "String",
+    "access.token.claim": "true",
+    "id.token.claim": "false",
+    "userinfo.token.claim": "false"
+  }
+}
+JSON
+  if [ -z "$role_mapper_id" ]; then
+    "$kcadm" create "clients/$client_uuid/protocol-mappers/models" \
+      --config "$config_file" -r "$realm" -f /tmp/fakebook-internal-roles.json >/dev/null
+  else
+    "$kcadm" update "clients/$client_uuid/protocol-mappers/models/$role_mapper_id" \
+      --config "$config_file" -r "$realm" -f /tmp/fakebook-internal-roles.json \
+      -s "id=$role_mapper_id" >/dev/null
+  fi
+  rm -f /tmp/fakebook-internal-roles.json
+
   echo "Internal OAuth client and role synchronized."

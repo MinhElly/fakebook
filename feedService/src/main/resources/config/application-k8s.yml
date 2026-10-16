@@ -13,6 +13,10 @@ spring:
             url: ${USER_SERVICE_URL:http://userservice:8082}
           postservice:
             url: ${POST_SERVICE_URL:http://postservice:8083}
+          socialContextClient:
+            url: ${USER_SERVICE_URL:http://userservice:8082}
+          feedReadClient:
+            url: ${POST_SERVICE_URL:http://postservice:8083}
 
   security:
     oauth2:

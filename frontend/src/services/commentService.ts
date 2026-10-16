@@ -41,8 +41,19 @@ export async function fetchCommentSummaries(postIds: string[]): Promise<CommentS
 
 export async function getCommentsByPostId(postId: string): Promise<CommentDTO[]> {
   try {
-    const response = await api.get<CommentDTO[]>(`/services/commentservice/api/comments?postId.equals=${postId}&size=100&_t=${Date.now()}`);
-    return response.data || [];
+    const comments: CommentDTO[] = [];
+    const size = 100;
+    for (let page = 0; ; page += 1) {
+      const response = await api.get<CommentDTO[]>("/services/commentservice/api/comments", {
+        params: { "postId.equals": postId, size, page, sort: ["createdAt,asc", "id,asc"] },
+        paramsSerializer: { indexes: null },
+      });
+      const batch = response.data || [];
+      comments.push(...batch);
+      const total = Number(response.headers["x-total-count"]);
+      if (batch.length < size || (Number.isFinite(total) && comments.length >= total)) break;
+    }
+    return comments;
   } catch (error) {
     console.warn("Failed to fetch comments:", error);
     return [];
