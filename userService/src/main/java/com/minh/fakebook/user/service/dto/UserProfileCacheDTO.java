@@ -1,5 +1,6 @@
 package com.minh.fakebook.user.service.dto;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import java.io.Serializable;
 import java.time.Instant;
 import java.util.UUID;
@@ -36,6 +37,8 @@ public record UserProfileCacheDTO(
         Instant.EPOCH
     );
 
+    // Computed sentinel state, not a JSON field. Also ignores this field in older cache entries.
+    @JsonIgnore
     public boolean isEmpty() {
         return id != null && id.getMostSignificantBits() == 0L && id.getLeastSignificantBits() == 0L;
     }
