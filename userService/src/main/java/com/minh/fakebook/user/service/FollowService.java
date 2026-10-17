@@ -142,13 +142,13 @@ public class FollowService {
     }
 
     @Transactional(readOnly = true)
-    @Cacheable(value = "userFollowing", key = "#userId.toString() + '_' + #pageable.pageNumber + '_' + #pageable.pageSize + '_' + #pageable.sort.toString()")
+
     public Page<FollowDTO> getFollowingList(UUID userId, Pageable pageable){
         return followRepository.findFollowing(userId, pageable).map(followMapper::toDto);    
     }
 
     @Transactional(readOnly = true)
-    @Cacheable(value = "userFollowers", key = "#userId.toString() + '_' + #pageable.pageNumber + '_' + #pageable.pageSize + '_' + #pageable.sort.toString()")
+
     public Page<FollowDTO> getFollowerList(UUID userId, Pageable pageable){
         return followRepository.findFollowers(userId, pageable).map(followMapper::toDto);    
     }

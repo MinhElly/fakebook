@@ -14,6 +14,7 @@ import org.hibernate.type.SqlTypes;
 /**
  * A CommentReaction.
  */
+@org.hibernate.annotations.Filter(name="community", condition="(:administrationView = true or (user_id not in (:excludedSubjects) and community_archived=false))")
 @Entity
 @Table(name = "comment_reaction")
 @SuppressWarnings("common-java:DuplicatedBlocks")

@@ -16,6 +16,12 @@ import org.hibernate.type.SqlTypes;
 /**
  * A Post.
  */
+@org.hibernate.annotations.FilterDef(name="community", autoEnabled=true, applyToLoadByKey=true,
+    parameters={
+        @org.hibernate.annotations.ParamDef(name="excludedSubjects", type=String.class, resolver=com.minh.fakebook.post.administration.ExcludedSubjects.class),
+        @org.hibernate.annotations.ParamDef(name="administrationView", type=Boolean.class, resolver=com.minh.fakebook.post.administration.AdministrationView.class)
+    })
+@org.hibernate.annotations.Filter(name="community", condition="(:administrationView = true or (author_id not in (:excludedSubjects) and community_archived = false and moderation_visibility = 'VISIBLE'))")
 @Entity
 @Table(name = "posts")
 @SuppressWarnings("common-java:DuplicatedBlocks")

@@ -16,6 +16,9 @@ import org.springframework.stereotype.Repository;
 @SuppressWarnings("unused")
 @Repository
 public interface UserProfileRepository extends JpaRepository<UserProfile, UUID>, JpaSpecificationExecutor<UserProfile> {
+    // Metadata-only lookup: distinguish a retained archive from an identity that has never had a profile.
+    @Query(value="select count(*) from user_profiles where id=:id and community_archived=true",nativeQuery=true)
+    long countArchivedIdentity(@Param("id") String id);
 
     interface PresenceView {
         UUID getId();

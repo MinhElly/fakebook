@@ -13,6 +13,7 @@ import org.hibernate.type.SqlTypes;
 /**
  * A FriendRequest.
  */
+@org.hibernate.annotations.Filter(name="community", condition="(:administrationView = true or (sender_id not in (:excludedSubjects) and receiver_id not in (:excludedSubjects) and community_archived = false))")
 @Entity
 @Table(name = "friend_requests")
 @SuppressWarnings("common-java:DuplicatedBlocks")

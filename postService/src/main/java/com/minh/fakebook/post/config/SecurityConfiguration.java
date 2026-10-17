@@ -46,8 +46,9 @@ public class SecurityConfiguration {
     }
 
     @Bean
-    public SecurityFilterChain filterChain(HttpSecurity http) {
-        http.csrf(csrf -> csrf.disable())
+    public SecurityFilterChain filterChain(HttpSecurity http, com.minh.fakebook.post.administration.AccountDirectory directory) {
+        http.addFilterAfter(new com.minh.fakebook.post.administration.AccountAccessFilter(directory), org.springframework.security.oauth2.server.resource.web.authentication.BearerTokenAuthenticationFilter.class)
+            .csrf(csrf -> csrf.disable())
             .authorizeHttpRequests(authz ->
                 // prettier-ignore
                 authz
@@ -56,6 +57,7 @@ public class SecurityConfiguration {
                     .requestMatchers("/api/admin/**").hasAuthority(AuthoritiesConstants.ADMIN)
                     .requestMatchers("/api/internal/**").hasAuthority(AuthoritiesConstants.INTERNAL)
                     .requestMatchers("/api/posts/saved").access(SecurityConfiguration::businessAccess)
+                    .requestMatchers("/api/account-state").authenticated()
                     .requestMatchers("/api/**").access(SecurityConfiguration::businessAccess)
                     .requestMatchers("/v3/api-docs/**").hasAuthority(AuthoritiesConstants.ADMIN)
                     .requestMatchers("/management/health").permitAll()

@@ -27,6 +27,19 @@ class UserProfileServiceTest {
 
     private UserProfile user1;
     private UserProfile user2;
+    @Autowired private org.springframework.jdbc.core.JdbcTemplate administrationJdbc;
+    @Autowired private jakarta.persistence.EntityManager entityManager;
+
+    @Test
+    void archivedProfileIsPreservedAndNeverAutomaticallyRecreatedAfterRoleChange() {
+        administrationJdbc.update("update user_profiles set community_archived=true where id=?",user1.getId().toString());
+        entityManager.clear();
+        var token=Jwt.withTokenValue("verified").header("alg","RS256").subject(user1.getId().toString()).claim("preferred_username","user1").build();
+        org.assertj.core.api.Assertions.assertThatThrownBy(()->userProfileService.getOrCreateProfile(token))
+            .isInstanceOf(org.springframework.web.server.ResponseStatusException.class).hasMessageContaining("COMMUNITY_PROFILE_ARCHIVED");
+        assertThat(administrationJdbc.queryForObject("select display_name from user_profiles where id=?",String.class,user1.getId().toString())).isEqualTo("User One");
+        assertThat(userProfileRepository.findById(user1.getId())).isEmpty();
+    }
 
     @BeforeEach
     void init() {

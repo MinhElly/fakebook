@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+<changeSet id="20261017000000" author="codex"><sql splitStatements="true"><![CDATA[
+CREATE TABLE admin_audit (
+ event_id varchar(36) PRIMARY KEY, actor varchar(36) NOT NULL, target varchar(36) NOT NULL,
+ action varchar(50) NOT NULL, reason varchar(1000) NOT NULL, occurred_at timestamp(6) NOT NULL,
+ before_state varchar(100) NOT NULL, after_state varchar(100) NOT NULL, request_id varchar(100) NOT NULL,
+ idempotency_key varchar(100), fingerprint varchar(2000), result_version bigint,
+ CONSTRAINT ux_admin_idempotency UNIQUE(actor, idempotency_key)
+);
+CREATE INDEX ix_admin_audit_time ON admin_audit(occurred_at);
+
+CREATE TABLE account_directory (
+ subject varchar(36) PRIMARY KEY, username varchar(255) NOT NULL, account_kind varchar(20) NOT NULL,
+ status varchar(30) NOT NULL, tokens_valid_after timestamp(6), community_archived boolean NOT NULL DEFAULT false,
+ archive_before timestamp(6), version bigint NOT NULL DEFAULT 0, sync_state varchar(30) NOT NULL DEFAULT 'SYNCED',
+ sync_attempts integer NOT NULL DEFAULT 0, next_attempt_at timestamp(6), desired_action varchar(30)
+);
+CREATE INDEX ix_account_kind ON account_directory(account_kind,status);
+CREATE TABLE account_directory_meta (id integer PRIMARY KEY, ready boolean NOT NULL);
+INSERT INTO account_directory_meta(id,ready) VALUES(1,false);
+ALTER TABLE user_profiles ADD community_archived boolean NOT NULL DEFAULT false;
+ALTER TABLE friendships ADD community_archived boolean NOT NULL DEFAULT false;
+ALTER TABLE follows ADD community_archived boolean NOT NULL DEFAULT false;
+ALTER TABLE friend_requests ADD community_archived boolean NOT NULL DEFAULT false;
+
+]]></sql></changeSet></databaseChangeLog>

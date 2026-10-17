@@ -118,7 +118,7 @@ class PostReactionCacheIT {
     }
 
     @Test
-    void cacheMissThenHitFlow_reducesDbQueriesAndPreservesCounts() throws Exception {
+    void authoritativeCountReadsDoNotReuseCachedActorVisibility() throws Exception {
         postReactionRepository.saveAndFlush(
             new PostReaction().userId(USER_1).reactionType(ReactionType.LIKE).post(post1).createdAt(Instant.now())
         );
@@ -129,7 +129,7 @@ class PostReactionCacheIT {
         double missesBefore = getMetricCount("fakebook.cache.reaction_counts.misses");
         double hitsBefore = getMetricCount("fakebook.cache.reaction_counts.hits");
 
-        // 1st call: Cache miss -> loads DB, returns counts, populates Redis
+        // Counts use current actor eligibility from the database.
         mockMvc
             .perform(get(SUMMARIES_URL).param("postId.in", post1.getId().toString()).with(jwtAs(USER_1)))
             .andExpect(status().isOk())
@@ -139,9 +139,9 @@ class PostReactionCacheIT {
             .andExpect(jsonPath("$[0].counts.LOVE").value(1))
             .andExpect(jsonPath("$[0].myReaction").value("LIKE"));
 
-        assertThat(getMetricCount("fakebook.cache.reaction_counts.misses")).isEqualTo(missesBefore + 1.0);
+        assertThat(getMetricCount("fakebook.cache.reaction_counts.misses")).isEqualTo(missesBefore);
 
-        // 2nd call: Cache hit -> reads from Redis
+        // The next call also uses fresh actor eligibility.
         mockMvc
             .perform(get(SUMMARIES_URL).param("postId.in", post1.getId().toString()).with(jwtAs(USER_1)))
             .andExpect(status().isOk())
@@ -151,7 +151,7 @@ class PostReactionCacheIT {
             .andExpect(jsonPath("$[0].counts.LOVE").value(1))
             .andExpect(jsonPath("$[0].myReaction").value("LIKE"));
 
-        assertThat(getMetricCount("fakebook.cache.reaction_counts.hits")).isGreaterThanOrEqualTo(hitsBefore + 1.0);
+        assertThat(getMetricCount("fakebook.cache.reaction_counts.hits")).isEqualTo(hitsBefore);
     }
 
     @Test

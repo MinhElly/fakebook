@@ -70,19 +70,15 @@ class PostTimelineIT {
         assertThat(revisions()).isZero();
     }
 
-    @Test void adminCanAttachOwnUploadAndAuthorCanRetainIt() throws Exception {
+    @Test void adminCannotAttachMediaAndAuthorCanAttachOwnUpload() throws Exception {
         UUID image = UUID.randomUUID();
-        when(media.getMedia(image)).thenReturn(new MediaValidationDTO(image, outsider, "ACTIVE", "POST"));
+        when(media.getMedia(image)).thenReturn(new MediaValidationDTO(image, author, "ACTIVE", "POST"));
         mvc.perform(patch("/api/posts/{id}", post.getId()).with(jwt().jwt(t -> t.subject(outsider.toString())).authorities(new SimpleGrantedAuthority("ROLE_ADMIN")))
             .contentType(MediaType.APPLICATION_JSON).content(body(Map.of("mediaIds", List.of(image)))))
-            .andExpect(status().isOk()).andExpect(jsonPath("$.mediaIds[0]").value(image.toString()));
+            .andExpect(status().isForbidden());
         mvc.perform(patch("/api/posts/{id}", post.getId()).with(jwt().jwt(t -> t.subject(author.toString())))
             .contentType(MediaType.APPLICATION_JSON).content(body(Map.of("mediaIds", List.of(image), "content", "author edit"))))
             .andExpect(status().isOk()).andExpect(jsonPath("$.mediaIds[0]").value(image.toString()));
-        when(media.getMedia(image)).thenReturn(new MediaValidationDTO(image, outsider, "DELETED", "POST"));
-        mvc.perform(patch("/api/posts/{id}", post.getId()).with(jwt().jwt(t -> t.subject(outsider.toString())).authorities(new SimpleGrantedAuthority("ROLE_ADMIN")))
-            .contentType(MediaType.APPLICATION_JSON).content(body(Map.of("mediaIds", List.of(image), "content", "invalid"))))
-            .andExpect(status().isForbidden());
         assertThat(posts.findById(post.getId()).orElseThrow().getContent()).isEqualTo("author edit");
     }
 
@@ -107,8 +103,8 @@ class PostTimelineIT {
             .andExpect(status().isForbidden());
         assertThat(revisions()).isZero(); assertThat(posts.findById(post.getId()).orElseThrow().getContent()).isEqualTo("original");
     }
-    @Test void tagAddsProfileMembershipWithoutOpeningPrivatePostAndAdminCanEdit() throws Exception {
-        mvc.perform(patch("/api/posts/{id}",post.getId()).with(jwt().jwt(t -> t.subject(outsider.toString())).authorities(new SimpleGrantedAuthority("ROLE_ADMIN"))).with(csrf())
+    @Test void tagAddsProfileMembershipWithoutOpeningPrivatePost() throws Exception {
+        mvc.perform(patch("/api/posts/{id}",post.getId()).with(jwt().jwt(t -> t.subject(author.toString()))).with(csrf())
             .contentType(MediaType.APPLICATION_JSON).content(body(Map.of("taggedUserIds",List.of(friend),"visibility","PRIVATE"))))
             .andExpect(status().isOk());
         mvc.perform(get("/api/posts/profile/{id}",friend).with(jwt().jwt(t -> t.subject(outsider.toString())))).andExpect(status().isOk()).andExpect(jsonPath("$.items").isEmpty());
@@ -191,10 +187,10 @@ class PostTimelineIT {
     }
     @org.junit.jupiter.params.ParameterizedTest
     @org.junit.jupiter.params.provider.CsvSource({
-        "PUBLIC,GUEST,401", "PUBLIC,OWNER,200", "PUBLIC,FRIEND,200", "PUBLIC,FOLLOWER,200", "PUBLIC,OUTSIDER,200", "PUBLIC,ADMIN,200",
-        "FRIENDS,GUEST,401", "FRIENDS,OWNER,200", "FRIENDS,FRIEND,200", "FRIENDS,FOLLOWER,403", "FRIENDS,OUTSIDER,403", "FRIENDS,ADMIN,200",
-        "PRIVATE,GUEST,401", "PRIVATE,OWNER,200", "PRIVATE,FRIEND,403", "PRIVATE,FOLLOWER,403", "PRIVATE,OUTSIDER,403", "PRIVATE,ADMIN,200",
-        "DELETED,GUEST,401", "DELETED,OWNER,403", "DELETED,FRIEND,403", "DELETED,FOLLOWER,403", "DELETED,OUTSIDER,403", "DELETED,ADMIN,200"
+        "PUBLIC,GUEST,401", "PUBLIC,OWNER,200", "PUBLIC,FRIEND,200", "PUBLIC,FOLLOWER,200", "PUBLIC,OUTSIDER,200", "PUBLIC,ADMIN,403",
+        "FRIENDS,GUEST,401", "FRIENDS,OWNER,200", "FRIENDS,FRIEND,200", "FRIENDS,FOLLOWER,403", "FRIENDS,OUTSIDER,403", "FRIENDS,ADMIN,403",
+        "PRIVATE,GUEST,401", "PRIVATE,OWNER,200", "PRIVATE,FRIEND,403", "PRIVATE,FOLLOWER,403", "PRIVATE,OUTSIDER,403", "PRIVATE,ADMIN,403",
+        "DELETED,GUEST,401", "DELETED,OWNER,403", "DELETED,FRIEND,403", "DELETED,FOLLOWER,403", "DELETED,OUTSIDER,403", "DELETED,ADMIN,403"
     })
     void currentPostReadPermissionMatrix(String privacy, String viewerRole, int expected) throws Exception {
         UUID follower = UUID.randomUUID();

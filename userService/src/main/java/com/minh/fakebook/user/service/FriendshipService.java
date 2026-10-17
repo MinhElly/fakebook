@@ -120,11 +120,11 @@ public class FriendshipService {
         LOG.info("Scheduled FRIENDSHIP_DELETED event between {} and {}", currentUserId, friendUserId);
 
     }
-    @Cacheable (value = "userFriends", key = "#userId.toString() + '_' + #pageable.pageNumber + '_' + #pageable.pageSize + '_' + #pageable.sort.toString()")
+
     public Page<FriendshipDTO> getMyFriendsList(UUID userId, Pageable pageable){
         return friendshipRepository.findByUserId(userId, pageable).map(friendshipMapper::toDto);
     }
-    @Cacheable(value = "userFriends", key = "#userId.toString() + '_' + #pageable.pageNumber + '_' + #pageable.pageSize + '_' + #pageable.sort.toString()")
+
     public Page<FriendshipDTO> getUserFriendsList(UUID userId, Pageable pageable){
         return friendshipRepository.findByUserId(userId, pageable).map(friendshipMapper::toDto);
     }

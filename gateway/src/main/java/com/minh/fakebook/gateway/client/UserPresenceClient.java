@@ -32,6 +32,15 @@ public class UserPresenceClient {
         this.tokenProvider = tokenProvider;
     }
 
+    public Mono<Void> requireCommunity(UUID subject,Instant issuedAt) {
+        return tokenProvider.getAccessToken().flatMap(token -> webClient.get().uri("/api/internal/accounts/{id}",subject)
+            .headers(h -> h.setBearerAuth(token)).retrieve().bodyToMono(com.minh.fakebook.gateway.administration.AccountState.class))
+            .timeout(REQUEST_TIMEOUT).switchIfEmpty(Mono.error(new IllegalStateException("Account unavailable")))
+            .flatMap(state -> {
+                String denial=state.denial(issuedAt,false,false,false);
+                return denial==null?Mono.empty():Mono.error(new IllegalArgumentException(denial));
+            });
+    }
     public record LastSeenRequest(Instant lastSeenAt) {}
 
     public record ReadRequest(UUID viewerId, java.util.Set<UUID> userIds) {}

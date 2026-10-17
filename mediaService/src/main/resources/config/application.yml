@@ -184,6 +184,12 @@ spring:
         registration:
           oidc:
             scope: openid, profile
+          internal:
+            provider: oidc
+            client-id: ${FAKEBOOK_OIDC_INTERNAL_CLIENT_ID:internal}
+            client-secret: ${FAKEBOOK_OIDC_INTERNAL_CLIENT_SECRET:}
+            authorization-grant-type: client_credentials
+            scope: openid
   task:
     execution:
       thread-name-prefix: media-service-task-
@@ -260,3 +266,14 @@ cloudinary:
   cloud-name: ${CLOUDINARY_CLOUD_NAME:}
   api-key: ${CLOUDINARY_API_KEY:}
   api-secret: ${CLOUDINARY_API_SECRET:}
+
+namastack:
+  outbox:
+    enabled: true
+    polling-interval: 2000
+    jdbc:
+      schema-initialization:
+        enabled: false
+    kafka:
+      enabled: true
+      default-topic: admin-audit-events

@@ -12,7 +12,8 @@
     "preview": "vite preview",
     "format": "oxfmt",
     "test:browser": "node tests/loading-history.browser.cjs",
-    "test:presence": "node tests/presence.browser.cjs"
+    "test:presence": "node tests/presence.browser.cjs",
+    "test:admin": "node tests/admin.browser.cjs"
   },
   "dependencies": {
     "@microsoft/fetch-event-source": "^2.0.1",

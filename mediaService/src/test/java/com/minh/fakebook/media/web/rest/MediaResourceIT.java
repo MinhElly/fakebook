@@ -1233,7 +1233,7 @@ class MediaResourceIT {
 
     @Test
     @Transactional
-    void deleteMediaByAdmin() throws Exception {
+    void adminCannotUseCommunityMediaDelete() throws Exception {
         insertedMedia = mediaRepository.saveAndFlush(media);
 
         long databaseSizeBeforeDelete = getRepositoryCount();
@@ -1249,10 +1249,10 @@ class MediaResourceIT {
                     .with(csrf())
                     .accept(org.springframework.http.MediaType.APPLICATION_JSON)
             )
-            .andExpect(status().isNoContent());
+            .andExpect(status().isForbidden());
 
         assertSameRepositoryCount(databaseSizeBeforeDelete);
-        assertThat(mediaRepository.findById(insertedMedia.getId()).orElseThrow().getStatus()).isEqualTo(MediaStatus.DELETED);
+        assertThat(mediaRepository.findById(insertedMedia.getId()).orElseThrow().getStatus()).isEqualTo(MediaStatus.ACTIVE);
     }
 
     @Test
@@ -1302,14 +1302,14 @@ class MediaResourceIT {
 
     @Test
     @Transactional
-    void avatarMediaFileIsCachedPubliclyAndImmutable() throws Exception {
+    void avatarMediaFileRequiresFreshAuthorization() throws Exception {
         media.setPurpose(com.minh.fakebook.media.domain.enumeration.MediaPurpose.AVATAR);
         media.setUrl("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAA=");
         insertedMedia = mediaRepository.saveAndFlush(media);
         restMediaMockMvc.perform(get(ENTITY_API_URL + "/{id}/file", media.getId()).with(jwt().jwt(t -> t.subject("00000000-0000-4000-8000-000000000099"))))
             .andExpect(status().isOk())
-            .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.header().string("Cache-Control", org.hamcrest.Matchers.containsString("public")))
-            .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.header().string("Cache-Control", org.hamcrest.Matchers.containsString("immutable")));
+            .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.header().string("Cache-Control", org.hamcrest.Matchers.equalTo("no-store")))
+            .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.header().string("Cache-Control", org.hamcrest.Matchers.equalTo("no-store")));
     }
 
     protected long getRepositoryCount() {

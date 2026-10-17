@@ -56,11 +56,6 @@ export default defineConfig(({ mode }) => {
           changeOrigin: true,
           secure: false,
         },
-        '/admin': {
-          target: 'http://localhost:9080',
-          changeOrigin: true,
-          secure: false,
-        },
       },
     },
     preview: {

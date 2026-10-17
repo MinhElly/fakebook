@@ -235,7 +235,7 @@ public class PostReactionService {
             .map(Post::getId)
             .toList();
 
-        return buildSummariesUsingCache(visiblePostIds, currentUserId);
+        return buildSummariesFromDatabase(visiblePostIds, currentUserId);
     }
 
     @Transactional(readOnly = true)

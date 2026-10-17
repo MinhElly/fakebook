@@ -98,7 +98,7 @@ class CommentSummaryCacheIT {
     }
 
     @Test
-    void shouldCacheSummariesOnFirstCallAndHitCacheOnSecondCall() throws Exception {
+    void shouldReadAuthoritativeSummariesWithoutCachingPermissionSensitiveCounts() throws Exception {
         saveComment(publicPost.getId(), "Initial comment", CommentStatus.ACTIVE, null, Instant.now());
 
         double initialHits = getHitCount();
@@ -107,7 +107,7 @@ class CommentSummaryCacheIT {
         CommentSummaryRequest request = new CommentSummaryRequest(List.of(publicPost.getId()));
         byte[] requestBody = objectMapper.writeValueAsBytes(request);
 
-        // First call: Cache miss, loads from DB and puts in Redis
+        // Community counts are read from the authoritative database, never a cached allow decision.
         mockMvc.perform(
             post(SUMMARIES_URL)
                 .with(jwt().jwt(t -> t.subject(AUTHOR_ID.toString())))
@@ -119,16 +119,15 @@ class CommentSummaryCacheIT {
             .andExpect(jsonPath("$[0].commentCount").value(1))
             .andExpect(jsonPath("$[0].previewComment.content").value("Initial comment"));
 
-        assertThat(getMissCount()).isEqualTo(initialMisses + 1.0);
+        assertThat(getMissCount()).isEqualTo(initialMisses);
         assertThat(getHitCount()).isEqualTo(initialHits);
 
-        // Verify key exists in Redis cache
+        // The community endpoint must not cache permission-sensitive counts.
         Cache<UUID, CommentSummaryCacheDTO> cache = getCache();
         assertThat(cache).isNotNull();
-        assertThat(cache.get(publicPost.getId())).isNotNull();
-        assertThat(cache.get(publicPost.getId()).commentCount()).isEqualTo(1L);
+        assertThat(cache.get(publicPost.getId())).isNull();
 
-        // Second call: Cache hit
+        // The next call must make the same fresh read.
         mockMvc.perform(
             post(SUMMARIES_URL)
                 .with(jwt().jwt(t -> t.subject(AUTHOR_ID.toString())))
@@ -140,7 +139,7 @@ class CommentSummaryCacheIT {
             .andExpect(jsonPath("$[0].commentCount").value(1))
             .andExpect(jsonPath("$[0].previewComment.content").value("Initial comment"));
 
-        assertThat(getHitCount()).isEqualTo(initialHits + 1.0);
+        assertThat(getHitCount()).isEqualTo(initialHits);
     }
 
     @Test
@@ -292,7 +291,7 @@ class CommentSummaryCacheIT {
     }
 
     @Test
-    void shouldCacheZeroCountPost() throws Exception {
+    void shouldReturnFreshZeroCountWithoutCaching() throws Exception {
         PostCache emptyPost = postCacheRepository.saveAndFlush(
             new PostCache().authorId(AUTHOR_ID).visibility("PUBLIC").status("ACTIVE")
         );
@@ -312,11 +311,9 @@ class CommentSummaryCacheIT {
             .andExpect(jsonPath("$[0].commentCount").value(0))
             .andExpect(jsonPath("$[0].previewComment").doesNotExist());
 
-        // Verify cached in Redis with count = 0
+        // The public endpoint does not reuse cached count authorization.
         Cache<UUID, CommentSummaryCacheDTO> cache = getCache();
-        assertThat(cache.get(emptyPost.getId())).isNotNull();
-        assertThat(cache.get(emptyPost.getId()).commentCount()).isEqualTo(0L);
-        assertThat(cache.get(emptyPost.getId()).previewComment()).isNull();
+        assertThat(cache.get(emptyPost.getId())).isNull();
 
         double hitsBefore = getHitCount();
         // Second call: served from Redis cache
@@ -331,7 +328,7 @@ class CommentSummaryCacheIT {
             .andExpect(jsonPath("$[0].commentCount").value(0))
             .andExpect(jsonPath("$[0].previewComment").doesNotExist());
 
-        assertThat(getHitCount()).isEqualTo(hitsBefore + 1.0);
+        assertThat(getHitCount()).isEqualTo(hitsBefore);
     }
 
     @Test

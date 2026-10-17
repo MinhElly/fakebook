@@ -22,7 +22,9 @@ class FriendRequestRealtimeTest {
         UUID requestId = UUID.randomUUID();
         UUID senderId = UUID.randomUUID();
         RealtimeEventHub eventHub = new RealtimeEventHub();
-        RealtimeResource resource = new RealtimeResource(eventHub);
+        var directory=org.mockito.Mockito.mock(com.minh.fakebook.gateway.administration.AccountDirectory.class);
+        org.mockito.Mockito.when(directory.community(org.mockito.ArgumentMatchers.anyString(),org.mockito.ArgumentMatchers.any())).thenReturn(reactor.core.publisher.Mono.empty());
+        RealtimeResource resource = new RealtimeResource(eventHub,directory);
         FriendRequestEventConsumerConfiguration configuration = new FriendRequestEventConsumerConfiguration();
 
         CompletableFuture<ServerSentEvent<RealtimeEvent>> recipientEvent = resource

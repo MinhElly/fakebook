@@ -42,7 +42,7 @@ public interface FriendshipRepository extends JpaRepository<Friendship, UUID>, J
     @Query("SELECT f.friend.id FROM Friendship f WHERE f.user.id = :currentUserId AND f.friend.id IN :targetIds")
     Set<UUID> findFriendIdsIn(@Param ("currentUserId")UUID currentUserId, @Param ("targetIds") Collection<UUID> targetIds);
 
-    @Query("SELECT f2.user.id AS userId, COUNT(f1.friend.id) AS count " + 
+    @Query("SELECT f2.user.id AS userId, COUNT(f1.friend.id) AS count " +
         "FROM Friendship f1 JOIN Friendship f2 ON f1.friend.id = f2.friend.id " +
         "WHERE f1.user.id = :currentUserId AND f2.user.id IN :targetIds " +
         "GROUP BY f2.user.id"
@@ -50,16 +50,16 @@ public interface FriendshipRepository extends JpaRepository<Friendship, UUID>, J
     List<Tuple> countMutualFriendsForUsers(@Param("currentUserId") UUID currentUserId, @Param("targetIds") Collection<UUID> targetIds);
 
     @Query(value = """
-    SELECT 
+    SELECT
         up.id AS "userId",
         COUNT(DISTINCT mf.friend_id) AS "mutualFriendsCount"
     FROM user_profiles up
     LEFT JOIN friendships cf
-        ON cf.user_id = up.id
+        ON cf.user_id = up.id AND cf.community_archived = false AND NOT EXISTS (SELECT 1 FROM account_directory a WHERE a.subject=cf.friend_id AND (a.account_kind='ADMIN' OR a.community_archived=true))
     LEFT JOIN friendships mf
-        ON mf.user_id = :currentUserId 
+        ON mf.community_archived = false AND mf.user_id = :currentUserId
         AND mf.friend_id = cf.friend_id
-    WHERE up.id <> :currentUserId
+    WHERE up.id <> :currentUserId AND up.community_archived=false AND NOT EXISTS (SELECT 1 FROM account_directory a WHERE a.subject=up.id AND (a.account_kind='ADMIN' OR a.community_archived=true))
     AND NOT EXISTS (
         SELECT 1
         FROM friendships f
@@ -77,7 +77,7 @@ public interface FriendshipRepository extends JpaRepository<Friendship, UUID>, J
                 )
                 OR (
                     fr.sender_id = up.id
-                    AND fr.receiver_id = :currentUserId 
+                    AND fr.receiver_id = :currentUserId
                 )
             )
     )
@@ -85,7 +85,7 @@ public interface FriendshipRepository extends JpaRepository<Friendship, UUID>, J
     ORDER BY "mutualFriendsCount" DESC, up.id ASC
     """, nativeQuery = true)
     List<FriendSuggestionProjection> findFriendSuggestions(@Param("currentUserId") UUID currentUserId, Pageable pageable);
-    
+
     @org.springframework.data.jpa.repository.Query("SELECT CASE WHEN e.user.id = :userId THEN e.friend.id ELSE e.user.id END FROM Friendship e WHERE e.user.id = :userId OR e.friend.id = :userId")
     java.util.List<UUID> findRelatedUserIds(@org.springframework.data.repository.query.Param("userId") UUID userId);
 }

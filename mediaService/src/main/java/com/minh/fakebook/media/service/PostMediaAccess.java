@@ -21,6 +21,17 @@ public class PostMediaAccess {
         var factory = new SimpleClientHttpRequestFactory(); factory.setConnectTimeout(2000); factory.setReadTimeout(3000);
         client = RestClient.builder().requestFactory(factory).build();
     }
+    public record Grant(boolean attached,boolean readable) {}
+    public boolean canOwnerRead(UUID mediaId) {
+        var instances=discovery.getInstances("postservice");
+        var request=client.get().uri((instances.isEmpty()?postUrl:instances.getFirst().getUri().toString())+"/api/posts/media/"+mediaId+"/attachment-access");
+        var auth=SecurityContextHolder.getContext().getAuthentication();
+        if(auth instanceof JwtAuthenticationToken jwt) request.header("Authorization","Bearer "+jwt.getToken().getTokenValue());
+        try {
+            Grant grant=request.retrieve().body(Grant.class);
+            return grant!=null && (!grant.attached() || grant.readable());
+        } catch(RestClientException error) {throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,"Post authorization unavailable");}
+    }
     public boolean canRead(UUID mediaId) {
         var instances = discovery.getInstances("postservice");
         var request = client.get().uri((instances.isEmpty() ? postUrl : instances.getFirst().getUri().toString()) + "/api/posts/media/" + mediaId + "/access");

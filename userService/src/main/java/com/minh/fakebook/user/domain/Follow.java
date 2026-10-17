@@ -12,6 +12,7 @@ import org.hibernate.type.SqlTypes;
 /**
  * A Follow.
  */
+@org.hibernate.annotations.Filter(name="community", condition="(:administrationView = true or (follower_id not in (:excludedSubjects) and following_id not in (:excludedSubjects) and community_archived = false))")
 @Entity
 @Table(name = "follows")
 @SuppressWarnings("common-java:DuplicatedBlocks")

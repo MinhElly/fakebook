@@ -19,9 +19,10 @@ import java.util.UUID;
 @RequestMapping("/api/realtime")
 public class RealtimeResource {
     private final RealtimeEventHub eventHub;
+    private final com.minh.fakebook.gateway.administration.AccountDirectory directory;
 
-    public RealtimeResource(RealtimeEventHub eventHub) {
-        this.eventHub = eventHub;
+    public RealtimeResource(RealtimeEventHub eventHub, com.minh.fakebook.gateway.administration.AccountDirectory directory) {
+        this.eventHub = eventHub; this.directory=directory;
     }
 
     @GetMapping(value = "/events", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
@@ -39,7 +40,8 @@ public class RealtimeResource {
         Flux<ServerSentEvent<RealtimeEvent>> heartbeat = Flux.interval(Duration.ofSeconds(20)).map(sequence ->
             ServerSentEvent.<RealtimeEvent>builder().comment("heartbeat").build()
         );
-        return Flux.merge(realtimeEvents, heartbeat);
+        return Flux.merge(realtimeEvents, heartbeat)
+            .concatMap(frame -> directory.community(jwt.getSubject(),jwt.getIssuedAt()).thenReturn(frame),1);
     }
 
     private String toSseEventName(String eventType) {

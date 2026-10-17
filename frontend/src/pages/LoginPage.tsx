@@ -1,10 +1,9 @@
 import { useEffect, useRef } from "react";
 import { Navigate } from "react-router";
 import { useAuth } from "@/providers/AuthProvider";
-import SplashScreen from "@/components/ui/SplashScreen";
 
 export default function LoginPage() {
-  const { status, error, login } = useAuth();
+  const { status, error, login, isAdmin } = useAuth();
   const redirectStarted = useRef(false);
 
   useEffect(() => {
@@ -14,7 +13,7 @@ export default function LoginPage() {
     void login();
   }, [login, status]);
 
-  if (status === "authenticated") return <Navigate to="/" replace />;
+  if (status === "authenticated") return <Navigate to={isAdmin ? "/admin" : "/"} replace />;
 
   if (status === "error") {
     return (
@@ -42,5 +41,5 @@ export default function LoginPage() {
     );
   }
 
-  return <SplashScreen message="Đang mở trang đăng nhập..." />;
+  return null;
 }

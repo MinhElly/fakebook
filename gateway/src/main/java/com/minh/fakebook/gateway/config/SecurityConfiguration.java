@@ -72,8 +72,9 @@ public class SecurityConfiguration {
     }
 
     @Bean
-    public SecurityWebFilterChain springSecurityFilterChain(ServerHttpSecurity http) {
-        http.cors(withDefaults())
+    public SecurityWebFilterChain springSecurityFilterChain(ServerHttpSecurity http, com.minh.fakebook.gateway.administration.AccountDirectory directory) {
+        http.addFilterAfter(new com.minh.fakebook.gateway.administration.AccountAccessWebFilter(directory), SecurityWebFiltersOrder.AUTHENTICATION)
+            .cors(withDefaults())
             .csrf(csrf -> csrf.disable())
             .addFilterAfter(new SpaWebFilter(), SecurityWebFiltersOrder.HTTPS_REDIRECT)
             .headers(headers ->
@@ -110,6 +111,7 @@ public class SecurityConfiguration {
                     .pathMatchers("/api/**").authenticated()
                     .pathMatchers("/services/*/management/health/readiness").permitAll()
                     .pathMatchers("/services/*/v3/api-docs").hasAuthority(AuthoritiesConstants.ADMIN)
+                    .pathMatchers("/services/*/api/admin/**").hasAuthority(AuthoritiesConstants.ADMIN)
                     .pathMatchers("/services/*/api/internal/**").hasAuthority("ROLE_INTERNAL")
                     .pathMatchers("/services/postservice/api/posts/saved").authenticated()
                     .pathMatchers("/services/**").authenticated()

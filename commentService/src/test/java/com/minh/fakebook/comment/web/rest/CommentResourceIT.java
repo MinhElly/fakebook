@@ -354,7 +354,7 @@ class CommentResourceIT {
 
     @Test
     @Transactional
-    void replyAndAdminEditKeepEditorAndPreviewMetadata() throws Exception {
+    void adminCannotEditCommunityAndAuthorEditsKeepPreviewMetadata() throws Exception {
         var parent = commentRepository.saveAndFlush(comment);
         var reply = commentRepository.saveAndFlush(new Comment().postId(POST_ID).authorId(AUTHOR_ID)
             .parentComment(parent).content("Reply").status(CommentStatus.ACTIVE));
@@ -364,9 +364,10 @@ class CommentResourceIT {
                 .authorities(new org.springframework.security.core.authority.SimpleGrantedAuthority(AuthoritiesConstants.ADMIN)))
             .with(csrf()).contentType(MediaType.APPLICATION_JSON)
             .content(objectMapper.writeValueAsBytes(new UpdateCommentRequestDTO(UPDATED_CONTENT))))
-            .andExpect(status().isOk());
+            .andExpect(status().isForbidden());
+        editComment(parent.getId(), UPDATED_CONTENT);
         restCommentMockMvc.perform(get(ENTITY_API_URL + "/{id}/history", parent.getId()))
-            .andExpect(jsonPath("$[0].editorId").value(OTHER_USER_ID.toString()));
+            .andExpect(jsonPath("$[0].editorId").value(AUTHOR_ID.toString()));
         restCommentMockMvc.perform(post(ENTITY_API_URL + "/summaries").with(csrf())
             .contentType(MediaType.APPLICATION_JSON).content("{\"postIds\":[\"" + POST_ID + "\"]}"))
             .andExpect(status().isOk()).andExpect(jsonPath("$[0].previewComment.editCount").value(1))

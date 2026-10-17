@@ -15,7 +15,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.minh.fakebook.feed.service.UserFeedService;
+import com.minh.fakebook.feed.service.AuthorizedUserFeedService;
 import com.minh.fakebook.feed.service.dto.FeedItemDTO;
 
 @RestController 
@@ -23,9 +23,9 @@ import com.minh.fakebook.feed.service.dto.FeedItemDTO;
 public class UserFeedResource {
     private static final Logger LOG = LoggerFactory.getLogger(UserFeedResource.class);
 
-    private final UserFeedService userFeedService;
+    private final AuthorizedUserFeedService userFeedService;
 
-    public UserFeedResource(UserFeedService userFeedService) {
+    public UserFeedResource(AuthorizedUserFeedService userFeedService) {
         this.userFeedService = userFeedService;
     }
 

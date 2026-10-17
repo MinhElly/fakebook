@@ -11,6 +11,9 @@ export interface UserProfile {
 }
 
 export interface AuthState {
+  roles: string[];
+  accountKind: "ADMIN" | "USER" | null;
+  isAdmin: boolean;
   status: AuthStatus;
   user: UserProfile | null;
   error: string | null;
@@ -21,6 +24,9 @@ export interface AuthState {
 }
 
 export const AuthContext = createContext<AuthState>({
+  roles: [],
+  accountKind: null,
+  isAdmin: false,
   status: "initializing",
   user: null,
   error: null,
