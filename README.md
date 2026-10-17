@@ -118,6 +118,8 @@ Chi tiết về thiết kế kiến trúc, hướng dẫn phát triển và vậ
   - [Coding Guidelines](docs/03-development/coding-guidelines.md) | [Troubleshooting Guide](docs/03-development/troubleshooting.md)
 - 🔌 **Đặc tả API**:
   - [API Overview](docs/04-api/api-overview.md) | [Inter-Service Communication](docs/04-api/service-communication.md)
+- 🛡️ **Quản trị Admin/User**:
+  - [Runbook, API và dashboard GMT+7](docs/administration.md) | [Kết quả kiểm chứng và giới hạn runtime](docs/administration-verification.md)
 - 🗄️ **Cơ sở dữ liệu**:
   - [Database Architecture](docs/05-database/database-architecture.md) | [Database Migration (Liquibase)](docs/05-database/database-migration.md)
 - 🚀 **Triển khai & Vận hành**:

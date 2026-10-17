@@ -113,3 +113,11 @@ Hệ thống hỗ trợ đăng nhập 1-chạm bằng tài khoản Google:
 1. Tạo OAuth Client ID & Secret trên Google Cloud Console.
 2. Thiết lập Redirect URI: `https://<domain>/realms/jhipster/broker/google/endpoint`.
 3. Khi container Keycloak khởi động, script `infrastructure/keycloak/configure-google-idp.sh` tự động tạo hoặc cập nhật Identity Provider `google` trong Realm `jhipster` bằng Keycloak Admin CLI (`kcadm.sh`).
+
+## 5. Tách tài khoản Admin và User
+
+Sau xác thực Keycloak, frontend gọi `/services/userservice/api/account-state` để chọn nhánh cộng đồng hoặc `/admin`. `ROLE_ADMIN` thắng khi token có cả Admin/User; Admin chỉ quản trị, không dùng luồng xã hội. Danh mục tại User Service sở hữu phân loại, trạng thái khóa, mốc thu hồi token và tiến độ đồng bộ; không dùng email, tên hiển thị hoặc cache nội dung để quyết định quyền.
+
+Gateway và từng backend kiểm tra trạng thái hiện hành, kể cả token đã được cấp trước đó. Tài khoản bị khóa trả 403; không kiểm tra được trạng thái trả 503 và giữ quyền đóng. Client có ROLE_INTERNAL chỉ gọi API nội bộ, không vào API quản trị. Client `fakebook-administration` là confidential backend-only cho Keycloak Admin REST, tách khỏi M2M và không có ROLE_ADMIN/ROLE_USER của ứng dụng.
+
+Chuyển Admin giữ dữ liệu cũ và ẩn bằng marker; khóa/đổi role có audit và worker đồng bộ Keycloak. Đọc riêng tư qua API quản trị có audit; SSE/presence cũng kiểm tra lại trạng thái. Xem [runbook quản trị](../administration.md) và [bằng chứng nghiệm thu](../administration-verification.md) trước triển khai. Local backfill/API nội bộ đã được kiểm tra, nhưng chưa thay thế E2E với hai tài khoản thật và runtime nhiều Gateway.
