@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+<changeSet id="20261017000000" author="codex"><sql splitStatements="true"><![CDATA[
+CREATE TABLE admin_audit (
+ event_id varchar(36) PRIMARY KEY, actor varchar(36) NOT NULL, target varchar(36) NOT NULL,
+ action varchar(50) NOT NULL, reason varchar(1000) NOT NULL, occurred_at timestamp(6) NOT NULL,
+ before_state varchar(100) NOT NULL, after_state varchar(100) NOT NULL, request_id varchar(100) NOT NULL,
+ idempotency_key varchar(100), fingerprint varchar(2000), result_version bigint,
+ CONSTRAINT ux_admin_idempotency UNIQUE(actor, idempotency_key)
+);
+CREATE INDEX ix_admin_audit_time ON admin_audit(occurred_at);
+
+ALTER TABLE posts ADD community_archived boolean NOT NULL DEFAULT false;
+ALTER TABLE posts ADD moderation_visibility varchar(10) NOT NULL DEFAULT 'VISIBLE';
+
+ALTER TABLE post_reactions ADD community_archived boolean NOT NULL DEFAULT false;
+ALTER TABLE saved_post ADD community_archived boolean NOT NULL DEFAULT false;
+]]></sql></changeSet></databaseChangeLog>

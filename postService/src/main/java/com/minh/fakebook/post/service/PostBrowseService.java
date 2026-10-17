@@ -95,15 +95,11 @@ public class PostBrowseService {
 
     public List<Candidate> readable(List<UUID> ids, UUID viewer, Set<UUID> friends) {
         if (ids == null || ids.isEmpty()) return List.of();
-        Map<UUID, com.minh.fakebook.post.service.dto.PostContentCacheDTO> postMap = postContentCache.getPosts(ids);
-        return ids.stream()
-            .map(postMap::get)
-            .filter(Objects::nonNull)
-            .filter(p -> !p.isEmpty())
-            .filter(p -> p.status() == PostStatus.ACTIVE &&
-                (p.visibility() == PostVisibility.PUBLIC || p.authorId().equals(viewer) ||
-                 p.visibility() == PostVisibility.FRIENDS && friends != null && friends.contains(p.authorId())))
-            .map(p -> new Candidate(p.id(), p.authorId(), p.visibility().name(), p.createdAt())).toList();
+        return posts.findAllById(ids).stream()
+            .filter(p -> p.getStatus() == PostStatus.ACTIVE &&
+                (p.getVisibility() == PostVisibility.PUBLIC || p.getAuthorId().equals(viewer) ||
+                 p.getVisibility() == PostVisibility.FRIENDS && friends != null && friends.contains(p.getAuthorId())))
+            .map(p -> new Candidate(p.getId(),p.getAuthorId(),p.getVisibility().name(),p.getCreatedAt())).toList();
     }
 
     private List<Post> page(Specification<Post> spec, String cursor, int size) {

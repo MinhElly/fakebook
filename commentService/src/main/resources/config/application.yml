@@ -196,6 +196,12 @@ spring:
         registration:
           oidc:
             scope: openid, profile
+          internal:
+            provider: oidc
+            client-id: ${FAKEBOOK_OIDC_INTERNAL_CLIENT_ID:internal}
+            client-secret: ${FAKEBOOK_OIDC_INTERNAL_CLIENT_SECRET:}
+            authorization-grant-type: client_credentials
+            scope: openid
   task:
     execution:
       thread-name-prefix: comment-service-task-

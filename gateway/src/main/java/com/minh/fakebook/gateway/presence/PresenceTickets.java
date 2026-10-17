@@ -28,7 +28,9 @@ public class PresenceTickets {
         this.prefix = prefix;
     }
 
-    public record Grant(UUID userId, Instant authExpiresAt) {}
+    public record Grant(UUID userId, Instant authExpiresAt, Instant issuedAt) {
+        public Grant(UUID userId, Instant authExpiresAt) {this(userId,authExpiresAt,Instant.EPOCH);}
+    }
     public record Ticket(String ticket, Instant expiresAt, Instant authExpiresAt) {}
 
     @PostMapping("/api/presence/tickets")
@@ -45,7 +47,7 @@ public class PresenceTickets {
             if (jwt.getExpiresAt().isBefore(expires)) expires = jwt.getExpiresAt();
             Ticket result = new Ticket(ticket, expires, jwt.getExpiresAt());
             return redis.opsForValue().set(prefix + ":ticket:" + ticket,
-                userId + "|" + jwt.getExpiresAt().toEpochMilli(), Duration.between(Instant.now(), expires))
+                userId + "|" + jwt.getExpiresAt().toEpochMilli()+"|"+(jwt.getIssuedAt()==null?0:jwt.getIssuedAt().toEpochMilli()), Duration.between(Instant.now(), expires))
                 .thenReturn(ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(result));
         });
     }
@@ -59,7 +61,7 @@ public class PresenceTickets {
             .switchIfEmpty(Mono.error(new IllegalArgumentException("Expired or consumed ticket")))
             .map(value -> {
                 String[] parts = value.split("\\|");
-                Grant grant = new Grant(UUID.fromString(parts[0]), Instant.ofEpochMilli(Long.parseLong(parts[1])));
+                Grant grant = new Grant(UUID.fromString(parts[0]), Instant.ofEpochMilli(Long.parseLong(parts[1])),parts.length>2?Instant.ofEpochMilli(Long.parseLong(parts[2])):Instant.EPOCH);
                 if (!grant.authExpiresAt().isAfter(Instant.now())) throw new IllegalArgumentException("Authentication expired");
                 return grant;
             });

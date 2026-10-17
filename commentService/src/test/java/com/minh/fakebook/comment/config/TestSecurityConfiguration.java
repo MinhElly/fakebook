@@ -21,6 +21,20 @@ import org.springframework.security.oauth2.jwt.JwtDecoder;
 @TestConfiguration(proxyBeanMethods = false)
 public class TestSecurityConfiguration {
 
+    /** Legacy service tests stub the new remote directory boundary, never bypass its security filter. */
+    @Bean
+    @org.springframework.context.annotation.Primary
+    com.minh.fakebook.comment.administration.AccountDirectory accountDirectoryFixture() {
+        var directory=org.mockito.Mockito.mock(com.minh.fakebook.comment.administration.AccountDirectory.class);
+        org.mockito.Mockito.when(directory.excluded()).thenReturn(java.util.List.of());
+        org.mockito.Mockito.when(directory.state(org.mockito.ArgumentMatchers.anyString())).thenAnswer(call -> {
+            var auth=org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+            boolean admin=auth!=null && auth.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
+            return new com.minh.fakebook.comment.administration.AccountState(call.getArgument(0),admin?"ADMIN":"USER","ACTIVE",null,false,0,"SYNCED");
+        });
+        return directory;
+    }
+
     @Bean
     ClientRegistration clientRegistration() {
         return clientRegistrationBuilder().build();

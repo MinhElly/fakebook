@@ -13,6 +13,9 @@ import org.hibernate.type.SqlTypes;
 /**
  * A PostReaction.
  */
+@org.hibernate.annotations.Filter(name="community",deduceAliasInjectionPoints=false,
+    aliases=@org.hibernate.annotations.SqlFragmentAlias(alias="self",table="post_reactions"),
+    condition="(:administrationView = true or ({self}.user_id not in (:excludedSubjects) and {self}.community_archived=false and {self}.post_id in (select p.id from posts p where p.status='ACTIVE' and p.moderation_visibility='VISIBLE' and p.community_archived=false and p.author_id not in (:excludedSubjects))))")
 @Entity
 @Table(name = "post_reactions")
 @SuppressWarnings("common-java:DuplicatedBlocks")

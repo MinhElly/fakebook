@@ -215,6 +215,7 @@ class PresenceWebSocketIT {
             this.redis = redis; store = new PresenceRedisStore(redis, prefix);
             tickets = new PresenceTickets(redis, prefix); bus = new PresenceBus(redis, store);
             var users = mock(UserPresenceClient.class);
+            when(users.requireCommunity(any(),any())).thenReturn(Mono.empty());
             when(users.readable(any(), anySet())).thenAnswer(invocation -> Mono.defer(() -> {
                 if (failPermissions) return Mono.error(new IllegalStateException("Permission API down"));
                 UUID viewer = invocation.getArgument(0); Set<UUID> targets = invocation.getArgument(1);

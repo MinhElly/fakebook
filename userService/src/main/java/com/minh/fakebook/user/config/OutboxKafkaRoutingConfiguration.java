@@ -33,6 +33,8 @@ public class OutboxKafkaRoutingConfiguration {
         };
 
         return KafkaOutboxRouting.builder()
+            .route(OutboxPayloadSelector.contextValue("destination", "admin-audit-events"), (Consumer<OutboxRoute.Builder>) route -> route.target("admin-audit-events"))
+            .route(OutboxPayloadSelector.contextValue("destination", "content-moderation-events"), (Consumer<OutboxRoute.Builder>) route -> route.target("content-moderation-events"))
             .route(OutboxPayloadSelector.contextValue("destination", "friend-request-events"), friendRequestRoute)
             .route(OutboxPayloadSelector.contextValue("destination", "media-cleanup-topic"), mediaCleanupRoute)
             .defaults(friendshipRoute)

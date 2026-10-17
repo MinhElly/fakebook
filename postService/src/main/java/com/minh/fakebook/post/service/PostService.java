@@ -102,7 +102,7 @@ public class PostService {
     public PostDTO save(PostDTO postDTO) {
         LOG.debug("Request to save Post : {}", postDTO);
 
-        if (postDTO.getAuthorId() == null) {
+        if (postDTO.getAuthorId() == null || SecurityContextHolder.getContext().getAuthentication() instanceof JwtAuthenticationToken) {
             Authentication auth = SecurityContextHolder.getContext().getAuthentication();
             if (auth != null && auth.isAuthenticated() && !"anonymousUser".equals(auth.getPrincipal())) {
                 if (auth instanceof JwtAuthenticationToken jwtAuth) {
@@ -380,6 +380,13 @@ public class PostService {
     @Transactional(readOnly = true)
     public Optional<PostDTO> findOne(UUID id) {
         LOG.debug("Request to get Post : {}", id);
+        var authoritative = postRepository.findById(id);
+        if (authoritative.isEmpty()) {
+            // A negative content-cache entry never substitutes for the fresh metadata lookup above.
+            postContentCache.getPost(id);
+            return Optional.empty();
+        }
+        var current = authoritative.orElseThrow();
         return postContentCache.getPost(id).map(cachedPost -> {
 
             Authentication auth = org.springframework.security.core.context.SecurityContextHolder.getContext()
@@ -388,33 +395,33 @@ public class PostService {
             boolean isAdmin = !isGuest && auth.getAuthorities().stream()
                     .anyMatch(a -> a.getAuthority().equals(com.minh.fakebook.post.security.AuthoritiesConstants.ADMIN));
 
-            if (cachedPost.status() == PostStatus.DELETED && !isAdmin) {
+            if (current.getStatus() == PostStatus.DELETED && !isAdmin) {
                 throw new AccessDeniedException("Error: Post not found or has been deleted.");
             }
 
             // 1. Check Private Visibility
-            if (cachedPost.visibility() == PostVisibility.PRIVATE) {
+            if (current.getVisibility() == PostVisibility.PRIVATE) {
                 if (isGuest) {
                     throw new AccessDeniedException("Error: You do not have permission to view this private post.");
                 }
                 if (!isAdmin) {
                     String sub = ((JwtAuthenticationToken) auth).getToken().getSubject();
-                    if (!cachedPost.authorId().toString().equals(sub)) {
+                    if (!current.getAuthorId().toString().equals(sub)) {
                         throw new AccessDeniedException("Error: Only the author can view this private post.");
                     }
                 }
             }
 
             // 2. Check Friends Visibility
-            if (cachedPost.visibility() == PostVisibility.FRIENDS && !isAdmin) {
+            if (current.getVisibility() == PostVisibility.FRIENDS && !isAdmin) {
                 if (isGuest) {
                     throw new AccessDeniedException("Error: You must be logged in to view this friends-only post.");
                 }
                 String sub = ((JwtAuthenticationToken) auth).getToken().getSubject();
                 UUID currentUserId = UUID.fromString(sub);
 
-                if (!cachedPost.authorId().equals(currentUserId)) {
-                    boolean areFriends = userClient.areFriends(currentUserId, cachedPost.authorId());
+                if (!current.getAuthorId().equals(currentUserId)) {
+                    boolean areFriends = userClient.areFriends(currentUserId, current.getAuthorId());
                     if (!areFriends) {
                         throw new AccessDeniedException("Error: You must be a friend of the author to view this post.");
                     }
@@ -424,15 +431,15 @@ public class PostService {
             // 3. Convert to DTO
             PostDTO dto = new PostDTO();
             dto.setId(cachedPost.id());
-            dto.setAuthorId(cachedPost.authorId());
+            dto.setAuthorId(current.getAuthorId());
             dto.setContent(cachedPost.content());
-            dto.setVisibility(cachedPost.visibility());
-            dto.setStatus(cachedPost.status());
-            dto.setCreatedAt(cachedPost.createdAt());
-            dto.setUpdatedAt(cachedPost.updatedAt());
+            dto.setVisibility(current.getVisibility());
+            dto.setStatus(current.getStatus());
+            dto.setCreatedAt(current.getCreatedAt());
+            dto.setUpdatedAt(current.getUpdatedAt());
             dto.setMediaIds(cachedPost.mediaIds());
-            dto.setTaggedUserIds(cachedPost.taggedUserIds());
-            dto.setVersion(cachedPost.version());
+            dto.setTaggedUserIds(current.getTaggedUserIds());
+            dto.setVersion(current.getVersion());
 
             return dto;
         });
@@ -489,7 +496,7 @@ public class PostService {
         for (SavedPost sp : savedPosts) {
             try {
                 findOne(sp.getPostId()).ifPresent(results::add);
-            } catch (Exception e) {
+            } catch (AccessDeniedException e) {
                 // Ignore posts that are no longer accessible (e.g. deleted or privacy changed)
                 LOG.warn("Skipping saved post {} for user {} due to access exception", sp.getPostId(), userId);
             }

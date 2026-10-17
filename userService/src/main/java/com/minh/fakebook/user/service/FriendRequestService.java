@@ -257,12 +257,12 @@ public class FriendRequestService {
 
         return friendRequestMapper.toDto(saved);
     }
-    @Cacheable (value = "pendingReceivedRequests", key = "#receiverId.toString() + '_' + #pageable.getPageNumber() + '_' + #pageable.getPageSize() + '_' + #pageable.sort.toString()")
+
     public Page<FriendRequestDTO> getReceivedPendingRequests(UUID receiverId, Pageable pageable) {
         return friendRequestRepository.findByReceiverIdAndStatus(receiverId, FriendRequestStatus.PENDING, pageable)
                 .map(friendRequestMapper::toDto);
     }
-    @Cacheable (value = "pendingSentRequests", key = "#senderId.toString() + '_' + #pageable.getPageNumber() + '_' + #pageable.getPageSize() + '_' + #pageable.sort.toString()")
+
     public Page<FriendRequestDTO> getSentPendingRequests(UUID senderId, Pageable pageable) {
         return friendRequestRepository.findBySenderIdAndStatus(senderId, FriendRequestStatus.PENDING, pageable)
                 .map(friendRequestMapper::toDto);

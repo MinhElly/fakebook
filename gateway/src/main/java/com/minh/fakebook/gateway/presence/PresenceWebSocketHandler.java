@@ -72,7 +72,9 @@ public class PresenceWebSocketHandler implements WebSocketHandler {
                     if (message.getPayload().readableByteCount() > 8192) throw new IllegalArgumentException("Frame too large");
                     return new Frame(message.getType(), message.getPayloadAsText(StandardCharsets.UTF_8));
                 }).concatMap(this::receive).then();
-            Mono<Void> outgoing = session.send(outbound.asFlux().map(output -> output.ping()
+            Mono<Void> outgoing = session.send(outbound.asFlux()
+                .concatMap(output -> grant==null?Mono.just(output):users.requireCommunity(grant.userId(),grant.issuedAt()).thenReturn(output),1)
+                .map(output -> output.ping()
                 ? session.pingMessage(factory -> factory.wrap(output.payload().getBytes(StandardCharsets.UTF_8)))
                 : session.textMessage(output.payload())));
             Mono<Void> authTimeout = Mono.delay(Duration.ofSeconds(5)).flatMap(ignored -> grant == null
@@ -95,7 +97,7 @@ public class PresenceWebSocketHandler implements WebSocketHandler {
                     Long issued = challenges.remove(frame.payload());
                     if (grant == null || issued == null || System.nanoTime() - issued > Duration.ofSeconds(65).toNanos()) return Mono.empty();
                     if (!grant.authExpiresAt().isAfter(Instant.now())) return Mono.error(new IllegalArgumentException("Authentication expired"));
-                    return store.heartbeat(grant.userId(), connectionId).flatMap(alive -> {
+                    return users.requireCommunity(grant.userId(),grant.issuedAt()).then(store.heartbeat(grant.userId(), connectionId)).flatMap(alive -> {
                         if (!alive) return Mono.error(new IllegalArgumentException("Connection lease expired"));
                         lastPongNanos = System.nanoTime();
                         return Mono.empty();
@@ -109,7 +111,7 @@ public class PresenceWebSocketHandler implements WebSocketHandler {
                     if (initial != (grant == null)) return Mono.error(new IllegalArgumentException("Invalid authentication order"));
                     return tickets.consume(command.ticket()).flatMap(next -> {
                         if (!initial && !next.userId().equals(grant.userId())) return Mono.error(new IllegalArgumentException("Identity changed"));
-                        return users.readable(next.userId(), Set.of(next.userId())).flatMap(rows -> {
+                        return users.requireCommunity(next.userId(),next.issuedAt()).then(users.readable(next.userId(), Set.of(next.userId()))).flatMap(rows -> {
                             if (rows.stream().noneMatch(row -> row.userId().equals(next.userId()))) {
                                 return Mono.error(new IllegalArgumentException("Profile unavailable"));
                             }
@@ -164,7 +166,7 @@ public class PresenceWebSocketHandler implements WebSocketHandler {
                 if (!grant.authExpiresAt().isAfter(Instant.now())) return Mono.error(new IllegalArgumentException("Authentication expired"));
                 Set<UUID> targets = requested;
                 long version = subscriptionVersion;
-                return users.readable(grant.userId(), targets).flatMapMany(Flux::fromIterable)
+                return users.requireCommunity(grant.userId(),grant.issuedAt()).then(users.readable(grant.userId(), targets)).flatMapMany(Flux::fromIterable)
                     .flatMap(row -> store.snapshot(row.userId()).map(state -> {
                         Instant seen = state.lastSeenAt();
                         if (seen == null || row.lastSeenAt() != null && row.lastSeenAt().isAfter(seen)) seen = row.lastSeenAt();

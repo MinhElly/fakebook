@@ -15,9 +15,16 @@ import org.hibernate.annotations.CacheConcurrencyStrategy;
 /**
  * A Comment.
  */
+@org.hibernate.annotations.FilterDef(name="community", autoEnabled=true, applyToLoadByKey=true,
+    parameters={
+        @org.hibernate.annotations.ParamDef(name="excludedSubjects", type=String.class, resolver=com.minh.fakebook.comment.administration.ExcludedSubjects.class),
+        @org.hibernate.annotations.ParamDef(name="administrationView", type=Boolean.class, resolver=com.minh.fakebook.comment.administration.AdministrationView.class)
+    })
+@org.hibernate.annotations.Filter(name="community", deduceAliasInjectionPoints=false,
+    aliases=@org.hibernate.annotations.SqlFragmentAlias(alias="self",table="comments"),
+    condition="(:administrationView = true or ({self}.author_id not in (:excludedSubjects) and {self}.community_archived=false and {self}.moderation_visibility='VISIBLE' and {self}.effective_hidden=false and {self}.id not in (with recursive blocked(id) as (select a.id from comments a where a.author_id in (:excludedSubjects) or a.moderation_visibility='HIDDEN' or a.community_archived=true union select a.id from comments a join blocked b on a.parent_comment_id=b.id) select b.id from blocked b)))")
 @Entity
 @Table(name = "comments")
-@Cache(usage = CacheConcurrencyStrategy.READ_WRITE)
 @SuppressWarnings("common-java:DuplicatedBlocks")
 public class Comment implements Serializable {
 
@@ -50,6 +57,7 @@ public class Comment implements Serializable {
     private CommentStatus status;
 
     @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name="parent_comment_id")
     @JsonIgnoreProperties(value = { "parentComment" }, allowSetters = true)
     private Comment parentComment;
 
@@ -74,6 +82,12 @@ public class Comment implements Serializable {
     public void setEditedAt(java.time.Instant editedAt) { this.editedAt = editedAt; }
     public long getEditCount() { return editCount; }
     public void setEditCount(long editCount) { this.editCount = editCount; }
+
+    @Version
+    @Column(name="version",nullable=false)
+    private Long version;
+    public Long getVersion() {return version;}
+    public void setVersion(Long version) {this.version=version;}
 
     // jhipster-needle-entity-add-field - JHipster will add fields here
 

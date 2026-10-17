@@ -146,6 +146,9 @@ public class MediaService {
         }
         boolean isOwner = !isGuest && currentUserId != null && media.getOwnerId().toString().equals(currentUserId);
 
+        if (!isAdmin && isOwner && media.getPurpose()==MediaPurpose.POST && !postAccess.canOwnerRead(id)) {
+            throw new AccessDeniedException("Media parent is not readable");
+        }
         if (!isAdmin && !isOwner) {
             boolean profileAsset = media.getPurpose() == MediaPurpose.AVATAR || media.getPurpose() == MediaPurpose.COVER;
             boolean parentGrant = media.getPurpose() == MediaPurpose.POST && media.getStatus() == MediaStatus.ACTIVE && postAccess.canRead(id);

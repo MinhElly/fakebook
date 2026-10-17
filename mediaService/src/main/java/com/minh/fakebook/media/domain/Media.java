@@ -19,6 +19,12 @@ import jakarta.persistence.Enumerated;
 /**
  * A Media.
  */
+@org.hibernate.annotations.FilterDef(name="community", autoEnabled=true, applyToLoadByKey=true,
+    parameters={
+        @org.hibernate.annotations.ParamDef(name="excludedSubjects", type=String.class, resolver=com.minh.fakebook.media.administration.ExcludedSubjects.class),
+        @org.hibernate.annotations.ParamDef(name="administrationView", type=Boolean.class, resolver=com.minh.fakebook.media.administration.AdministrationView.class)
+    })
+@org.hibernate.annotations.Filter(name="community", condition="(:administrationView = true or (owner_id not in (:excludedSubjects) and community_archived = false))")
 @Entity
 @Table(name = "media")
 @SuppressWarnings("common-java:DuplicatedBlocks")

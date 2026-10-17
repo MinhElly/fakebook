@@ -33,6 +33,8 @@ public class CommentReactionService {
     private final CommentReactionMapper commentReactionMapper;
 
     private final CommentService commentService;
+    @jakarta.persistence.PersistenceContext
+    private jakarta.persistence.EntityManager entityManager;
 
     public CommentReactionService(CommentReactionRepository commentReactionRepository,
             CommentReactionMapper commentReactionMapper, CommentService commentService) {
@@ -53,6 +55,7 @@ public class CommentReactionService {
             commentService.validateCommentAccess(commentReactionDTO.getComment().getId(), commentReactionDTO.getUserId());
         }
         CommentReaction commentReaction = commentReactionMapper.toEntity(commentReactionDTO);
+        commentReaction.setComment(entityManager.getReference(Comment.class, commentReaction.getComment().getId()));
         commentReaction = commentReactionRepository.save(commentReaction);
         return commentReactionMapper.toDto(commentReaction);
     }
@@ -147,8 +150,7 @@ public class CommentReactionService {
             newReaction.setReactionType(reactionType);
             newReaction.setCreatedAt(Instant.now());
 
-            Comment commentRef = new Comment();
-            commentRef.setId(commentId);
+            Comment commentRef = entityManager.getReference(Comment.class, commentId);
             newReaction.setComment(commentRef);
 
             return Optional.of(commentReactionMapper.toDto(commentReactionRepository.save(newReaction)));

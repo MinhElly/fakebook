@@ -39,24 +39,11 @@ public interface CommentRepository extends JpaRepository<Comment, UUID>, JpaSpec
         @Param("status") CommentStatus status
     );
 
-    @Query(
-        value = """
-        select ranked.id, ranked.post_id, ranked.author_id, ranked.content,
-               ranked.status, ranked.parent_comment_id, ranked.created_at, ranked.edited_at, ranked.edit_count
-        from (
-            select c.*,
-                   row_number() over (
-                       partition by c.post_id
-                       order by c.created_at desc, c.id desc
-                   ) as rn
-            from comments c
-            where c.post_id in (:postIds)
-              and c.status = 'ACTIVE'
-              and c.parent_comment_id is null
-        ) ranked
-        where ranked.rn = 1
-        """,
-        nativeQuery = true
-    )
+    @Query("""
+        select c from Comment c where c.postId in :postIds and c.status = 'ACTIVE' and c.parentComment is null
+        and not exists (select newer.id from Comment newer where newer.postId=c.postId
+          and newer.status='ACTIVE' and newer.parentComment is null
+          and (newer.createdAt>c.createdAt or (newer.createdAt=c.createdAt and newer.id>c.id)))
+        """)
     List<Comment> findLatestActiveRootComments(@Param("postIds") Collection<UUID> postIds);
 }

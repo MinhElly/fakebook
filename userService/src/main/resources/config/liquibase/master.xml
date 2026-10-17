@@ -32,4 +32,6 @@
     <include file="config/liquibase/changelog/20261016000000_added_last_seen_at_to_UserProfile.xml" relativeToChangelogFile="false"/>
     <!-- jhipster-needle-liquibase-add-constraints-changelog - JHipster will add liquibase constraints changelogs here -->
     <!-- jhipster-needle-liquibase-add-incremental-changelog - JHipster will add incremental liquibase changelogs here -->
+<include file="config/liquibase/changelog/20261017000000_administration.xml" relativeToChangelogFile="false"/>
+<include file="config/liquibase/changelog/20261017000001_account_identity_metadata.xml" relativeToChangelogFile="false"/>
 </databaseChangeLog>

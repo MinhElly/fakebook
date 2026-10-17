@@ -248,15 +248,7 @@ public class MediaResource {
         if (mediaDTO.isPresent() && mediaDTO.orElseThrow().getStatus() != com.minh.fakebook.media.domain.enumeration.MediaStatus.ACTIVE) return ResponseEntity.notFound().build();
         if (mediaDTO.isPresent() && mediaDTO.orElseThrow().getUrl() != null) {
             String url = mediaDTO.orElseThrow().getUrl();
-            org.springframework.http.CacheControl cacheControl;
-            if (mediaDTO.orElseThrow().getPurpose() == com.minh.fakebook.media.domain.enumeration.MediaPurpose.POST) {
-                cacheControl = org.springframework.http.CacheControl.noStore();
-            } else {
-                cacheControl = org.springframework.http.CacheControl.maxAge(7, java.util.concurrent.TimeUnit.DAYS)
-                        .cachePublic()
-                        .immutable()
-                        .staleWhileRevalidate(1, java.util.concurrent.TimeUnit.DAYS);
-            }
+            org.springframework.http.CacheControl cacheControl = org.springframework.http.CacheControl.noStore();
             if (url.startsWith("data:")) {
                 try {
                     String[] parts = url.split(",");

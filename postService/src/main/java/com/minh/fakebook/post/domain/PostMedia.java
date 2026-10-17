@@ -12,6 +12,9 @@ import org.hibernate.type.SqlTypes;
 /**
  * A PostMedia.
  */
+@org.hibernate.annotations.Filter(name="community",deduceAliasInjectionPoints=false,
+    aliases=@org.hibernate.annotations.SqlFragmentAlias(alias="self",table="post_media"),
+    condition="(:administrationView = true or ({self}.post_id in (select p.id from posts p where p.status='ACTIVE' and p.moderation_visibility='VISIBLE' and p.community_archived=false and p.author_id not in (:excludedSubjects))))")
 @Entity
 @Table(name = "post_media")
 @SuppressWarnings("common-java:DuplicatedBlocks")

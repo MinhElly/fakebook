@@ -15,11 +15,11 @@ import org.springframework.transaction.annotation.Transactional;
 public class CommentSummaryService {
 
     private final CommentViewAuthorizationService authorizationService;
-    private final CommentSummaryCache summaryCache;
+    private final CommentSummaryReader summaryCache;
 
     public CommentSummaryService(
         CommentViewAuthorizationService authorizationService,
-        CommentSummaryCache summaryCache
+        CommentSummaryReader summaryCache
     ) {
         this.authorizationService = authorizationService;
         this.summaryCache = summaryCache;
@@ -29,7 +29,7 @@ public class CommentSummaryService {
         LinkedHashSet<UUID> postIds = new LinkedHashSet<>(requestedPostIds);
         authorizationService.verifyCanView(postIds);
 
-        Map<UUID, CommentSummaryCacheDTO> summaries = summaryCache.getSummaries(postIds);
+        Map<UUID, CommentSummaryCacheDTO> summaries = summaryCache.loadFromDatabase(postIds);
 
         return postIds
             .stream()

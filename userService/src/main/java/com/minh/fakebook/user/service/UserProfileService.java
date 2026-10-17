@@ -200,7 +200,7 @@ public class UserProfileService {
      * @return the entity.
      */
     @Transactional(readOnly = true)
-    @Cacheable(value = "userProfile", key = "#id.toString() + ':optional'")
+
     public Optional<UserProfileDTO> findOne(UUID id) {
         LOG.debug("Request to get UserProfile : {}", id);
         return userProfileRepository.findById(id).map(userProfileMapper::toDto);
@@ -222,10 +222,13 @@ public class UserProfileService {
      * trung voi keycloak sub
      *
      */
-    @Cacheable(value = "userProfile", key = "#jwt.subject")
+
     public UserProfileDTO getOrCreateProfile(Jwt jwt) {
         LOG.debug(">>> EXECUTING getOrCreateProfile for {}", jwt.getSubject());
         UUID userId = UUID.fromString(jwt.getSubject());
+        if (userProfileRepository.countArchivedIdentity(userId.toString())>0) {
+            throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.FORBIDDEN,"COMMUNITY_PROFILE_ARCHIVED");
+        }
         return userProfileRepository.findById(userId).map(userProfileMapper::toDto)
                 .orElseGet(() -> createProfileFromJwt(jwt, userId));
     }

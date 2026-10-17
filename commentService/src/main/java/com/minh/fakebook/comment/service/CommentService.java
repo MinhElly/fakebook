@@ -254,7 +254,7 @@ public class CommentService {
   UUID authorId) {
             LOG.debug("Request to reply to Comment : {} by user {}", request.parentCommentId(), authorId);
 
-            Comment parent = commentRepository.findById(request.parentCommentId())
+            Comment parent = commentRepository.findByIdForUpdate(request.parentCommentId())
                 .orElseThrow(() -> new BadRequestAlertException("Parent comment not found", "comment", "idnotfound"));
             validatePostAccess(parent.getPostId(), authorId);
             if (CommentStatus.DELETED.equals(parent.getStatus())) {
