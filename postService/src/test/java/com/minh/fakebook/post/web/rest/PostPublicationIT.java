@@ -32,7 +32,15 @@ class PostPublicationIT {
     @MockitoBean UserServiceClient users;
     final UUID author=UUID.randomUUID(), id=UUID.randomUUID();
     @AfterEach void cleanup() {
-        new org.springframework.transaction.support.TransactionTemplate(transactions).executeWithoutResult(tx -> jdbc.update("UPDATE posts SET status='DELETED' WHERE author_id=?",author.toString()));
+        new org.springframework.transaction.support.TransactionTemplate(transactions).executeWithoutResult(tx -> {
+            // Real commits outlive the test. Use SQL so community filters cannot hide child rows during cleanup.
+            for (String table : List.of("post_media", "post_reactions", "post_tagged_users", "saved_post", "post_revision")) {
+                jdbc.update("DELETE FROM " + table + " WHERE post_id IN (SELECT id FROM posts WHERE author_id=?)", author.toString());
+            }
+            jdbc.update("DELETE FROM posts WHERE author_id=?", author.toString());
+            jdbc.update("DELETE FROM post_publication WHERE owner_id=?", author.toString());
+            assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM posts WHERE author_id=?", Long.class, author.toString())).isZero();
+        });
     }
     String draft() { return "{\"content\":\"publication integration\",\"visibility\":\"PUBLIC\",\"taggedUserIds\":[],\"targetPostId\":null,\"version\":null}"; }
     void begin() throws Exception {
