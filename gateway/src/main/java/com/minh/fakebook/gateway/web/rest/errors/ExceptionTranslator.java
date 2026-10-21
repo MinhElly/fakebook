@@ -70,7 +70,6 @@ public class ExceptionTranslator extends ResponseEntityExceptionHandler implemen
     @ExceptionHandler
     @Override
     public Mono<ResponseEntity<Object>> handleAnyException(Throwable ex, ServerWebExchange request) {
-        LOG.debug("Converting Exception to Problem Details:", ex);
         ProblemDetailWithCause pdCause = wrapAndCustomizeProblem(ex, request);
         return handleExceptionInternal((Exception) ex, pdCause, buildHeaders(ex), HttpStatusCode.valueOf(pdCause.getStatus()), request);
     }
@@ -86,6 +85,12 @@ public class ExceptionTranslator extends ResponseEntityExceptionHandler implemen
         ServerWebExchange request
     ) {
         body = body == null ? wrapAndCustomizeProblem(ex, (ServerWebExchange) request) : body;
+        if (statusCode.is5xxServerError()) {
+            LOG.error("HTTP {} request failed: {} {}", statusCode.value(), request.getRequest().getMethod(),
+                request.getRequest().getURI().getRawPath(), ex);
+        } else {
+            LOG.debug("Converting Exception to Problem Details:", ex);
+        }
         if (request.getResponse().isCommitted()) {
             return Mono.error(ex);
         }

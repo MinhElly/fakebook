@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+<changeSet id="20261021000002" author="codex"><createTable tableName="post_publication">
+<column name="id" type="varchar(36)"><constraints primaryKey="true" nullable="false"/></column>
+<column name="owner_id" type="varchar(36)"><constraints nullable="false"/></column>
+<column name="status" type="varchar(16)"><constraints nullable="false"/></column>
+<column name="expires_at" type="bigint"><constraints nullable="false"/></column>
+<column name="draft_json" type="clob"><constraints nullable="false"/></column>
+<column name="attachments_json" type="clob"/>
+<column name="result_json" type="clob"/>
+</createTable>
+<createIndex tableName="post_publication" indexName="idx_publication_expiry"><column name="status"/><column name="expires_at"/></createIndex></changeSet></databaseChangeLog>

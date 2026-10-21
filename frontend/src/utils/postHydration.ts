@@ -7,7 +7,7 @@ import { fetchReactionSummaries } from "@/services/reactionService";
 export async function hydratePosts(postsData: any[]): Promise<Post[]> {
   if (!postsData || postsData.length === 0) return [];
 
-  const mappedPosts = postsData.map((dto: any) => ({
+  const mappedPosts: any[] = postsData.map((dto: any) => ({
     id: dto.id,
     version: dto.version,
     createdAt: dto.createdAt,
@@ -70,9 +70,23 @@ export async function hydratePosts(postsData: any[]): Promise<Post[]> {
     }
   }
 
+  // Resolve media kinds through the authorized metadata endpoint; do not expose provider delivery URLs.
+  const mediaIds: string[] = [...new Set<string>(mappedPosts.flatMap(post => post.mediaIds))];
+  const kinds = new Map<string, string>();
+  const batches: string[][] = [];
+  for (let offset = 0; offset < mediaIds.length; offset += 50) batches.push(mediaIds.slice(offset, offset + 50));
+  for (let offset = 0; offset < batches.length; offset += 3) {
+    await Promise.all(batches.slice(offset, offset + 3).map(async batch => {
+      try {
+        const { data } = await api.get<{ id: string; mediaType: string }[]>("/services/mediaservice/api/media", { params: { "id.in": batch.join(",") } });
+        data.forEach(item => kinds.set(item.id, item.mediaType));
+      } catch { /* The file endpoint still enforces authorization; failed metadata can be retried by refreshing the post. */ }
+    }));
+  }
   // File access is authorized against the current parent Post; metadata is not public.
   mappedPosts.forEach((post: any) => {
     post.image = post.mediaIds.length ? getMediaUrl(post.mediaIds[0]) : null;
+    post.media = post.mediaIds.map((id: string) => ({ id, mediaType: kinds.get(id) ?? "IMAGE" }));
     post.avatar = post.avatarMediaId ? getMediaUrl(post.avatarMediaId) : "/default-avatar.svg";
   });
 

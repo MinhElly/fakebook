@@ -13,7 +13,11 @@ public class MediaServiceClientFallbackFactory implements FallbackFactory<MediaS
 
     @Override
     public MediaServiceClient create(Throwable cause) {
-        return mediaId -> {
+        return new MediaServiceClient() {
+          @Override public java.util.List<com.minh.fakebook.post.client.dto.MediaValidationDTO> getMedias(java.util.List<UUID> ids) {
+            throw DownstreamFailureMapper.map("Media Service", "validating media batch", cause);
+          }
+          @Override public com.minh.fakebook.post.client.dto.MediaValidationDTO getMedia(UUID mediaId) {
             RuntimeException failure = DownstreamFailureMapper.map("Media Service", "validating media " + mediaId, cause);
             if (failure instanceof org.springframework.web.server.ResponseStatusException) {
                 LOG.debug("Media Service rejected validation request for media {}", mediaId);
@@ -23,6 +27,7 @@ public class MediaServiceClientFallbackFactory implements FallbackFactory<MediaS
                 LOG.error("Media Service unavailable while validating media {}", mediaId, cause);
             }
             throw failure;
+          }
         };
     }
 }

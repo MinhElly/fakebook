@@ -18,6 +18,11 @@ import com.minh.fakebook.media.domain.enumeration.MediaPurpose;
 public class MediaDTO implements Serializable {
 
     private UUID id;
+    @com.fasterxml.jackson.annotation.JsonProperty(access=com.fasterxml.jackson.annotation.JsonProperty.Access.READ_ONLY)
+    private UUID publicationId;
+    public UUID getPublicationId() { return publicationId; }
+    public void setPublicationId(UUID publicationId) { this.publicationId = publicationId; }
+
 
     @NotNull
     private UUID ownerId;

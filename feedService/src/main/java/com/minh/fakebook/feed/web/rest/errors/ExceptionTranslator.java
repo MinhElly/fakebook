@@ -64,7 +64,6 @@ public class ExceptionTranslator extends ResponseEntityExceptionHandler {
 
     @ExceptionHandler
     public ResponseEntity<Object> handleAnyException(Throwable ex, NativeWebRequest request) {
-        LOG.debug("Converting Exception to Problem Details:", ex);
         ProblemDetailWithCause pdCause = wrapAndCustomizeProblem(ex, request);
         return handleExceptionInternal((Exception) ex, pdCause, buildHeaders(ex), HttpStatusCode.valueOf(pdCause.getStatus()), request);
     }
@@ -80,6 +79,14 @@ public class ExceptionTranslator extends ResponseEntityExceptionHandler {
         WebRequest request
     ) {
         body = body == null ? wrapAndCustomizeProblem(ex, (NativeWebRequest) request) : body;
+        if (statusCode.is5xxServerError()) {
+            var servlet = ((NativeWebRequest) request).getNativeRequest(jakarta.servlet.http.HttpServletRequest.class);
+            LOG.error("HTTP {} request failed: {} {}", statusCode.value(),
+                servlet == null ? "UNKNOWN" : servlet.getMethod(),
+                servlet == null ? "UNKNOWN" : servlet.getRequestURI(), ex);
+        } else {
+            LOG.debug("Converting Exception to Problem Details:", ex);
+        }
         return super.handleExceptionInternal(ex, body, headers, statusCode, request);
     }
 

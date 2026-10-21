@@ -27,6 +27,7 @@ export interface Post {
   content: string;
   image: string | null;
   mediaIds?: string[];
+  media?: { id: string; mediaType: string }[];
   taggedUserIds?: string[];
   taggedUsers?: { id: string, name: string }[];
   likes: number;

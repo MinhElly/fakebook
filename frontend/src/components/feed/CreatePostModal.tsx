@@ -1,6 +1,8 @@
+import { beginPublication, publicationStatus, cancelPublication, type PublicationDraft } from "@/services/postPublication";
 import { UserRowsSkeleton } from "@/components/ui/Skeleton";
 import LoadError from "@/components/ui/LoadError";
 import MediaImage from "./MediaImage";
+import PostAttachments, { usePostAttachments } from "./PostAttachments";
 import { useState, useEffect, useRef } from "react";
 import { usePostStore } from "@/stores/postStore";
 import { useUserStore } from "@/stores/userStore";
@@ -56,13 +58,13 @@ export default function CreatePostModal({ onClose, editPost }: Props) {
   const isEdit = !!editPost;
 
   const [content, setContent] = useState(initContent);
-  const [imageUrl, setImageUrl] = useState(editPost?.image ?? "");
-  const [imageFile, setImageFile] = useState<File | null>(null);
-  const [mediaRemoved, setMediaRemoved] = useState(false);
-  const [showImageInput, setShowImageInput] = useState(!!editPost?.image);
+  const attachments = usePostAttachments(editPost);
+  const publication = useRef<{ id: string; draft: PublicationDraft; mediaIds?: string[] } | null>(null);
+  useEffect(() => () => { if (publication.current) void cancelPublication(publication.current.id).catch(() => {}); }, []);
+  const [showImageInput, setShowImageInput] = useState(!!editPost?.mediaIds?.length);
   const [bgGradient, setBgGradient] = useState<string | null>(initBg);
 
-  const canSubmit = content.trim().length > 0 || imageUrl.length > 0 || imageFile !== null;
+  const canSubmit = (content.trim().length > 0 || attachments.items.length > 0) && attachments.ready;
 
   const [visibility, setVisibility] = useState(editPost?.visibility ?? "PUBLIC");
   const [showPrivacy, setShowPrivacy] = useState(false);
@@ -172,16 +174,42 @@ export default function CreatePostModal({ onClose, editPost }: Props) {
 
 
     try {
+      const draft: PublicationDraft = { content: finalContent, visibility, taggedUserIds, targetPostId: editPost?.id ?? null, version: editPost?.version ?? null };
+      // Resolve an older ambiguous attempt before accepting a changed draft.
+      if (publication.current && JSON.stringify(publication.current.draft) !== JSON.stringify(draft)) {
+        let old = await publicationStatus(publication.current.id);
+        if (old.status === "PENDING") old = await cancelPublication(publication.current.id);
+        if (old.status === "PUBLISHED") {
+          const previous = publication.current;
+          if (previous.draft.targetPostId) await updatePost(previous.draft.targetPostId, previous.draft.content, old.post?.mediaIds ?? previous.mediaIds ?? [], previous.draft.visibility, previous.draft.taggedUserIds, previous.draft.version ?? undefined, previous.id);
+          else await addPost(previous.draft.content, old.post?.mediaIds ?? previous.mediaIds ?? [], previous.draft.visibility, previous.draft.taggedUserIds, previous.id);
+          publication.current = null; onClose(); return;
+        }
+        publication.current = null; attachments.resetUploads();
+      }
+      if (!publication.current) publication.current = { id: crypto.randomUUID(), draft };
+      const attempt = publication.current;
+      const state = await beginPublication(attempt.id, attempt.draft);
+      const mediaIds = state.status === "PUBLISHED" ? state.post?.mediaIds ?? attempt.mediaIds ?? [] : await attachments.uploadAll(attempt.id);
+      attempt.mediaIds = mediaIds;
       if (isEdit) {
-        await updatePost(editPost!.id, finalContent, imageFile || (mediaRemoved ? null : undefined), visibility, taggedUserIds, editPost!.version);
-        onClose();
+        await updatePost(editPost!.id, finalContent, mediaIds, visibility, taggedUserIds, editPost!.version, attempt.id);
+        publication.current = null; onClose();
       } else {
-        await addPost(finalContent, imageFile || imageUrl, visibility, taggedUserIds);
-        onClose();
+        await addPost(finalContent, mediaIds, visibility, taggedUserIds, attempt.id);
+        publication.current = null; onClose();
       }
     } catch (error) {
+      let committed = false;
+      if (publication.current) {
+        try {
+          const decision = await cancelPublication(publication.current.id);
+          committed = decision.status === "PUBLISHED";
+          if (decision.status === "CANCELLED") { publication.current = null; attachments.resetUploads(); }
+        } catch { /* Keep the idempotency key until the server decision can be recovered. */ }
+      }
       const status = (error as { response?: { status?: number } }).response?.status;
-      setSubmitError(status === 409
+      setSubmitError(committed ? "Bài đã được lưu, nhưng chưa tải lại được giao diện. Bấm Đăng để đồng bộ, không tạo bài mới." : status === 409
         ? "Bài viết đã được thay đổi. Hãy tải lại bài viết trước khi sửa tiếp. Nội dung đang nhập vẫn được giữ ở đây."
         : "Không lưu được bài viết. Nội dung đang nhập vẫn được giữ để bạn thử lại.");
       console.error(error);
@@ -280,7 +308,9 @@ export default function CreatePostModal({ onClose, editPost }: Props) {
         <div className="absolute inset-0 bg-black/50" onClick={onClose} />
 
         {/* Modal */}
-        <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-[520px] mx-4 flex flex-col max-h-[90vh]">
+        <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-[520px] mx-4 flex flex-col max-h-[90vh]"
+          onDragOver={event => { if (event.dataTransfer.types.includes("Files")) event.preventDefault(); }}
+          onDrop={event => { if (event.dataTransfer.files.length) { event.preventDefault(); if (!isLoading) { attachments.add(event.dataTransfer.files); setShowImageInput(true); setBgGradient(null); } } }}>
           {/* Header */}
           <div className="flex items-center justify-between px-4 py-3 border-b border-[#E4E6EB]">
             <div className="w-9" />
@@ -353,8 +383,8 @@ export default function CreatePostModal({ onClose, editPost }: Props) {
               value={content}
               onChange={(e) => setContent(e.target.value)}
               placeholder={`${profile.name ? profile.name.trim().split(" ").pop() : ""} ơi, bạn đang nghĩ gì thế?`}
-              rows={bgGradient ? 4 : 3}
-              style={bgGradient ? {} : { minHeight: "72px" }}
+              rows={bgGradient ? 4 : 2}
+              style={bgGradient ? {} : { minHeight: attachments.items.length ? "48px" : "72px" }}
               className={`w-full resize-none outline-none text-[#1C1E21] placeholder-[#65676B] leading-relaxed ${bgGradient
                 ? "bg-transparent text-white placeholder-white/70 text-3xl font-bold text-center py-20 px-6 max-h-[300px] overflow-y-auto custom-scrollbar transition-all" : "bg-transparent text-base p-2 overflow-hidden"
                 }`}
@@ -383,96 +413,7 @@ export default function CreatePostModal({ onClose, editPost }: Props) {
             </div>
           )}
 
-          {/* Image URL input */}
-          {showImageInput && (
-            <div className="mx-4 mb-3 border border-[#CED0D4] rounded-lg p-2 relative">
-              {/* Nút đóng vùng chọn ảnh */}
-              <button
-                onClick={() => { setShowImageInput(false); setImageUrl(""); setImageFile(null); setMediaRemoved(true); setActiveTab(null); }}
-                className={
-                  "absolute top-4 right-4 z-10 w-7 h-7 bg-white border " +
-                  "border-[#CED0D4] rounded-full flex items-center justify-center " +
-                  "hover:bg-[#E4E6EB] transition-colors"
-                }
-                title="Đóng"
-              >
-                <svg className="w-4 h-4 text-[#65676B]" fill="currentColor" viewBox="0 0 24 24">
-                  <path d={
-                    "M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 " +
-                    "6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"
-                  } />
-                </svg>
-              </button>
-
-              {!imageUrl ? (
-                <label
-                  className={
-                    "bg-[#F7F8FA] hover:bg-[#F0F2F5] transition-colors rounded-lg " +
-                    "p-6 flex flex-col items-center justify-center min-h-[200px] " +
-                    "cursor-pointer border border-transparent hover:border-[#CED0D4]"
-                  }
-                >
-                  <div className="flex items-center gap-3 mb-3">
-                    <div
-                      className={
-                        "w-12 h-12 bg-[#E4E6EB] rounded-full flex items-center " +
-                        "justify-center shadow-sm"
-                      }
-                    >
-                      <svg className="w-7 h-7 text-[#1C1E21]" fill="currentColor" viewBox="0 0 24 24">
-                        <path d={
-                          "M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 " +
-                          "0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"
-                        } />
-                      </svg>
-                    </div>
-
-                    <div
-                      className={
-                        "w-12 h-12 bg-[#E4E6EB] rounded-full flex items-center " +
-                        "justify-center shadow-sm"
-                      }
-                    >
-                      <svg className="w-7 h-7 text-[#1C1E21]" fill="currentColor" viewBox="0 0 24 24">
-                        <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z" />
-                      </svg>
-                    </div>
-                  </div>
-                  <span className="font-semibold text-[#1C1E21] text-[15px]">
-                    Thêm ảnh/video
-                  </span>
-                  <span className="text-[13px] text-[#65676B]">
-                    hoặc kéo thả vào đây
-                  </span>
-                  {/* Trình tải file ẩn */}
-                  <input
-                    type="file"
-                    accept="image/*"
-                    className="hidden"
-                    onChange={(e) => {
-                      const file = e.target.files?.[0];
-                      if (file) {
-                        setImageFile(file);
-                        const reader = new FileReader();
-                        reader.onload = (ev) => {
-                          setImageUrl(ev.target?.result as string);
-                        };
-                        reader.readAsDataURL(file);
-                      }
-                    }}
-                  />
-                </label>
-              ) : (
-                <div className="relative rounded-lg overflow-hidden bg-[#F0F2F5] flex justify-center">
-                  <MediaImage
-                    src={imageUrl}
-                    alt="preview"
-                    className="w-full max-h-[300px] object-contain"
-                  />
-                </div>
-              )}
-            </div>
-          )}
+          {(showImageInput || attachments.items.length > 0) && <PostAttachments manager={attachments} disabled={isLoading} />}
 
           {/* Tag Friends UI */}
           {showTagFriends && (

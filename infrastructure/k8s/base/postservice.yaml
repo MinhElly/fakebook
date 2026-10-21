@@ -29,6 +29,16 @@ spec:
                 name: postservice-secrets
 
           env:
+            - name: FAKEBOOK_OIDC_INTERNAL_CLIENT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: postservice-secrets
+                  key: FAKEBOOK_OIDC_CLIENT_ID
+            - name: FAKEBOOK_OIDC_INTERNAL_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: postservice-secrets
+                  key: FAKEBOOK_OIDC_CLIENT_SECRET
             - name: SPRING_DATASOURCE_URL
               value: "jdbc:mariadb://host.docker.internal:3307/post_service?sslMode=disable"
             - name: JAVA_TOOL_OPTIONS

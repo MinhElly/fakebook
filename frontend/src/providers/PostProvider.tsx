@@ -1,3 +1,4 @@
+import { publishPublication } from "@/services/postPublication";
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { PostContext } from "@/stores/postStore";
 import type { Post } from "@/types";
@@ -187,19 +188,15 @@ export default function PostProvider({ children }: { children: React.ReactNode }
 
   async function addPost(
     content: string,
-    imageFile: File | string | null,
+    mediaIds: string[],
     visibility: string = "PUBLIC",
-    taggedUserIds?: string[]
+    taggedUserIds?: string[],
+    publicationId?: string
   ) {
     try {
-      if (!requireLogin()) return;
+      if (!requireLogin()) throw new Error("Login is required to publish a post");
       setIsUploading(true);
 
-      // Create pending post preview
-      let imageUrl = null;
-      if (imageFile instanceof File) {
-        imageUrl = URL.createObjectURL(imageFile);
-      }
 
       setPendingPost({
         id: "pending",
@@ -208,22 +205,11 @@ export default function PostProvider({ children }: { children: React.ReactNode }
         time: "Vừa xong",
         content: content,
         visibility: visibility,
-        image: imageUrl,
+        image: null,
         taggedUsers: []
       });
 
-      let mediaIds: string[] = [];
-      if (imageFile instanceof File) {
-        const formData = new FormData();
-        formData.append("file", imageFile);
-        formData.append("purpose", "POST");
-        const mediaRes = await api.post("/services/mediaservice/api/media/upload", formData);
-        if (mediaRes.data && mediaRes.data.id) {
-          mediaIds.push(mediaRes.data.id);
-        }
-      }
-
-      const created = await api.post("/services/postservice/api/posts/create", {
+      const created = publicationId ? { data: await publishPublication(publicationId, mediaIds) } : await api.post("/services/postservice/api/posts/create", {
         content: content,
         visibility: visibility,
         mediaIds: mediaIds,
@@ -248,27 +234,15 @@ export default function PostProvider({ children }: { children: React.ReactNode }
   async function updatePost(
     id: string,
     content: string,
-    imageFile: File | string | null | undefined,
+    mediaIds: string[] | undefined,
     visibility: string = "PUBLIC",
     taggedUserIds?: string[],
-    version?: number
+    version?: number,
+    publicationId?: string
   ) {
     try {
-      if (!requireLogin()) return;
-      let mediaIds: string[] | undefined;
-
-      if (imageFile instanceof File) {
-        const formData = new FormData();
-        formData.append("file", imageFile);
-        formData.append("purpose", "POST");
-        const mediaRes = await api.post("/services/mediaservice/api/media/upload", formData);
-        if (!mediaRes.data?.id) throw new Error("Upload did not return a media ID");
-        mediaIds = [mediaRes.data.id];
-      } else if (imageFile === null) {
-        mediaIds = [];
-      }
-
-      const response = await api.put(`/services/postservice/api/posts/${id}`, {
+      if (!requireLogin()) throw new Error("Login is required to publish a post");
+      const response = publicationId ? { data: await publishPublication(publicationId, mediaIds ?? []) } : await api.put(`/services/postservice/api/posts/${id}`, {
         id: id,
         content: content,
         visibility: visibility,

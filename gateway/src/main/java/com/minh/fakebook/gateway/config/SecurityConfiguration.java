@@ -58,6 +58,17 @@ import tech.jhipster.web.filter.reactive.CookieCsrfFilter;
 @Configuration
 @EnableReactiveMethodSecurity
 public class SecurityConfiguration {
+    static org.springframework.security.web.server.util.matcher.ServerWebExchangeMatcher playbackTicketMatcher() {
+        return exchange -> {
+            var request = exchange.getRequest();
+            String ticket = request.getQueryParams().getFirst("ticket");
+            boolean matches = (request.getMethod() == HttpMethod.GET || request.getMethod() == HttpMethod.HEAD)
+                && request.getPath().value().matches("/services/mediaservice/api/media/[0-9a-fA-F-]{36}/file")
+                && ticket != null && ticket.matches("[0-9a-f-]{72}");
+            return matches ? org.springframework.security.web.server.util.matcher.ServerWebExchangeMatcher.MatchResult.match()
+                : org.springframework.security.web.server.util.matcher.ServerWebExchangeMatcher.MatchResult.notMatch();
+        };
+    }
 
     private final JHipsterProperties jHipsterProperties;
 
@@ -108,6 +119,8 @@ public class SecurityConfiguration {
                     .pathMatchers(HttpMethod.GET, "/api/presence/ws").permitAll()
                     .pathMatchers("/error").permitAll()
                     .pathMatchers("/api/admin/**").hasAuthority(AuthoritiesConstants.ADMIN)
+                    // Native video cannot attach a bearer header. Media validates the scoped lease and JWT on every range request.
+                    .matchers(playbackTicketMatcher()).permitAll()
                     .pathMatchers("/api/**").authenticated()
                     .pathMatchers("/services/*/management/health/readiness").permitAll()
                     .pathMatchers("/services/*/v3/api-docs").hasAuthority(AuthoritiesConstants.ADMIN)

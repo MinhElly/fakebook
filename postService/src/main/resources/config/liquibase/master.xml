@@ -30,4 +30,5 @@
     <include file="config/liquibase/changelog/20260930000000_added_entity_SavedPost.xml" relativeToChangelogFile="false"/>
     <include file="config/liquibase/changelog/20261015000000_post_history.xml" relativeToChangelogFile="false"/>
 <include file="config/liquibase/changelog/20261017000000_administration.xml" relativeToChangelogFile="false"/>
+<include file="config/liquibase/changelog/20261021000002_post_publication.xml" relativeToChangelogFile="false"/>
 </databaseChangeLog>

@@ -1,0 +1,57 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: traefik-local
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://traefik.github.io/charts
+    chart: traefik
+    targetRevision: "41.7.1"
+    helm:
+      releaseName: traefik
+      valuesObject:
+        ingressClass:
+          enabled: true
+          name: traefik
+          isDefaultClass: false
+        service:
+          spec:
+            type: NodePort
+        ports:
+          web:
+            exposedPort: 80
+            nodePort: 30080
+            expose:
+              default: true
+          websecure:
+            expose:
+              default: false
+        providers:
+          kubernetesIngress:
+            publishedService:
+              enabled: false
+        additionalArguments:
+          - --providers.kubernetesingress.ingressendpoint.ip=127.0.0.1
+        ingressRoute:
+          dashboard:
+            enabled: false
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: traefik
+  syncPolicy:
+    automated:
+      enabled: true
+      selfHeal: true
+      prune: false
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true

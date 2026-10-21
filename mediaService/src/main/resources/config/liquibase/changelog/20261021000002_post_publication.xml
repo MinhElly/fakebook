@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+<changeSet id="20261021000002" author="codex"><addColumn tableName="media"><column name="publication_id" type="varchar(36)"/></addColumn>
+<addColumn tableName="media_upload_session">
+<column name="publication_id" type="varchar(36)"/>
+<column name="cleanup_after" type="${datetimeType}"/>
+</addColumn>
+<createIndex tableName="media_upload_session" indexName="idx_publication_cleanup"><column name="cleanup_after"/></createIndex></changeSet></databaseChangeLog>

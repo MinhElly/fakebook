@@ -18,6 +18,7 @@ public interface PostMediaRepository extends JpaRepository<PostMedia, UUID>, Jpa
     List<PostMedia> findByPostIdInOrderByDisplayOrderAsc(Collection<UUID> postIds);
 
     List<PostMedia> findByMediaId(UUID mediaId);
+    boolean existsByMediaId(UUID mediaId);
 
     void deleteByPostId(UUID postId);
 }

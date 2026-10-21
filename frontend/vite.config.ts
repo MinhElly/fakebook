@@ -31,19 +31,21 @@ export default defineConfig(({ mode }) => {
     },
     server: {
       host: '0.0.0.0',
-      port: parseInt(process.env.PORT || '5173'),
+      port: 5173,
       strictPort: true,
       watch: { ignored: ['**/.figma/**'] },
       proxy: {
         '/services': {
           target: 'http://localhost:8080',
-          changeOrigin: true,
+          changeOrigin: false,
+          headers: { host: 'api.fakebook.test' },
           secure: false,
         },
         '/api': {
           target: 'http://localhost:8080',
           ws: true,
-          changeOrigin: true,
+          changeOrigin: false,
+          headers: { host: 'api.fakebook.test' },
           secure: false,
         },
         '/realms': {

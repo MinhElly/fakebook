@@ -46,7 +46,9 @@ public class SecurityConfiguration {
     }
 
     @Bean
-    public SecurityFilterChain filterChain(HttpSecurity http, com.minh.fakebook.media.administration.AccountDirectory directory) {
+    public SecurityFilterChain filterChain(HttpSecurity http, com.minh.fakebook.media.administration.AccountDirectory directory,
+                                           com.minh.fakebook.media.security.PlaybackTickets tickets) {
+        http.addFilterBefore(new PlaybackTicketFilter(tickets), org.springframework.security.oauth2.server.resource.web.authentication.BearerTokenAuthenticationFilter.class);
         http.addFilterAfter(new com.minh.fakebook.media.administration.AccountAccessFilter(directory), org.springframework.security.oauth2.server.resource.web.authentication.BearerTokenAuthenticationFilter.class)
             .csrf(csrf -> csrf.disable())
             .authorizeHttpRequests(authz ->
