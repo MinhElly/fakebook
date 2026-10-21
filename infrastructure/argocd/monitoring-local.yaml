@@ -1,0 +1,189 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: monitoring-local
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://prometheus-community.github.io/helm-charts
+    chart: kube-prometheus-stack
+    targetRevision: "92.10.1"
+    helm:
+      releaseName: monitoring
+      valuesObject:
+        fullnameOverride: monitoring
+        # Docker Desktop control-plane metrics are outside this local baseline.
+        kubeEtcd:
+          enabled: false
+        kubeControllerManager:
+          enabled: false
+        kubeScheduler:
+          enabled: false
+        kubeProxy:
+          enabled: false
+        defaultRules:
+          rules:
+            etcd: false
+            kubeControllerManager: false
+            kubeSchedulerAlerting: false
+            kubeSchedulerRecording: false
+            kubeProxy: false
+        prometheusOperator:
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+        kube-state-metrics:
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 300m
+              memory: 256Mi
+        prometheus-node-exporter:
+          resources:
+            requests:
+              cpu: 50m
+              memory: 32Mi
+            limits:
+              cpu: 200m
+              memory: 128Mi
+        grafana:
+          enabled: true
+          deploymentStrategy:
+            type: Recreate
+          grafana.ini:
+            database:
+              wal: true
+          env:
+            GOMEMLIMIT: 512MiB
+          # The chart generates an admin password in monitoring-grafana Secret.
+          persistence:
+            enabled: true
+            size: 1Gi
+          service:
+            type: ClusterIP
+          ingress:
+            enabled: false
+          livenessProbe:
+            initialDelaySeconds: 60
+          startupProbe:
+            httpGet:
+              path: /api/health
+              port: grafana
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 60
+          readinessProbe:
+            timeoutSeconds: 5
+          resources:
+            requests:
+              cpu: 250m
+              memory: 256Mi
+            limits:
+              cpu: "2"
+              memory: 768Mi
+        alertmanager:
+          enabled: true
+          alertmanagerSpec:
+            retention: 72h
+            resources:
+              requests:
+                cpu: 50m
+                memory: 64Mi
+              limits:
+                cpu: 300m
+                memory: 256Mi
+            storage:
+              volumeClaimTemplate:
+                spec:
+                  accessModes: [ReadWriteOnce]
+                  resources:
+                    requests:
+                      storage: 1Gi
+        prometheus:
+          prometheusSpec:
+            retention: 3d
+            retentionSize: 4GB
+            scrapeInterval: 30s
+            evaluationInterval: 30s
+            resources:
+              requests:
+                cpu: 200m
+                memory: 512Mi
+              limits:
+                cpu: "1"
+                memory: 1536Mi
+            storageSpec:
+              volumeClaimTemplate:
+                spec:
+                  accessModes: [ReadWriteOnce]
+                  resources:
+                    requests:
+                      storage: 5Gi
+          additionalPodMonitors:
+            - name: fakebook-backends
+              namespaceSelector:
+                matchNames: [fakebook-local]
+              selector:
+                matchExpressions:
+                  - key: app
+                    operator: In
+                    values:
+                      - gateway
+                      - userservice
+                      - postservice
+                      - mediaservice
+                      - commentservice
+                      - feedservice
+              podTargetLabels: [app]
+              podMetricsEndpoints:
+                - port: http
+                  path: /management/prometheus
+                  interval: 30s
+                  scrapeTimeout: 10s
+        additionalPrometheusRulesMap:
+          fakebook-local:
+            groups:
+              - name: fakebook.local
+                rules:
+                  - alert: FakebookMetricsTargetDown
+                    expr: up{namespace="fakebook-local",app=~"gateway|userservice|postservice|mediaservice|commentservice|feedservice"} == 0
+                    for: 5m
+                    labels:
+                      severity: warning
+                    annotations:
+                      summary: Fakebook backend metrics target unavailable
+                  - alert: FakebookBackendMetricsMissing
+                    expr: (count(count by (app) (up{namespace="fakebook-local",app=~"gateway|userservice|postservice|mediaservice|commentservice|feedservice"} == 1)) or vector(0)) < 6
+                    for: 5m
+                    labels:
+                      severity: warning
+                    annotations:
+                      summary: Fewer than six Fakebook backends have healthy metrics targets
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: monitoring
+  # Preserve the generated password across Helm renders and automatic syncs.
+  ignoreDifferences:
+    - group: ""
+      kind: Secret
+      name: monitoring-grafana
+      namespace: monitoring
+      jsonPointers:
+        - /data/admin-password
+  syncPolicy:
+    automated:
+      enabled: true
+      selfHeal: true
+      prune: false
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
+      - SkipDryRunOnMissingResource=true
+      - RespectIgnoreDifferences=true

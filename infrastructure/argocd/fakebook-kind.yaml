@@ -1,0 +1,136 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: fakebook-local
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/MinhElly/fakebook.git
+    targetRevision: develop
+    path: infrastructure/k8s/overlays/local
+    kustomize:
+      patches:
+        # prod disables the exporter; enable it for this monitored local cluster.
+        # Keeping this in the Application makes it effective without a Git push.
+        - target:
+            kind: Deployment
+            name: (gateway|userservice|postservice|mediaservice|commentservice|feedservice)
+          patch: |-
+            - op: add
+              path: /spec/template/spec/containers/0/env/-
+              value:
+                name: MANAGEMENT_PROMETHEUS_METRICS_EXPORT_ENABLED
+                value: "true"
+            - op: add
+              path: /spec/strategy
+              value:
+                type: RollingUpdate
+                rollingUpdate:
+                  maxSurge: 0
+                  maxUnavailable: 1
+        # Merge env by name so OAuth additions cannot shift the JVM patch target.
+        - target:
+            kind: Deployment
+            name: gateway
+          patch: |-
+            apiVersion: apps/v1
+            kind: Deployment
+            metadata:
+              name: gateway
+            spec:
+              template:
+                spec:
+                  containers:
+                    - name: gateway
+                      env:
+                        - name: JAVA_TOOL_OPTIONS
+                          value: "-Xms64m -Xmx256m -XX:ReservedCodeCacheSize=64m -XX:ActiveProcessorCount=2"
+        - target:
+            kind: Deployment
+            name: userservice
+          patch: |-
+            apiVersion: apps/v1
+            kind: Deployment
+            metadata:
+              name: userservice
+            spec:
+              template:
+                spec:
+                  containers:
+                    - name: userservice
+                      env:
+                        - name: JAVA_TOOL_OPTIONS
+                          value: "-Xms64m -Xmx256m -XX:ReservedCodeCacheSize=64m -XX:ActiveProcessorCount=2"
+        - target:
+            kind: Deployment
+            name: postservice
+          patch: |-
+            apiVersion: apps/v1
+            kind: Deployment
+            metadata:
+              name: postservice
+            spec:
+              template:
+                spec:
+                  containers:
+                    - name: postservice
+                      env:
+                        - name: JAVA_TOOL_OPTIONS
+                          value: "-Xms64m -Xmx256m -XX:ReservedCodeCacheSize=64m -XX:ActiveProcessorCount=2"
+        - target:
+            kind: Deployment
+            name: mediaservice
+          patch: |-
+            apiVersion: apps/v1
+            kind: Deployment
+            metadata:
+              name: mediaservice
+            spec:
+              template:
+                spec:
+                  containers:
+                    - name: mediaservice
+                      env:
+                        - name: JAVA_TOOL_OPTIONS
+                          value: "-Xms64m -Xmx256m -XX:ReservedCodeCacheSize=64m -XX:ActiveProcessorCount=2"
+        - target:
+            kind: Deployment
+            name: commentservice
+          patch: |-
+            apiVersion: apps/v1
+            kind: Deployment
+            metadata:
+              name: commentservice
+            spec:
+              template:
+                spec:
+                  containers:
+                    - name: commentservice
+                      env:
+                        - name: JAVA_TOOL_OPTIONS
+                          value: "-Xms64m -Xmx256m -XX:ReservedCodeCacheSize=64m -XX:ActiveProcessorCount=2"
+        - target:
+            kind: Deployment
+            name: feedservice
+          patch: |-
+            apiVersion: apps/v1
+            kind: Deployment
+            metadata:
+              name: feedservice
+            spec:
+              template:
+                spec:
+                  containers:
+                    - name: feedservice
+                      env:
+                        - name: JAVA_TOOL_OPTIONS
+                          value: "-Xms64m -Xmx256m -XX:ReservedCodeCacheSize=64m -XX:ActiveProcessorCount=2"
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: fakebook-local
+  syncPolicy:
+    automated:
+      enabled: true
+      selfHeal: true
+      prune: false
