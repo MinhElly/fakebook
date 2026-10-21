@@ -17,7 +17,8 @@ export async function loadRuntimeConfig(): Promise<RuntimeConfig> {
     throw new Error('Runtime configuration must define environment');
   }
 
-  const apiBaseUrl = candidate.apiBaseUrl || import.meta.env.VITE_API_BASE_URL || '';
+  // Local development always uses Vite's same-origin API proxy (including account-state and media).
+  const apiBaseUrl = import.meta.env.DEV ? '' : candidate.apiBaseUrl || import.meta.env.VITE_API_BASE_URL || '';
   const keycloakBaseUrl = candidate.keycloakBaseUrl || import.meta.env.VITE_KEYCLOAK_URL || window.location.origin;
 
   runtimeConfig = {

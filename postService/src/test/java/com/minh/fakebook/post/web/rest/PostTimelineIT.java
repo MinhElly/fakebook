@@ -37,6 +37,7 @@ class PostTimelineIT {
     final Instant published = Instant.parse("2025-01-01T00:00:00Z");
     Post post;
     @BeforeEach void setup() {
+        when(media.getMedias(any())).thenAnswer(call -> ((List<UUID>)call.getArgument(0)).stream().map(media::getMedia).toList());
         post = posts.saveAndFlush(new Post().authorId(author).content("original").visibility(PostVisibility.PUBLIC).status(PostStatus.ACTIVE).createdAt(published));
         when(users.getFriendIdsByUserId(any())).thenReturn(List.of(friend));
         when(users.areFriends(any(), any())).thenReturn(true);
@@ -47,6 +48,24 @@ class PostTimelineIT {
         return json.writeValueAsString(body);
     }
     long revisions() { return jdbc.queryForObject("SELECT COUNT(*) FROM post_revision WHERE post_id = ?", Long.class, post.getId().toString()); }
+    @Test void thirtyAttachmentsPreserveOrderAndThirtyOneIsRejected() throws Exception {
+        var ids = java.util.stream.IntStream.range(0,30).mapToObj(i -> UUID.randomUUID()).toList();
+        for (UUID id : ids) when(media.getMedia(id)).thenReturn(new MediaValidationDTO(id,author,"ACTIVE","POST"));
+        mvc.perform(patch("/api/posts/{id}",post.getId()).with(jwt().jwt(token -> token.subject(author.toString())))
+            .contentType(MediaType.APPLICATION_JSON).content(body(Map.of("mediaIds",ids))))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.mediaIds.length()").value(30))
+            .andExpect(jsonPath("$.mediaIds[0]").value(ids.getFirst().toString()))
+            .andExpect(jsonPath("$.mediaIds[29]").value(ids.getLast().toString()));
+        mvc.perform(post("/api/posts/media/access-batch").with(jwt().jwt(token -> token.subject(author.toString())))
+            .contentType(MediaType.APPLICATION_JSON).content(json.writeValueAsString(ids)))
+            .andExpect(status().isOk()).andExpect(jsonPath("$['" + ids.getFirst() + "'].attached").value(true))
+            .andExpect(jsonPath("$['" + ids.getFirst() + "'].readable").value(true));
+        var tooMany = new ArrayList<>(ids); tooMany.add(UUID.randomUUID());
+        mvc.perform(patch("/api/posts/{id}",post.getId()).with(jwt().jwt(token -> token.subject(author.toString())))
+            .contentType(MediaType.APPLICATION_JSON).content(body(Map.of("mediaIds",tooMany))))
+            .andExpect(status().isBadRequest());
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM post_media WHERE post_id=?",Long.class,post.getId().toString())).isEqualTo(30L);
+    }
     @Test void addKeepRemoveMediaAndHistoryPreservesTimestamp() throws Exception {
         UUID image = UUID.randomUUID();
         when(media.getMedia(image)).thenReturn(new MediaValidationDTO(image, author, "ACTIVE", "POST"));

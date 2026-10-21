@@ -58,10 +58,20 @@ public class MediaResource {
 
     private final MediaQueryService mediaQueryService;
 
-    public MediaResource(MediaService mediaService, MediaRepository mediaRepository, MediaQueryService mediaQueryService) {
+    private final com.minh.fakebook.media.service.DirectUploadService directUploadService;
+    private final com.minh.fakebook.media.service.MediaFileProxy fileProxy;
+    private final com.minh.fakebook.media.security.PlaybackTickets playbackTickets;
+
+    public MediaResource(MediaService mediaService, MediaRepository mediaRepository, MediaQueryService mediaQueryService,
+                         com.minh.fakebook.media.service.DirectUploadService directUploadService,
+                         com.minh.fakebook.media.service.MediaFileProxy fileProxy,
+                         com.minh.fakebook.media.security.PlaybackTickets playbackTickets) {
         this.mediaService = mediaService;
         this.mediaRepository = mediaRepository;
         this.mediaQueryService = mediaQueryService;
+        this.directUploadService = directUploadService;
+        this.fileProxy = fileProxy;
+        this.playbackTickets = playbackTickets;
     }
 
     /**
@@ -170,12 +180,7 @@ public class MediaResource {
         LOG.debug("REST request to get Medias by criteria: {}", criteria);
         if (criteria.getId() != null && criteria.getId().getIn() != null) {
             if (criteria.getId().getIn().size() > 50) throw new BadRequestAlertException("At most 50 IDs", ENTITY_NAME, "toomanyids");
-            var readable = new java.util.ArrayList<MediaDTO>();
-            for (UUID id : criteria.getId().getIn()) {
-                try { mediaService.findOne(id).ifPresent(readable::add); }
-                catch (org.springframework.security.access.AccessDeniedException denied) { /* Do not enumerate denied records. */ }
-            }
-            return ResponseEntity.ok(readable);
+            return ResponseEntity.ok(mediaService.findReadableBatch(criteria.getId().getIn()));
         }
         scopeCriteriaForCurrentUser(criteria);
         Page<MediaDTO> page = mediaQueryService.findByCriteria(criteria, pageable);
@@ -242,12 +247,14 @@ public class MediaResource {
     }
 
     @GetMapping("/{id}/file")
-    public ResponseEntity<?> getMediaFile(@PathVariable("id") UUID id) {
+    public ResponseEntity<?> getMediaFile(@PathVariable("id") UUID id, @RequestHeader(value = "Range", required = false) String range,
+                                         @RequestParam(defaultValue = "false") boolean poster) {
         LOG.debug("REST request to get Media file : {}", id);
         Optional<MediaDTO> mediaDTO = mediaService.findOne(id);
         if (mediaDTO.isPresent() && mediaDTO.orElseThrow().getStatus() != com.minh.fakebook.media.domain.enumeration.MediaStatus.ACTIVE) return ResponseEntity.notFound().build();
         if (mediaDTO.isPresent() && mediaDTO.orElseThrow().getUrl() != null) {
-            String url = mediaDTO.orElseThrow().getUrl();
+            String url = poster && mediaDTO.orElseThrow().getMediaType() == com.minh.fakebook.media.domain.enumeration.MediaType.VIDEO
+                ? directUploadService.posterReadUrl(mediaDTO.orElseThrow()) : directUploadService.storageReadUrl(mediaDTO.orElseThrow());
             org.springframework.http.CacheControl cacheControl = org.springframework.http.CacheControl.noStore();
             if (url.startsWith("data:")) {
                 try {
@@ -265,21 +272,24 @@ public class MediaResource {
                     return ResponseEntity.internalServerError().build();
                 }
             } else {
-                URI storage = URI.create(url);
-                if (!"https".equals(storage.getScheme()) || !"res.cloudinary.com".equals(storage.getHost())) {
-                    return ResponseEntity.status(HttpStatus.BAD_GATEWAY).build();
-                }
-                var factory = new org.springframework.http.client.SimpleClientHttpRequestFactory();
-                factory.setConnectTimeout(3000); factory.setReadTimeout(30000);
-                var result = org.springframework.web.client.RestClient.builder().requestFactory(factory).build()
-                    .get().uri(storage).retrieve().toEntity(byte[].class);
-                return ResponseEntity.ok()
-                    .cacheControl(cacheControl)
-                    .contentType(result.getHeaders().getContentType() == null ? MediaType.APPLICATION_OCTET_STREAM : result.getHeaders().getContentType())
-                    .body(result.getBody());
+                return fileProxy.fetch(url, range);
             }
         }
         return ResponseEntity.notFound().build();
+    }
+
+    public record PlaybackRequest(String ticket) {}
+    public record PlaybackResponse(String ticket, String path) {}
+
+    @PostMapping("/{id}/playback")
+    public ResponseEntity<PlaybackResponse> playback(@PathVariable UUID id, @RequestBody(required = false) PlaybackRequest request) {
+        MediaDTO media = mediaService.findOne(id).orElseThrow(() -> new org.springframework.web.server.ResponseStatusException(HttpStatus.NOT_FOUND));
+        if (media.getStatus() != com.minh.fakebook.media.domain.enumeration.MediaStatus.ACTIVE) throw new org.springframework.web.server.ResponseStatusException(HttpStatus.NOT_FOUND);
+        var auth = SecurityContextHolder.getContext().getAuthentication();
+        if (!(auth instanceof JwtAuthenticationToken jwt)) throw new org.springframework.security.access.AccessDeniedException("JWT required");
+        String ticket = playbackTickets.issue(id, jwt, request == null ? null : request.ticket());
+        return ResponseEntity.ok().cacheControl(org.springframework.http.CacheControl.noStore())
+            .body(new PlaybackResponse(ticket, "/services/mediaservice/api/media/" + id + "/file?ticket=" + ticket));
     }
 
     private void scopeCriteriaForCurrentUser(MediaCriteria criteria) {

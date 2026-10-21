@@ -19,4 +19,7 @@
     <!-- jhipster-needle-liquibase-add-incremental-changelog - JHipster will add incremental liquibase changelogs here -->
 <include file="config/liquibase/changelog/20261017000000_administration.xml" relativeToChangelogFile="false"/>
 <include file="config/liquibase/changelog/20261017000001_admin_outbox.xml" relativeToChangelogFile="false"/>
+<include file="config/liquibase/changelog/20261021000000_media_upload_session.xml" relativeToChangelogFile="false"/>
+<include file="config/liquibase/changelog/20261021000001_video_upload.xml" relativeToChangelogFile="false"/>
+<include file="config/liquibase/changelog/20261021000002_post_publication.xml" relativeToChangelogFile="false"/>
 </databaseChangeLog>

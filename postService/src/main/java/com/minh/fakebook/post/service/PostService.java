@@ -93,6 +93,18 @@ public class PostService {
         this.postContentCache = postContentCache;
     }
 
+    private static final ThreadLocal<UUID> publicationScope = new ThreadLocal<>();
+    public PostDTO publish(UUID publicationId, PostPublicationService.Draft draft, List<UUID> ids) {
+        publicationScope.set(publicationId);
+        try {
+            if (draft.targetPostId() == null) return createPost(draft.content(), draft.visibility(), ids, draft.taggedUserIds());
+            PostDTO request = new PostDTO(); request.setId(draft.targetPostId()); request.setContent(draft.content());
+            request.setVisibility(draft.visibility()); request.setMediaIds(ids); request.setVersion(draft.version());
+            request.setTaggedUserIds(draft.taggedUserIds() == null ? java.util.Set.of() : new HashSet<>(draft.taggedUserIds()));
+            return update(request);
+        } finally { publicationScope.remove(); }
+    }
+
     /**
      * Save a post.
      *
@@ -127,7 +139,7 @@ public class PostService {
         Post post = postMapper.toEntity(postDTO);
         Post savedPost = postRepository.save(post);
 
-        List<UUID> mediaIds = postDTO.getMediaIds();
+        List<UUID> mediaIds = validateMediaAttachments(savedPost.getAuthorId(), postDTO.getMediaIds());
         if (mediaIds != null && !mediaIds.isEmpty()) {
             List<PostMedia> postMedias = new ArrayList<>();
             for (int i = 0; i < mediaIds.size(); i++) {
@@ -209,7 +221,7 @@ public class PostService {
                 links.add(new PostMedia().post(post).mediaId(media.get(i)).displayOrder(i).createdAt(Instant.now()));
             }
             postMediaRepository.saveAll(links);
-            for (UUID old : before.getMediaIds()) if (!media.contains(old)) scheduleMediaCleanup(new MediaCleanupEvent(old, "POST UPDATED"));
+            for (UUID old : before.getMediaIds()) if (!media.contains(old) && !postMediaRepository.existsByMediaId(old)) scheduleMediaCleanup(new MediaCleanupEvent(old, "POST UPDATED"));
         }
         PostDTO result = snapshot(post);
         history.record(result, editor, changed, post.getUpdatedAt());
@@ -289,6 +301,7 @@ public class PostService {
         eventPublisher.publishEvent(new ReactionCountsChanged(id));
         if (mediaIds != null) {
             for (UUID mediaId : mediaIds) {
+                if (postMediaRepository.existsByMediaId(mediaId)) continue;
                 MediaCleanupEvent event = new MediaCleanupEvent(mediaId, "POST DELETED");
                 scheduleMediaCleanup(event);
                 LOG.info("Scheduled MediaCleanupEvent for deleted post mediaId: {}", mediaId);
@@ -525,13 +538,21 @@ public class PostService {
         if (mediaIds == null || mediaIds.isEmpty()) {
             return List.of();
         }
+        PostAttachmentRules.validate(mediaIds);
         List<UUID> deduplicated = mediaIds.stream().distinct().toList();
+        var mediaBatch = mediaServiceClient.getMedias(deduplicated);
+        if (mediaBatch == null) throw new DownstreamServiceUnavailableException("Media Service", "validating media batch", null);
+        var byId = new java.util.HashMap<UUID, MediaValidationDTO>();
+        for (var value : mediaBatch) if (value != null) byId.put(value.id(), value);
         for (UUID mediaId : deduplicated) {
             if (mediaId == null) {
                 throw new IllegalArgumentException("Error: mediaId cannot be null.");
             }
             try {
-                MediaValidationDTO mediaInfo = mediaServiceClient.getMedia(mediaId);
+                MediaValidationDTO mediaInfo = byId.get(mediaId);
+                if (mediaInfo != null && mediaInfo.publicationId() != null && !attached.contains(mediaId)
+                    && !mediaInfo.publicationId().equals(publicationScope.get()))
+                    throw new AccessDeniedException("Temporary media must be published through its own publication");
                 if (mediaInfo == null || !(authorId.equals(mediaInfo.ownerId())
                         || attached.contains(mediaId) || admin && editor.equals(mediaInfo.ownerId()))
                         || !"ACTIVE".equals(mediaInfo.status())

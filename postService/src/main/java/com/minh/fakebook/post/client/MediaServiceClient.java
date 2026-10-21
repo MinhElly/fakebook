@@ -16,6 +16,8 @@ import org.springframework.web.bind.annotation.PathVariable;
     fallbackFactory = MediaServiceClientFallbackFactory.class
 )
 public interface MediaServiceClient {
+    @GetMapping("/api/media")
+    java.util.List<MediaValidationDTO> getMedias(@org.springframework.web.bind.annotation.RequestParam("id.in") java.util.List<UUID> ids);
 
     @GetMapping("/api/media/{id}")
     MediaValidationDTO getMedia(@PathVariable("id") UUID id);

@@ -38,6 +38,11 @@ public class Media implements Serializable {
     @JdbcTypeCode(SqlTypes.VARCHAR)
     @Column(name = "id", length = 36)
     private UUID id;
+    @JdbcTypeCode(SqlTypes.VARCHAR) @Column(name="publication_id", length=36)
+    private UUID publicationId;
+    public UUID getPublicationId() { return publicationId; }
+    public void setPublicationId(UUID publicationId) { this.publicationId = publicationId; }
+
 
     @NotNull
     @JdbcTypeCode(SqlTypes.VARCHAR)

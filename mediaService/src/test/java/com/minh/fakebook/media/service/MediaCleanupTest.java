@@ -11,6 +11,14 @@ import java.util.*;
 import org.junit.jupiter.api.Test;
 
 class MediaCleanupTest {
+    @Test void referencedPostMediaIsNeverPhysicallyDeleted() {
+        var repository = mock(MediaRepository.class); var storage = mock(FileStorageService.class); var access = mock(PostMediaAccess.class);
+        UUID id = UUID.randomUUID(); var media = new Media().id(id).storageKey("shared").status(MediaStatus.ACTIVE);
+        media.setPurpose(com.minh.fakebook.media.domain.enumeration.MediaPurpose.POST);
+        when(repository.findById(id)).thenReturn(Optional.of(media)); when(access.isAttached(id)).thenReturn(true);
+        new MediaService(repository, mock(MediaMapper.class), storage, access).deleteBySystem(id);
+        verifyNoInteractions(storage); verify(repository, never()).save(any());
+    }
     @Test void storageFailureDoesNotMarkCleanupComplete() throws Exception {
         var repository = mock(MediaRepository.class);
         var storage = mock(FileStorageService.class);

@@ -33,6 +33,25 @@ import org.springframework.web.multipart.MultipartFile;
 @Service
 @Transactional
 public class MediaService {
+    @Transactional(readOnly = true)
+    public java.util.List<MediaDTO> findReadableBatch(java.util.List<UUID> ids) {
+        var records = mediaRepository.findAllById(ids);
+        var auth = SecurityContextHolder.getContext().getAuthentication();
+        String subject = auth instanceof JwtAuthenticationToken jwt ? jwt.getToken().getSubject() : auth.getName();
+        boolean admin = auth.getAuthorities().stream().anyMatch(authority -> authority.getAuthority().equals(AuthoritiesConstants.ADMIN));
+        var postIds = records.stream().filter(record -> record.getPurpose() == MediaPurpose.POST).map(Media::getId).toList();
+        var grants = admin || postIds.isEmpty() ? java.util.Map.<UUID, PostMediaAccess.Grant>of() : postAccess.batch(postIds);
+        return records.stream().filter(record -> {
+            if (record.getStatus() != MediaStatus.ACTIVE) return false;
+            if (admin) return true;
+            boolean owner = record.getOwnerId().toString().equals(subject);
+            if (record.getPurpose() == MediaPurpose.POST) {
+                var grant = grants.get(record.getId());
+                return grant != null && (grant.readable() || owner && !grant.attached());
+            }
+            return owner || record.getPurpose() == MediaPurpose.AVATAR || record.getPurpose() == MediaPurpose.COVER;
+        }).map(mediaMapper::toDto).toList();
+    }
 
     private static final Logger LOG = LoggerFactory.getLogger(MediaService.class);
 
@@ -129,6 +148,7 @@ public class MediaService {
 
         Media media = mediaOpt.orElseThrow();
 
+
         // 1. Identify if the current request is from a Guest or an Authenticated User
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         boolean isGuest = auth == null || !auth.isAuthenticated() || auth instanceof AnonymousAuthenticationToken
@@ -220,6 +240,11 @@ public class MediaService {
             return;
         }
         Media media = mediaOpt.orElseThrow();
+
+        if (media.getPurpose() == MediaPurpose.POST && postAccess.isAttached(id)) {
+            LOG.info("Skipping cleanup of media {}: still attached to a post", id);
+            return;
+        }
 
         // 1. Physical file cleanup from Cloudinary / Storage Provider
         try {

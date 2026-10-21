@@ -494,7 +494,7 @@ export default function Post({ post, isModal = false, context = "feed", presenta
           </div>
         </div>
 
-        {presentation !== "media" && <MediaGrid mediaIds={post.mediaIds} images={post.image ? [post.image] : []} onOpen={setSelectedMediaIndex} />}
+        {presentation !== "media" && <MediaGrid mediaIds={post.mediaIds} media={post.media} images={post.image ? [post.image] : []} onOpen={setSelectedMediaIndex} />}
 
         <PostStats
           reactions={totalLikes}
